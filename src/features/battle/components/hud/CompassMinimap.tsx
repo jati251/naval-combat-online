@@ -34,19 +34,26 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({
   const sinH = Math.sin(shipHeading);
 
   // Helper: Project world coordinates into ship-relative radar screen space
+  // Correctly aligned with 3D camera: Forward is UP (-Y), Starboard is RIGHT (+X)
   const projectToRadar = (worldX: number, worldZ: number) => {
     if (!selfShip) return { x: 0, y: 0 };
     const dx = worldX - selfShip.x;
     const dz = worldZ - selfShip.z;
-    // Forward along ship bow (+Z world is 0 rad)
-    const fwd = dz * cosH + dx * sinH;
-    // Starboard lateral
+
+    // Forward along ship bow
+    const fwd = dx * sinH + dz * cosH;
+    // Starboard (right) lateral perpendicular to bow
     const stbd = dx * cosH - dz * sinH;
+
     return {
       x: stbd * scale,
       y: -fwd * scale,
     };
   };
+
+  // Bezel rotation: when heading North (rotationY = PI), N is at top (0 rad)
+  // When ship turns right, North moves counter-clockwise
+  const bezelRotation = Math.PI - shipHeading;
 
   return (
     <div className="relative flex items-center justify-center w-36 h-36 rounded-full backdrop-blur-md bg-slate-950/90 border-2 border-amber-500/60 shadow-2xl shadow-amber-950/80 p-2 pointer-events-auto select-none">
@@ -54,7 +61,7 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({
       <div
         className="absolute inset-1 rounded-full border border-amber-500/25 flex items-center justify-center transition-transform duration-75 pointer-events-none"
         style={{
-          transform: `rotate(${-shipHeading}rad)`,
+          transform: `rotate(${bezelRotation}rad)`,
         }}
       >
         <span className="absolute top-1 text-[9px] font-black text-amber-400">N</span>
@@ -78,10 +85,10 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({
       <div className="absolute inset-2 rounded-full overflow-hidden pointer-events-none">
         {/* Subtle Range Distance Rings */}
         <div className="absolute inset-0 flex items-center justify-center">
-          {/* 120m range ring (26px radius) */}
-          <div className="w-[52px] h-[52px] rounded-full border border-sky-500/20" />
-          {/* 240m range ring (53px radius) */}
-          <div className="w-[106px] h-[106px] rounded-full border border-sky-500/15" />
+          {/* 200m range ring (28px radius) */}
+          <div className="w-[56px] h-[56px] rounded-full border border-sky-500/20" />
+          {/* 400m range ring (56px radius) */}
+          <div className="w-[112px] h-[112px] rounded-full border border-sky-500/15" />
           {/* Crosshair guidelines */}
           <div className="absolute w-full h-[1px] bg-amber-500/10" />
           <div className="absolute h-full w-[1px] bg-amber-500/10" />
@@ -94,7 +101,7 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({
 
           // Support elongated barrier islands and circular atolls
           const isElongated = !!isl.elongation;
-          const relAngle = isElongated ? (isl.elongation?.angle ?? 0) - shipHeading : 0;
+          const relAngle = isElongated ? ((isl.elongation?.angle ?? 0) - shipHeading) : 0;
           const baseW = Math.max(10, isl.sandRadius * 2 * (isl.elongation?.scaleX ?? 1) * scale);
           const baseH = Math.max(10, isl.sandRadius * 2 * (isl.elongation?.scaleZ ?? 1) * scale);
 
@@ -131,7 +138,7 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({
           return (
             <div
               key={wreck.id}
-              className="absolute w-2.5 h-2.5 bg-amber-950/90 border border-amber-400/70 rotate-45 flex items-center justify-center pointer-events-none shadow"
+              className="absolute w-3 h-3 bg-amber-950/90 border border-amber-400/80 rotate-45 flex items-center justify-center pointer-events-none shadow"
               style={{
                 left: '50%',
                 top: '50%',
@@ -139,7 +146,7 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({
               }}
               title={wreck.name}
             >
-              <span className="text-[5px] text-amber-300 font-black -rotate-45">✕</span>
+              <span className="text-[6px] text-amber-300 font-black -rotate-45">✕</span>
             </div>
           );
         })}

@@ -132,32 +132,35 @@ export const ShipWakeSplash3D: React.FC<ShipWakeSplash3DProps> = React.memo(({
       }
 
       const p = particles.current[slot];
-      // Rudder offset bias
-      const rudderOffset = -rudderAngle * 1.2;
-      const spreadX = (Math.random() - 0.5) * halfWid * 0.85 + rudderOffset;
-      const spreadZ = sternZ - Math.random() * 1.5;
+      // Emit from port and starboard quarter hulls (natural twin curling streams)
+      const side = Math.random() > 0.5 ? 1 : -1;
+      const quarterOffset = side * (halfWid * 0.55 + Math.random() * halfWid * 0.45);
+      const rudderShift = -rudderAngle * halfWid * 0.6;
+      const spreadX = quarterOffset + rudderShift;
+      const spreadZ = sternZ - Math.random() * 1.6;
 
       p.x = spreadX;
-      p.y = 0.15 + Math.random() * 0.25; // Waterline
+      p.y = 0.12 + Math.random() * 0.22;
       p.z = spreadZ;
 
-      // Shoot spray backwards and laterally
-      const lateralVel = spreadX * 0.9 + (Math.random() - 0.5) * 1.8;
-      const backwardVel = -currentSpeed * 0.45 - Math.random() * 2.2;
-      const upwardVel = 0.8 + Math.random() * 1.6 * Math.min(1.0, currentSpeed / 3.0);
+      // Natural curling lateral fan outward from hull
+      const lateralVel = side * (1.6 + Math.random() * 2.4) - rudderAngle * 1.8;
+      // Backward velocity matches true ship speed so water streams behind into the sea
+      const backwardVel = -currentSpeed * 1.05 - (1.2 + Math.random() * 2.4);
+      const upwardVel = 0.6 + Math.random() * 1.5 * Math.min(1.0, currentSpeed / 3.0);
 
       p.vx = lateralVel;
       p.vy = upwardVel;
       p.vz = backwardVel;
 
-      p.maxLife = 0.55 + Math.random() * 0.55;
+      p.maxLife = 0.6 + Math.random() * 0.6;
       p.life = p.maxLife;
-      p.size = 1.4 + Math.random() * 1.2;
+      p.size = 1.5 + Math.random() * 1.3;
     }
 
-    // Update active particles with gravity and drag
-    const gravity = -4.5;
-    const drag = Math.max(0, 1.0 - 1.8 * delta);
+    // Update active particles with gravity and lateral expansion
+    const gravity = -3.8;
+    const drag = Math.max(0, 1.0 - 0.9 * delta);
 
     for (let i = 0; i < count; i++) {
       const p = particles.current[i];

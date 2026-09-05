@@ -21,29 +21,89 @@ export interface ServerIsland {
 export const SERVER_ISLANDS: ServerIsland[] = [
   {
     id: 'isla-larga',
-    x: -25,
-    z: -15,
-    radius: 30,
-    sandRadius: 42,
-    elongation: { scaleX: 0.55, scaleZ: 2.5, angle: 0.52 },
+    x: -40,
+    z: -10,
+    radius: 28,
+    sandRadius: 38,
+    elongation: { scaleX: 0.52, scaleZ: 2.3, angle: 0.45 },
   },
-  { id: 'dead-mans-cay', x: -190, z: 130, radius: 46, sandRadius: 65 },
-  { id: 'isla-de-la-muerte', x: 180, z: -160, radius: 52, sandRadius: 72 },
-  { id: 'smugglers-reef', x: 130, z: 140, radius: 34, sandRadius: 48 },
-  { id: 'isla-verde', x: 200, z: 45, radius: 44, sandRadius: 62 },
-  { id: 'tortuga-atoll', x: -175, z: -145, radius: 38, sandRadius: 54 },
-  { id: 'verdant-ridge', x: -65, z: 225, radius: 48, sandRadius: 66 },
-  { id: 'cayo-de-la-selva', x: -235, z: -15, radius: 42, sandRadius: 58 },
-  { id: 'black-sand-atoll', x: 45, z: -225, radius: 36, sandRadius: 52 },
+  { id: 'dead-mans-cay', x: -330, z: 180, radius: 44, sandRadius: 60 },
+  { id: 'isla-de-la-muerte', x: 290, z: -260, radius: 46, sandRadius: 62 },
+  { id: 'smugglers-reef', x: 320, z: 160, radius: 34, sandRadius: 48 },
+  { id: 'isla-verde', x: 260, z: -30, radius: 40, sandRadius: 55 },
+  { id: 'tortuga-atoll', x: -280, z: -250, radius: 36, sandRadius: 50 },
+  { id: 'verdant-ridge', x: -80, z: 340, radius: 45, sandRadius: 60 },
+  { id: 'cayo-de-la-selva', x: -360, z: -30, radius: 40, sandRadius: 54 },
+  { id: 'black-sand-atoll', x: 70, z: -340, radius: 35, sandRadius: 48 },
 ];
 
 export const SERVER_WRECKS = [
-  { id: 'wreck-el-cazador', x: 0, z: 65, radius: 14, height: 8 },
-  { id: 'wreck-queen-anne', x: -80, z: -40, radius: 12, height: 7 },
-  { id: 'wreck-royal-fortune', x: 80, z: -60, radius: 13, height: 8 },
+  { id: 'wreck-el-cazador', x: 40, z: 110, radius: 14, height: 8 },
+  { id: 'wreck-queen-anne', x: -140, z: -80, radius: 12, height: 7 },
+  { id: 'wreck-royal-fortune', x: 130, z: -100, radius: 13, height: 8 },
 ];
 
 export class PhysicsEngine {
+  /**
+   * Generates a guaranteed safe spawn point with ample clearance from islands and shipwrecks.
+   */
+  public static findSafeSpawnPoint(playerIndex: number, totalPlayers: number): { x: number; z: number; rotationY: number } {
+    const candidateRadii = [155, 175, 135, 195, 215];
+    const baseAngle = (playerIndex / Math.max(1, totalPlayers)) * Math.PI * 2;
+
+    for (const radius of candidateRadii) {
+      for (let attempt = 0; attempt < 16; attempt++) {
+        const angle = baseAngle + attempt * 0.392;
+        const x = Math.sin(angle) * radius;
+        const z = Math.cos(angle) * radius;
+
+        let safe = true;
+        // Check islands clearance
+        for (const isl of SERVER_ISLANDS) {
+          if (isl.elongation) {
+            const rx = x - isl.x;
+            const rz = z - isl.z;
+            const cosA = Math.cos(isl.elongation.angle);
+            const sinA = Math.sin(isl.elongation.angle);
+            const lx = rx * cosA - rz * sinA;
+            const lz = rx * sinA + rz * cosA;
+            const uX = lx / isl.elongation.scaleX;
+            const uZ = lz / isl.elongation.scaleZ;
+            const a = Math.atan2(uZ, uX);
+            const scaleFactor = Math.hypot(Math.cos(a) * isl.elongation.scaleX, Math.sin(a) * isl.elongation.scaleZ);
+            const minSafeDist = isl.sandRadius * 1.2 * scaleFactor + 65;
+            if (Math.hypot(lx, lz) < minSafeDist) {
+              safe = false;
+              break;
+            }
+          } else {
+            if (Math.hypot(x - isl.x, z - isl.z) < isl.sandRadius * 1.2 + 65) {
+              safe = false;
+              break;
+            }
+          }
+        }
+
+        if (safe) {
+          // Check wrecks clearance
+          for (const wreck of SERVER_WRECKS) {
+            if (Math.hypot(x - wreck.x, z - wreck.z) < wreck.radius + 45) {
+              safe = false;
+              break;
+            }
+          }
+        }
+
+        if (safe) {
+          const rotationY = Math.atan2(-x, -z);
+          return { x, z, rotationY };
+        }
+      }
+    }
+
+    return { x: 0, z: 220, rotationY: Math.PI };
+  }
+
   /**
    * Updates ship physics for a single simulation delta time step.
    */
@@ -91,8 +151,8 @@ export class PhysicsEngine {
       ship.speed = Math.max(targetSpeed, ship.speed - (config.acceleration * 1.5) * dt);
     }
 
-    // Rudder turning: turning rate scales with speed
-    const effectiveTurnSpeed = config.turnSpeed * Math.min(1.0, (ship.speed + 1.5) / config.topSpeed);
+    // Rudder turning: turning rate scales with speed, with responsive low-speed turning
+    const effectiveTurnSpeed = config.turnSpeed * Math.max(0.45, Math.min(1.0, (ship.speed + 1.5) / config.topSpeed));
     ship.rotationY += ship.rudder * effectiveTurnSpeed * dt;
 
     // Anti-Cheat: Cap maximum possible speed (prevents speedhack)
@@ -125,49 +185,58 @@ export class PhysicsEngine {
 
     // Ship physical collision radius accounts for bow & hull length
     const shipRadius = config.length * 0.42;
+    const fwdX = Math.sin(ship.rotationY);
+    const fwdZ = Math.cos(ship.rotationY);
 
     // Tactical Caribbean Islands Collision & Run-Aground Deceleration
     for (const isl of SERVER_ISLANDS) {
       if (isl.elongation) {
-        // Oriented capsule collision for elongated barrier island
+        // True elliptical collision matching 3D beach geometry and orientation
         const relX = ship.x - isl.x;
         const relZ = ship.z - isl.z;
-        const cosA = Math.cos(-isl.elongation.angle);
-        const sinA = Math.sin(-isl.elongation.angle);
+        const cosA = Math.cos(isl.elongation.angle);
+        const sinA = Math.sin(isl.elongation.angle);
         const localX = relX * cosA - relZ * sinA;
         const localZ = relX * sinA + relZ * cosA;
 
-        const halfRidge = isl.sandRadius * (isl.elongation.scaleZ - isl.elongation.scaleX);
-        const clampedZ = Math.max(-halfRidge, Math.min(halfRidge, localZ));
-        const spineDx = localX;
-        const spineDz = localZ - clampedZ;
-        const dist = Math.hypot(spineDx, spineDz);
-        const minSafeDist = isl.sandRadius * isl.elongation.scaleX * 1.05 + shipRadius;
+        const worldDist = Math.hypot(localX, localZ);
+        const uX = localX / isl.elongation.scaleX;
+        const uZ = localZ / isl.elongation.scaleZ;
+        const a = Math.atan2(uZ, uX);
+        const scaleFactor = Math.hypot(Math.cos(a) * isl.elongation.scaleX, Math.sin(a) * isl.elongation.scaleZ);
+        const minSafeDist = isl.sandRadius * 1.2 * scaleFactor + shipRadius;
 
-        if (dist < minSafeDist && dist > 0.0001) {
-          const nx = spineDx / dist;
-          const nz = spineDz / dist;
-          const pushLocalX = nx * minSafeDist;
-          const pushLocalZ = clampedZ + nz * minSafeDist;
+        if (worldDist < minSafeDist) {
+          const safeDist = Math.max(0.001, worldDist);
+          const pushLocalX = (localX / safeDist) * minSafeDist;
+          const pushLocalZ = (localZ / safeDist) * minSafeDist;
 
-          const cosInv = Math.cos(isl.elongation.angle);
-          const sinInv = Math.sin(isl.elongation.angle);
-          ship.x = isl.x + (pushLocalX * cosInv - pushLocalZ * sinInv);
-          ship.z = isl.z + (pushLocalX * sinInv + pushLocalZ * cosInv);
-          ship.speed = 0; // complete halt on land impact
+          ship.x = isl.x + pushLocalX * cosA + pushLocalZ * sinA;
+          ship.z = isl.z - pushLocalX * sinA + pushLocalZ * cosA;
+
+          // Outward normal in world space: only stop forward speed if attempting to sail INTO land
+          const nx = (pushLocalX / minSafeDist) * cosA + (pushLocalZ / minSafeDist) * sinA;
+          const nz = -(pushLocalX / minSafeDist) * sinA + (pushLocalZ / minSafeDist) * cosA;
+          const dot = fwdX * nx + fwdZ * nz;
+          if (dot < 0) {
+            ship.speed = 0;
+          }
         }
       } else {
         // Circular island shoreline collision against visible beach radius
         const dx = ship.x - isl.x;
         const dz = ship.z - isl.z;
         const dist = Math.hypot(dx, dz);
-        const minSafeDist = isl.sandRadius * 1.05 + shipRadius;
+        const minSafeDist = isl.sandRadius * 1.2 + shipRadius;
         if (dist < minSafeDist && dist > 0.001) {
           const nx = dx / dist;
           const nz = dz / dist;
           ship.x = isl.x + nx * minSafeDist;
           ship.z = isl.z + nz * minSafeDist;
-          ship.speed = 0; // Stop dead on reef/sandbank
+          const dot = fwdX * nx + fwdZ * nz;
+          if (dot < 0) {
+            ship.speed = 0;
+          }
         }
       }
     }
@@ -183,7 +252,10 @@ export class PhysicsEngine {
         const nz = dz / dist;
         ship.x = wreck.x + nx * minSafeDist;
         ship.z = wreck.z + nz * minSafeDist;
-        ship.speed = 0; // Impact with floating timbers stops forward push
+        const dot = fwdX * nx + fwdZ * nz;
+        if (dot < 0) {
+          ship.speed = 0;
+        }
       }
     }
 

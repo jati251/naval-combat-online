@@ -34,30 +34,6 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
   const terrainGeo = useMemo(() => createIslandTerrainGeometry(island), [island]);
   const beachGeo = useMemo(() => createBeachGeometry(island), [island]);
 
-  // Shallow lagoon ring (organic irregular shape)
-  const shallowGeo = useMemo(() => {
-    const segments = 64;
-    const geo = new THREE.CylinderGeometry(
-      island.sandRadius * 1.12,
-      island.sandRadius * 1.3,
-      0.8,
-      segments,
-      4,
-      false
-    );
-    const pos = geo.attributes.position as THREE.BufferAttribute;
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i);
-      const z = pos.getZ(i);
-      const angle = Math.atan2(z, x);
-      const wobble = Math.sin(angle * 6 + island.seed) * island.sandRadius * 0.06 +
-                     Math.sin(angle * 13 + island.seed * 2) * island.sandRadius * 0.03;
-      pos.setXYZ(i, x + Math.cos(angle) * wobble, pos.getY(i), z + Math.sin(angle) * wobble);
-    }
-    geo.computeVertexNormals();
-    return geo;
-  }, [island]);
-
   // Islands emerge smoothly out of atmospheric fog (zero pop-in)
   useFrame(({ camera }) => {
     frameCount.current++;
@@ -82,9 +58,6 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
     <group ref={groupRef} position={[island.x, 0, island.z]} rotation={[0, rotY, 0]}>
       {/* Scaled Island Mass (Terrain, Beach, Shallows) */}
       <group scale={[scaleX, 1, scaleZ]}>
-        {/* Shallow Turquoise Lagoon / Coral Reef Rim */}
-        <mesh position={[0, -0.25, 0]} receiveShadow material={materials.shallows} geometry={shallowGeo} />
-
         {/* Organic Sandy Beach Shoreline */}
         <mesh position={[0, 0.6, 0]} receiveShadow material={materials.sand} geometry={beachGeo} />
 

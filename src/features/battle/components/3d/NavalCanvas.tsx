@@ -111,29 +111,31 @@ const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf }) => {
         if (isl.elongation) {
           const relX = targetX - isl.x;
           const relZ = targetZ - isl.z;
-          const cosA = Math.cos(-isl.elongation.angle);
-          const sinA = Math.sin(-isl.elongation.angle);
+          const cosA = Math.cos(isl.elongation.angle);
+          const sinA = Math.sin(isl.elongation.angle);
           const localX = relX * cosA - relZ * sinA;
           const localZ = relX * sinA + relZ * cosA;
-          const halfRidge = isl.sandRadius * (isl.elongation.scaleZ - isl.elongation.scaleX);
-          const clampedZ = Math.max(-halfRidge, Math.min(halfRidge, localZ));
-          const spineDx = localX;
-          const spineDz = localZ - clampedZ;
-          const dist = Math.hypot(spineDx, spineDz);
-          const minSafe = isl.sandRadius * isl.elongation.scaleX * 1.05 + shipColRadius;
-          if (dist < minSafe && dist > 0.0001) {
-            const pushLocalX = (spineDx / dist) * minSafe;
-            const pushLocalZ = clampedZ + (spineDz / dist) * minSafe;
-            const cosInv = Math.cos(isl.elongation.angle);
-            const sinInv = Math.sin(isl.elongation.angle);
-            targetX = isl.x + (pushLocalX * cosInv - pushLocalZ * sinInv);
-            targetZ = isl.z + (pushLocalX * sinInv + pushLocalZ * cosInv);
+
+          const worldDist = Math.hypot(localX, localZ);
+          const uX = localX / isl.elongation.scaleX;
+          const uZ = localZ / isl.elongation.scaleZ;
+          const a = Math.atan2(uZ, uX);
+          const scaleFactor = Math.hypot(Math.cos(a) * isl.elongation.scaleX, Math.sin(a) * isl.elongation.scaleZ);
+          const minSafeDist = isl.sandRadius * 1.2 * scaleFactor + shipColRadius;
+
+          if (worldDist < minSafeDist) {
+            const safeDist = Math.max(0.001, worldDist);
+            const pushLocalX = (localX / safeDist) * minSafeDist;
+            const pushLocalZ = (localZ / safeDist) * minSafeDist;
+
+            targetX = isl.x + pushLocalX * cosA + pushLocalZ * sinA;
+            targetZ = isl.z - pushLocalX * sinA + pushLocalZ * cosA;
           }
         } else {
           const dx = targetX - isl.x;
           const dz = targetZ - isl.z;
           const dist = Math.hypot(dx, dz);
-          const minSafe = isl.sandRadius * 1.04 + shipColRadius;
+          const minSafe = isl.sandRadius * 1.2 + shipColRadius;
           if (dist < minSafe && dist > 0.001) {
             targetX = isl.x + (dx / dist) * minSafe;
             targetZ = isl.z + (dz / dist) * minSafe;

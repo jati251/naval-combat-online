@@ -84,24 +84,19 @@ export class GameRoom {
     });
 
     const config = SERVER_SHIP_CONFIGS[shipClass];
-    // Spread spawn in safe radius facing center
-    const spawnAngle = Math.random() * Math.PI * 2;
-    const spawnRadius = 80 + Math.random() * 25;
-    const x = Math.sin(spawnAngle) * spawnRadius;
-    const z = Math.cos(spawnAngle) * spawnRadius;
-    const rotationY = spawnAngle + Math.PI;
+    const spawn = PhysicsEngine.findSafeSpawnPoint(this.players.size, 4);
 
     this.ships.set(id, {
       id,
       name,
       shipClass,
-      x,
+      x: spawn.x,
       y: 0,
-      z,
+      z: spawn.z,
       vx: 0,
       vz: 0,
       speed: 0,
-      rotationY,
+      rotationY: spawn.rotationY,
       pitch: 0,
       roll: 0,
       rudder: 0,
@@ -248,27 +243,21 @@ export class GameRoom {
 
     // Spawn ships in perimeter circle facing center with ample maneuvering space
     const playerArray = Array.from(this.players.values());
-    const spawnRadius = Math.max(75, playerArray.length * 35);
-
     playerArray.forEach((player, idx) => {
-      const spawnAngle = (idx / playerArray.length) * Math.PI * 2;
-      const x = Math.sin(spawnAngle) * spawnRadius;
-      const z = Math.cos(spawnAngle) * spawnRadius;
-      // Face towards center (0, 0)
-      const rotationY = spawnAngle + Math.PI;
+      const spawn = PhysicsEngine.findSafeSpawnPoint(idx, playerArray.length);
       const config = SERVER_SHIP_CONFIGS[player.shipClass];
 
       this.ships.set(player.id, {
         id: player.id,
         name: player.name,
         shipClass: player.shipClass,
-        x,
+        x: spawn.x,
         y: 0,
-        z,
+        z: spawn.z,
         vx: 0,
         vz: 0,
         speed: 0,
-        rotationY,
+        rotationY: spawn.rotationY,
         pitch: 0,
         roll: 0,
         rudder: 0,

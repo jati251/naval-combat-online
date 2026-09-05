@@ -232,20 +232,22 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }
 
             if (isElongated > 0.5) {
               float rotA = uIslandParams[i].z;
-              float cosA = cos(-rotA);
-              float sinA = sin(-rotA);
+              float cosA = cos(rotA);
+              float sinA = sin(rotA);
               vec2 localPos = vec2(relPos.x * cosA - relPos.y * sinA, relPos.x * sinA + relPos.y * cosA);
 
               float scaleX = uIslandParams[i].x;
               float scaleZ = uIslandParams[i].y;
-              float halfRidge = sandR * (scaleZ - scaleX);
-              float clampedZ = clamp(localPos.y, -halfRidge, halfRidge);
-              vec2 spineOffset = vec2(localPos.x, localPos.y - clampedZ);
-              float distSpine = length(spineOffset);
+              vec2 scaledPos = vec2(localPos.x / scaleX, localPos.y / scaleZ);
+              float angle = atan(scaledPos.y, scaledPos.x);
 
-              float spineAngle = atan(spineOffset.y, spineOffset.x);
-              float elongatedNoise = sin(spineAngle * 5.0 + localPos.y * 0.15) * (sandR * scaleX * 0.08);
-              float distToSand = distSpine - (sandR * scaleX * 1.15 + elongatedNoise);
+              float coastNoise = (sin(angle * 5.0 + seed * 0.1) * 0.08 +
+                                  sin(angle * 11.0 + seed * 0.3) * 0.04 +
+                                  sin(angle * 17.0 + seed * 0.7) * 0.02) * sandR;
+
+              float scaleFactor = length(vec2(cos(angle) * scaleX, sin(angle) * scaleZ));
+              float worldBeachR = (sandR * 1.2 + coastNoise) * scaleFactor;
+              float distToSand = length(localPos) - worldBeachR;
               minDistToShore = min(minDistToShore, distToSand);
             } else {
               float distToCenter = length(relPos);
@@ -254,7 +256,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }
               float coastNoise = (sin(angle * 5.0 + seed * 0.1) * 0.08 +
                                   sin(angle * 11.0 + seed * 0.3) * 0.04 +
                                   sin(angle * 17.0 + seed * 0.7) * 0.02) * sandR;
-              float distToSand = distToCenter - (sandR * 1.15 + coastNoise);
+              float distToSand = distToCenter - (sandR * 1.18 + coastNoise);
               minDistToShore = min(minDistToShore, distToSand);
             }
           }
@@ -303,12 +305,21 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }
           float lacyFoam = clamp(bubbleWeb * 1.5 + solidHead * 0.9, 0.0, 1.0);
           float crestFoam = crestBreak * lacyFoam;
 
-          // 8. Shoreline Breaking Surf Foam
-          float surfWave = sin(minDistToShore * 0.45 - uTime * 2.8);
-          float shoreFoam = smoothstep(0.4, 0.9, surfWave) * shoreProximity * (1.0 - smoothstep(0.0, 16.0, max(0.0, minDistToShore)));
-          float totalShoreFoam = shoreFoam * (0.6 + lacyFoam * 0.6);
+          // 8. Natural Shoreline Breaking Surf Foam (Single Organic Wash Along Waterline)
+          float shoreDist = max(0.0, minDistToShore);
+          // Gentle swashing wave pulse rolling onto the sand
+          float surfPulse = sin(uTime * 1.8 - shoreDist * 0.85) * 0.5 + 0.5;
+          // Strictly confined to beach shoreline (0 to 4.5m)
+          float edgeFoam = 1.0 - smoothstep(0.0, 3.6, shoreDist);
+          float swashWave = smoothstep(0.5, 3.2, shoreDist) * (1.0 - smoothstep(3.2, 5.0, shoreDist)) * surfPulse;
 
-          // 9. Dynamic Ship Wake Foam
+          // Break up the surf line with organic cellular froth
+          float shoreCell = cellularFoam(vWorldPosition.xz * 0.55 + vec2(uTime * 0.03, -uTime * 0.02));
+          float shoreFroth = smoothstep(0.12, 0.55, shoreCell);
+
+          float totalShoreFoam = clamp((edgeFoam * 0.9 + swashWave * 0.6) * (0.4 + shoreFroth * 0.6), 0.0, 1.0);
+
+          // 9. Natural Fluid-Dynamic Ship Wake (Organic Kelvin V-Wake with Smooth Gaussian Center)
           float shipWakeFoam = 0.0;
           if (uShipSpeed > 0.35) {
             vec2 rel = vWorldPosition.xz - uShipPos.xz;
@@ -319,17 +330,25 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }
             float lz = sinH * rel.x + cosH * rel.y;
 
             float behind = -lz;
-            if (behind > 0.0 && behind < 75.0) {
-              // V-shaped Kelvin wake expansion
-              float wakeWidth = 2.8 + behind * 0.34;
-              float distArm = abs(abs(lx) - wakeWidth);
-              float armFoam = (1.0 - smoothstep(0.0, 2.4, distArm)) * (1.0 - behind / 75.0);
+            if (behind > 0.8 && behind < 85.0) {
+              float latDist = abs(lx);
+              // Natural curved parabolic Kelvin V-wake boundary
+              float wakeSpread = 2.4 + pow(behind, 0.65) * 1.3;
+              float vArm = (1.0 - smoothstep(0.0, 2.8, abs(latDist - wakeSpread))) * 0.75;
 
-              // Churning propeller/hull froth directly behind stern
-              float sternFoam = (1.0 - smoothstep(0.0, 3.8, abs(lx))) * (1.0 - smoothstep(0.0, 24.0, behind));
+              // Smooth Gaussian center froth (NO hard rectangular edge!)
+              float centerSpread = 2.4 + behind * 0.12;
+              float centerFroth = exp(-(latDist * latDist) / (centerSpread * centerSpread));
 
-              float wakeCell = cellularFoam(rel * 1.4 + uTime * 0.25);
-              shipWakeFoam = clamp((armFoam * 1.3 + sternFoam * 1.6) * (0.35 + wakeCell * 0.8), 0.0, 1.0) * min(1.0, uShipSpeed / 3.5);
+              // Swirling fluid vortices shed by the rudder
+              float eddy = cellularFoam(vec2(lx * 0.65, behind * 0.28 - uTime * 0.55));
+              float swirl = sin(behind * 0.4 - uTime * 2.6 + eddy * 3.14) * 0.5 + 0.5;
+
+              // Organic backwards decay
+              float trailFade = exp(-behind * 0.04) * (1.0 - smoothstep(65.0, 85.0, behind));
+
+              float combinedFoam = (vArm * 0.7 + centerFroth * 1.35 * (0.35 + swirl * 0.65)) * trailFade;
+              shipWakeFoam = clamp(combinedFoam * (0.3 + eddy * 0.8), 0.0, 1.0) * min(1.0, uShipSpeed / 3.0);
             }
           }
 

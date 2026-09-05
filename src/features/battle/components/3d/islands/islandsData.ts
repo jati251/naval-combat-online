@@ -1,48 +1,48 @@
 import type { IslandDefinition } from './types';
 
 export const ARENA_ISLANDS: IslandDefinition[] = [
-  // 1. Central Elongated Barrier Spit - Tactically splits the sea and provides tactical cover
+  // 1. Central Elongated Barrier Spit - Natural line-of-sight breaker in the mid sea
   {
     id: 'isla-larga',
     name: 'Isla Larga',
-    x: -25,
-    z: -15,
-    radius: 30,
+    x: -40,
+    z: -10,
+    radius: 28,
     height: 18,
-    sandRadius: 42,
+    sandRadius: 38,
     type: 'verdant-hills',
     seed: 812,
     elongation: {
-      scaleX: 0.55,
-      scaleZ: 2.5,
-      angle: 0.52,
+      scaleX: 0.52,
+      scaleZ: 2.3,
+      angle: 0.45,
     },
     palms: [
-      [-8, 65, 1.2], [6, 45, 1.1], [-7, 25, 1.3], [8, 5, 1.0],
-      [-6, -15, 1.2], [7, -35, 1.1], [-8, -55, 1.3], [6, -70, 1.0],
-      [4, 15, 1.2], [-5, -45, 1.1],
+      [-8, 60, 1.2], [6, 42, 1.1], [-7, 24, 1.3], [8, 5, 1.0],
+      [-6, -15, 1.2], [7, -32, 1.1], [-8, -50, 1.3], [6, -65, 1.0],
+      [4, 15, 1.2], [-5, -42, 1.1],
     ],
     bushes: [
-      [-6, 55, 1.3], [6, 35, 1.2], [-4, 10, 1.4], [5, -10, 1.1],
-      [-5, -30, 1.3], [6, -50, 1.2], [-4, 70, 1.0], [5, -65, 1.1],
+      [-6, 50, 1.3], [6, 32, 1.2], [-4, 10, 1.4], [5, -10, 1.1],
+      [-5, -28, 1.3], [6, -46, 1.2], [-4, 65, 1.0], [5, -60, 1.1],
     ],
     jungleTrees: [
-      [0, 40, 1.3], [2, 0, 1.4], [-1, -30, 1.3], [1, -60, 1.2],
+      [0, 36, 1.3], [2, 0, 1.4], [-1, -28, 1.3], [1, -55, 1.2],
     ],
     rocks: [
-      [-12, 75, 2.0, 0.5], [14, 20, 1.8, 1.2], [-14, -25, 2.2, 2.1],
-      [12, -75, 1.9, 0.8], [0, 85, 2.4, 1.5], [0, -85, 2.5, 2.7],
+      [-12, 70, 2.0, 0.5], [14, 18, 1.8, 1.2], [-14, -22, 2.2, 2.1],
+      [12, -70, 1.9, 0.8], [0, 80, 2.4, 1.5], [0, -80, 2.5, 2.7],
     ],
   },
-  // 2. Dead Man's Cay - Volcanic caldera to the southwest
+  // 2. Dead Man's Cay - Far Southwest volcanic caldera
   {
     id: 'dead-mans-cay',
     name: "Dead Man's Cay",
-    x: -190,
-    z: 130,
-    radius: 46,
+    x: -330,
+    z: 180,
+    radius: 44,
     height: 32,
-    sandRadius: 65,
+    sandRadius: 60,
     type: 'volcanic',
     seed: 42,
     palms: [
@@ -62,15 +62,15 @@ export const ARENA_ISLANDS: IslandDefinition[] = [
       [36, 8, 1.5, 0.7], [-8, 36, 2.0, 1.9],
     ],
   },
-  // 3. Isla de la Muerte - Towering sea stack bastion to northeast
+  // 3. Isla de la Muerte - Far Northeast towering sea stack pinnacle
   {
     id: 'isla-de-la-muerte',
     name: 'Isla de la Muerte',
-    x: 180,
-    z: -160,
-    radius: 52,
+    x: 290,
+    z: -260,
+    radius: 46,
     height: 40,
-    sandRadius: 72,
+    sandRadius: 62,
     type: 'sea-stack',
     seed: 137,
     palms: [
@@ -92,12 +92,12 @@ export const ARENA_ISLANDS: IslandDefinition[] = [
       [-38, -8, 2.4, 0.9],
     ],
   },
-  // 4. Smuggler's Reef - Eastern low atoll forming narrow strait with Isla Verde
+  // 4. Smuggler's Reef - Far Southeast low coral atoll
   {
     id: 'smugglers-reef',
     name: "Smuggler's Reef",
-    x: 130,
-    z: 140,
+    x: 320,
+    z: 160,
     radius: 34,
     height: 10,
     sandRadius: 48,
@@ -118,15 +118,15 @@ export const ARENA_ISLANDS: IslandDefinition[] = [
       [-16, 12, 1.2, 0.8], [14, -10, 1.0, 2.1], [-12, -14, 1.4, 1.3],
     ],
   },
-  // 5. Isla Verde - Eastern rolling knoll flanking Smuggler's Reef (Treacherous Strait)
+  // 5. Isla Verde - Mid East rolling knoll with 200m navigable channel
   {
     id: 'isla-verde',
     name: 'Isla Verde',
-    x: 200,
-    z: 45,
-    radius: 44,
+    x: 260,
+    z: -30,
+    radius: 40,
     height: 20,
-    sandRadius: 62,
+    sandRadius: 55,
     type: 'verdant-hills',
     seed: 443,
     palms: [
@@ -146,15 +146,15 @@ export const ARENA_ISLANDS: IslandDefinition[] = [
       [32, 8, 1.6, 0.3],
     ],
   },
-  // 6. Tortuga Atoll - Northwest shallow lagoon
+  // 6. Tortuga Atoll - Far Northwest shallow lagoon
   {
     id: 'tortuga-atoll',
     name: 'Tortuga Atoll',
-    x: -175,
-    z: -145,
-    radius: 38,
+    x: -280,
+    z: -250,
+    radius: 36,
     height: 14,
-    sandRadius: 54,
+    sandRadius: 50,
     type: 'lush-flat',
     seed: 211,
     palms: [
@@ -175,15 +175,15 @@ export const ARENA_ISLANDS: IslandDefinition[] = [
       [28, 4, 1.2, 0.9],
     ],
   },
-  // 7. Verdant Ridge - Southern highland cape
+  // 7. Verdant Ridge - Far South highland cape
   {
     id: 'verdant-ridge',
     name: 'Verdant Ridge',
-    x: -65,
-    z: 225,
-    radius: 48,
+    x: -80,
+    z: 340,
+    radius: 45,
     height: 22,
-    sandRadius: 66,
+    sandRadius: 60,
     type: 'verdant-hills',
     seed: 317,
     palms: [
@@ -205,15 +205,15 @@ export const ARENA_ISLANDS: IslandDefinition[] = [
       [34, 12, 1.5, 0.4], [0, 36, 1.7, 1.5],
     ],
   },
-  // 8. Cayo de la Selva - Far western dense jungle
+  // 8. Cayo de la Selva - Far West dense jungle
   {
     id: 'cayo-de-la-selva',
     name: 'Cayo de la Selva',
-    x: -235,
-    z: -15,
-    radius: 42,
+    x: -360,
+    z: -30,
+    radius: 40,
     height: 26,
-    sandRadius: 58,
+    sandRadius: 54,
     type: 'dense-jungle',
     seed: 589,
     palms: [
@@ -235,15 +235,15 @@ export const ARENA_ISLANDS: IslandDefinition[] = [
       [30, 10, 1.7, 1.6],
     ],
   },
-  // 9. Black Sand Atoll - Northern outer reef
+  // 9. Black Sand Atoll - Far North outer volcanic reef
   {
     id: 'black-sand-atoll',
     name: 'Black Sand Atoll',
-    x: 45,
-    z: -225,
-    radius: 36,
+    x: 70,
+    z: -340,
+    radius: 35,
     height: 16,
-    sandRadius: 52,
+    sandRadius: 48,
     type: 'dense-jungle',
     seed: 677,
     palms: [
