@@ -13,7 +13,7 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "prepare": "husky"
+    "prepare": "node -e \"if (process.env.NODE_ENV !== 'production') try { require('child_process').execSync('pnpm exec husky', { stdio: 'inherit' }); } catch {}\""
   },
   "lint-staged": {
     "*.{ts,tsx}": [
