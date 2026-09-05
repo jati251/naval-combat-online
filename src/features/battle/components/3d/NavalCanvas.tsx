@@ -23,7 +23,7 @@ const BattleCameraRig: React.FC = () => {
 const FleetEntities: React.FC = React.memo(() => {
   const ships = useGameStore((s) => s.ships);
   const selfId = useGameStore((s) => s.selfId);
-  const hasSelfShip = ships.some((s) => s.id === selfId && !s.isSunk);
+  const hasSelfShip = useGameStore((s) => s.ships.some((ship) => ship.id === s.selfId && !ship.isSunk));
 
   return (
     <>

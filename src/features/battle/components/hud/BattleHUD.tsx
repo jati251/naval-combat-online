@@ -77,18 +77,22 @@ const DeathmatchObjectiveBar: React.FC<{ onOpenScoreboard: () => void }> = React
 });
 
 const ShipStatusContainer: React.FC = React.memo(() => {
-  const selfId = useGameStore((s) => s.selfId);
-  const currentRoom = useGameStore((s) => s.currentRoom);
-  const selfShip = useGameStore((s) => s.ships.find((ship) => ship.id === selfId));
+  const roomName = useGameStore((s) => s.currentRoom?.name);
+  const shipClass = useGameStore((s) => s.ships.find((ship) => ship.id === s.selfId)?.shipClass ?? 'brig');
+  const shipName = useGameStore((s) => s.ships.find((ship) => ship.id === s.selfId)?.name ?? roomName ?? 'Flagship Vessel');
+  const currentHp = useGameStore((s) => {
+    const ship = s.ships.find((ship) => ship.id === s.selfId);
+    if (!ship) return SHIP_PRESETS.brig.maxHealth;
+    return Math.max(0, ship.health);
+  });
 
-  const config = selfShip ? SHIP_PRESETS[selfShip.shipClass] : SHIP_PRESETS.brig;
-  const currentHp = selfShip ? Math.max(0, selfShip.health) : config.maxHealth;
+  const config = SHIP_PRESETS[shipClass] || SHIP_PRESETS.brig;
   const hpPercent = Math.max(0, Math.min(100, (currentHp / config.maxHealth) * 100));
 
   return (
     <ShipStatusBar
-      shipName={selfShip?.name || currentRoom?.name || 'Flagship Vessel'}
-      shipClass={selfShip?.shipClass || 'brig'}
+      shipName={shipName}
+      shipClass={shipClass}
       config={config}
       currentHp={currentHp}
       hpPercent={hpPercent}
@@ -100,12 +104,10 @@ const SpeedRudderContainer: React.FC = React.memo(() => {
   const { changeSail, setRudder } = useShipActions();
   const localSail = useGameStore((s) => s.localSail);
   const localRudder = useGameStore((s) => s.localRudder);
-  const speed = useGameStore((s) => {
+  const speedKnots = useGameStore((s) => {
     const ship = s.ships.find((ship) => ship.id === s.selfId);
-    return ship?.speed ?? 0;
+    return (Math.round((ship?.speed ?? 0) * 10) / 10).toFixed(1);
   });
-
-  const speedKnots = (Math.round(speed * 10) / 10).toFixed(1);
 
   return (
     <SpeedRudderControl

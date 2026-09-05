@@ -8,14 +8,13 @@ interface ScoreboardModalProps {
   onClose: () => void;
 }
 
-export const ScoreboardModal: React.FC<ScoreboardModalProps> = ({ isOpen, onClose }) => {
+const ScoreboardModalContent: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const currentRoom = useGameStore((s) => s.currentRoom);
   const selfId = useGameStore((s) => s.selfId);
   const ships = useGameStore((s) => s.ships);
 
   // Close on Escape key
   useEffect(() => {
-    if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onClose();
@@ -23,9 +22,7 @@ export const ScoreboardModal: React.FC<ScoreboardModalProps> = ({ isOpen, onClos
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
+  }, [onClose]);
 
   const targetKills = currentRoom?.targetKills || 5;
   const players = currentRoom?.players || [];
@@ -213,3 +210,8 @@ export const ScoreboardModal: React.FC<ScoreboardModalProps> = ({ isOpen, onClos
     </div>
   );
 };
+
+export const ScoreboardModal: React.FC<ScoreboardModalProps> = React.memo(({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+  return <ScoreboardModalContent onClose={onClose} />;
+});

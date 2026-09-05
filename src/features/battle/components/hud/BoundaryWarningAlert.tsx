@@ -4,16 +4,21 @@ import { useGameStore } from '@/stores/useGameStore';
 import { ARENA_RADIUS } from '../3d/MapBoundary3D';
 
 export const BoundaryWarningAlert: React.FC = React.memo(() => {
-  const selfId = useGameStore((s) => s.selfId);
-  const selfShip = useGameStore((s) => s.ships.find((ship) => ship.id === selfId));
+  const boundaryState = useGameStore((s) => {
+    const ship = s.ships.find((sh) => sh.id === s.selfId);
+    if (!ship || ship.isSunk) return null;
+    const dist = Math.hypot(ship.x, ship.z);
+    if (dist < 420) return null;
+    const remaining = Math.max(0, Math.round(ARENA_RADIUS - dist));
+    const isCritical = remaining < 30;
+    return `${remaining}:${isCritical}`;
+  });
 
-  if (!selfShip || selfShip.isSunk) return null;
+  if (!boundaryState) return null;
 
-  const dist = Math.hypot(selfShip.x, selfShip.z);
-  if (dist < 420) return null;
-
-  const remaining = Math.max(0, Math.round(ARENA_RADIUS - dist));
-  const isCritical = remaining < 30;
+  const [remStr, critStr] = boundaryState.split(':');
+  const remaining = parseInt(remStr, 10);
+  const isCritical = critStr === 'true';
 
   return (
     <div className="absolute top-20 left-1/2 -translate-x-1/2 z-30 pointer-events-none select-none">
