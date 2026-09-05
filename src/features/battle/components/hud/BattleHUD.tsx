@@ -152,25 +152,15 @@ const SunkNoticeOverlay: React.FC = React.memo(() => {
 
 const DamageHitVignette: React.FC = React.memo(() => {
   const cameraShake = useGameStore((s) => s.cameraShake);
-  const [visible, setVisible] = React.useState(false);
-  const lastTime = React.useRef(0);
 
-  React.useEffect(() => {
-    if (cameraShake && cameraShake.direction === 'hit' && cameraShake.timestamp !== lastTime.current) {
-      lastTime.current = cameraShake.timestamp;
-      setVisible(true);
-      const timer = setTimeout(() => setVisible(false), 450);
-      return () => clearTimeout(timer);
-    }
-  }, [cameraShake]);
-
-  if (!visible) return null;
+  if (!cameraShake || cameraShake.direction !== 'hit') return null;
 
   return (
     <div
-      className="pointer-events-none fixed inset-0 z-30 transition-opacity duration-300"
+      key={cameraShake.timestamp}
+      className="pointer-events-none fixed inset-0 z-30 animate-hit-pulse"
       style={{
-        boxShadow: 'inset 0 0 75px 25px rgba(225, 29, 72, 0.45)',
+        boxShadow: 'inset 0 0 75px 25px rgba(225, 29, 72, 0.48)',
       }}
     />
   );

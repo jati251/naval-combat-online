@@ -9,6 +9,7 @@ import {
 export class RoomManager {
   private rooms: Map<string, GameRoom> = new Map();
   private clientRoomMap: Map<string, string> = new Map();
+  private masterTickInterval: NodeJS.Timeout | null = null;
 
   private broadcastToTopic: (topic: string, message: ServerMessage) => void;
   private sendDirect: (clientId: string, message: ServerMessage) => void;
@@ -19,6 +20,38 @@ export class RoomManager {
   ) {
     this.broadcastToTopic = broadcastToTopic;
     this.sendDirect = sendDirect;
+    this.startMasterTick();
+  }
+
+  private startMasterTick(): void {
+    if (this.masterTickInterval) return;
+    this.masterTickInterval = setInterval(() => {
+      const now = Date.now();
+      for (const room of this.rooms.values()) {
+        if (room.status === 'IN_GAME') {
+          room.step(now);
+        }
+      }
+    }, 1000 / 30);
+  }
+
+  public getStats(): { totalRooms: number; inGameRooms: number; totalPlayers: number; inGamePlayers: number } {
+    let totalPlayers = 0;
+    let inGamePlayers = 0;
+    let inGameRooms = 0;
+    for (const r of this.rooms.values()) {
+      totalPlayers += r.players.size;
+      if (r.status === 'IN_GAME') {
+        inGameRooms++;
+        inGamePlayers += r.players.size;
+      }
+    }
+    return {
+      totalRooms: this.rooms.size,
+      inGameRooms,
+      totalPlayers,
+      inGamePlayers,
+    };
   }
 
   public getRoomList(): RoomInfo[] {
@@ -45,11 +78,19 @@ export class RoomManager {
           return;
         }
 
+        let resolvedTimeOfDay: 'DAY' | 'NIGHT' = 'DAY';
+        if (msg.timeOfDay === 'NIGHT') {
+          resolvedTimeOfDay = 'NIGHT';
+        } else if (msg.timeOfDay === 'RANDOM') {
+          resolvedTimeOfDay = Math.random() < 0.5 ? 'DAY' : 'NIGHT';
+        }
+
         const roomId = 'room-' + Math.random().toString(36).substring(2, 8).toUpperCase();
         const room = new GameRoom(
           roomId,
           msg.roomName || `Fleet Arena #${roomId.substring(5)}`,
           msg.maxPlayers || 4,
+          resolvedTimeOfDay,
           (topic, payload) => this.broadcastToTopic(topic, payload),
           (cid, payload) => this.sendDirect(cid, payload)
         );
@@ -101,6 +142,7 @@ export class RoomManager {
             startTime: room.getStartTime(),
             windAngle: room.windAngle,
             windSpeed: room.windSpeed,
+            timeOfDay: room.timeOfDay,
           });
         } else {
           // Normal lobby join

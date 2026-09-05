@@ -13,6 +13,7 @@ export class SecurityGuard {
   private static readonly FLOOD_DISCONNECT_THRESHOLD = 95;
   // Max concurrent rooms on server to prevent RAM exhaustion
   public static readonly MAX_GLOBAL_ROOMS = 50;
+  public static readonly MAX_GLOBAL_PLAYERS = 75;
   // Room create cooldown (ms)
   private static readonly ROOM_CREATE_COOLDOWN_MS = 3000;
 
@@ -117,7 +118,12 @@ export class SecurityGuard {
         const playerName = this.sanitizeString(String(raw.playerName || 'Captain'), 20);
         const shipClass = this.validateShipClass(raw.shipClass);
         let maxPlayers = typeof raw.maxPlayers === 'number' ? Math.floor(raw.maxPlayers) : 4;
-        maxPlayers = Math.max(2, Math.min(8, maxPlayers));
+        maxPlayers = Math.max(2, Math.min(16, maxPlayers));
+
+        let timeOfDay: 'DAY' | 'NIGHT' | 'RANDOM' = 'DAY';
+        if (raw.timeOfDay === 'NIGHT' || raw.timeOfDay === 'DAY' || raw.timeOfDay === 'RANDOM') {
+          timeOfDay = raw.timeOfDay;
+        }
 
         return {
           type: 'CREATE_ROOM',
@@ -125,6 +131,7 @@ export class SecurityGuard {
           playerName: playerName || 'Captain',
           shipClass,
           maxPlayers,
+          timeOfDay,
         };
       }
 

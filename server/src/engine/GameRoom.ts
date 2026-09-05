@@ -18,6 +18,7 @@ export class GameRoom {
   public name: string;
   public maxPlayers: number;
   public status: 'LOBBY' | 'IN_GAME' | 'FINISHED' = 'LOBBY';
+  public timeOfDay: 'DAY' | 'NIGHT';
 
   public players: Map<string, RoomPlayer> = new Map();
   public ships: Map<string, ShipSimulationState> = new Map();
@@ -26,7 +27,6 @@ export class GameRoom {
   public windAngle: number = Math.random() * Math.PI * 2;
   public windSpeed: number = 10 + Math.random() * 6; // knots
 
-  private tickTimer: NodeJS.Timeout | null = null;
   private autoResetTimer: NodeJS.Timeout | null = null;
   private tickSeq: number = 0;
   private startTime: number = 0;
@@ -43,12 +43,14 @@ export class GameRoom {
     id: string,
     name: string,
     maxPlayers: number,
+    timeOfDay: 'DAY' | 'NIGHT' = 'DAY',
     broadcast: (roomId: string, message: ServerMessage) => void,
     sendDirect: (clientId: string, message: ServerMessage) => void
   ) {
     this.id = id;
     this.name = name;
     this.maxPlayers = maxPlayers;
+    this.timeOfDay = timeOfDay;
     this.broadcast = broadcast;
     this.sendDirect = sendDirect;
   }
@@ -302,6 +304,7 @@ export class GameRoom {
       startTime: this.startTime,
       windAngle: this.windAngle,
       windSpeed: this.windSpeed,
+      timeOfDay: this.timeOfDay,
     };
 
     // 1. Broadcast to room pub/sub topic
@@ -312,13 +315,12 @@ export class GameRoom {
       this.sendDirect(playerId, startMsg);
     }
 
-    // Start 30Hz simulation loop (1000/30 ~ 33.3ms)
-    this.tickTimer = setInterval(() => this.tick(), 1000 / 30);
     return true;
   }
 
-  private tick(): void {
-    const now = Date.now();
+  public step(now: number): void {
+    if (this.status !== 'IN_GAME') return;
+
     const elapsed = Math.min(0.15, (now - this.lastTickTime) / 1000);
     this.lastTickTime = now;
     this.tickAccumulator += elapsed;
@@ -350,8 +352,8 @@ export class GameRoom {
             targetId: hitShip.id,
             attackerId: ball.ownerId,
             damage: ball.damage,
-            hitPos: [ball.x, ball.y, ball.z],
-            remainingHp: hitShip.health,
+            hitPos: [Math.round(ball.x * 100) / 100, Math.round(ball.y * 100) / 100, Math.round(ball.z * 100) / 100],
+            remainingHp: Math.round(hitShip.health * 10) / 10,
           });
 
           if (hitShip.health <= 0 && !hitShip.isSunk) {
@@ -378,20 +380,35 @@ export class GameRoom {
   }
 
   public broadcastSnapshot(): void {
-    const serverTime = (Date.now() - this.startTime) / 1000;
+    const serverTime = Math.round(((Date.now() - this.startTime) / 1000) * 100) / 100;
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+    const r3 = (n: number) => Math.round(n * 1000) / 1000;
+
     const shipsPayload = Array.from(this.ships.values()).map(
-      ({ reloadTimerPort: _p, reloadTimerStarboard: _s, ...publicShip }) => publicShip
+      ({ reloadTimerPort: _p, reloadTimerStarboard: _s, ...s }) => ({
+        ...s,
+        x: r2(s.x),
+        y: r2(s.y),
+        z: r2(s.z),
+        vx: r2(s.vx),
+        vz: r2(s.vz),
+        speed: r2(s.speed),
+        rotationY: r3(s.rotationY),
+        pitch: r3(s.pitch),
+        roll: r3(s.roll),
+        rudder: r2(s.rudder),
+      })
     );
 
     const cannonballsPayload = this.cannonballs.map((b) => ({
       id: b.id,
       ownerId: b.ownerId,
-      x: b.x,
-      y: b.y,
-      z: b.z,
-      vx: b.vx,
-      vy: b.vy,
-      vz: b.vz,
+      x: r2(b.x),
+      y: r2(b.y),
+      z: r2(b.z),
+      vx: r2(b.vx),
+      vy: r2(b.vy),
+      vz: r2(b.vz),
     }));
 
     this.broadcast(this.id, {
@@ -424,10 +441,6 @@ export class GameRoom {
 
     if (shouldEnd) {
       this.status = 'FINISHED';
-      if (this.tickTimer) {
-        clearInterval(this.tickTimer);
-        this.tickTimer = null;
-      }
 
       const winner = aliveShips[0] || Array.from(this.ships.values())[0];
       const winnerName = winner?.name || (totalPlayers === 1 ? 'Sole Survivor' : 'No one');
@@ -459,10 +472,6 @@ export class GameRoom {
     this.status = 'LOBBY';
     this.ships.clear();
     this.cannonballs = [];
-    if (this.tickTimer) {
-      clearInterval(this.tickTimer);
-      this.tickTimer = null;
-    }
     // Unready all players except host
     for (const player of this.players.values()) {
       player.isReady = player.isHost;
@@ -479,6 +488,7 @@ export class GameRoom {
       maxPlayers: this.maxPlayers,
       windAngle: this.windAngle,
       windSpeed: this.windSpeed,
+      timeOfDay: this.timeOfDay,
     };
   }
 
@@ -501,10 +511,6 @@ export class GameRoom {
   }
 
   public destroy(): void {
-    if (this.tickTimer) {
-      clearInterval(this.tickTimer);
-      this.tickTimer = null;
-    }
     if (this.autoResetTimer) {
       clearTimeout(this.autoResetTimer);
       this.autoResetTimer = null;

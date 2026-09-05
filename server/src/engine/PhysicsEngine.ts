@@ -371,6 +371,11 @@ export class PhysicsEngine {
       // Island terrain obstruction check (cannonball hits island rock/sand)
       let hitObstacle = false;
       for (const isl of SERVER_ISLANDS) {
+        // Fast AABB early rejection
+        if (Math.abs(ball.x - isl.x) > 85 || Math.abs(ball.z - isl.z) > 85) {
+          continue;
+        }
+
         if (isl.elongation) {
           const relX = ball.x - isl.x;
           const relZ = ball.z - isl.z;
@@ -399,6 +404,11 @@ export class PhysicsEngine {
 
       // Shipwreck collision check (cannonball hits floating wreck hull/mast)
       for (const wreck of SERVER_WRECKS) {
+        // Fast AABB early rejection
+        if (Math.abs(ball.x - wreck.x) > 25 || Math.abs(ball.z - wreck.z) > 25) {
+          continue;
+        }
+
         const distToWreck = Math.hypot(ball.x - wreck.x, ball.z - wreck.z);
         if (distToWreck <= wreck.radius && ball.y <= wreck.height) {
           hitObstacle = true;
@@ -414,12 +424,19 @@ export class PhysicsEngine {
       for (const [shipId, ship] of ships.entries()) {
         if (shipId === ball.ownerId || ship.isSunk) continue;
 
-        const config = SERVER_SHIP_CONFIGS[ship.shipClass];
-        // Calculate distance from cannonball to ship center
+        // Fast distance early rejection: skip if further than maximum ship radius (18m)
         const dx = ball.x - ship.x;
         const dz = ball.z - ship.z;
-        const dy = ball.y - ship.y;
+        if (Math.abs(dx) > 18 || Math.abs(dz) > 18) {
+          continue;
+        }
 
+        const dy = ball.y - ship.y;
+        if (dy < -1.5 || dy > 6.0) {
+          continue;
+        }
+
+        const config = SERVER_SHIP_CONFIGS[ship.shipClass];
         // Bounding box approximation (aligned with ship yaw)
         const cosYaw = Math.cos(-ship.rotationY);
         const sinYaw = Math.sin(-ship.rotationY);

@@ -100,6 +100,9 @@ export const OceanAtmosphereParticles3D: React.FC = React.memo(() => {
     posAttr.needsUpdate = true;
   });
 
+  const timeOfDay = useGameStore((s) => s.timeOfDay);
+  const isNight = timeOfDay === 'NIGHT';
+
   return (
     <points ref={pointsRef}>
       <bufferGeometry>
@@ -110,12 +113,12 @@ export const OceanAtmosphereParticles3D: React.FC = React.memo(() => {
       </bufferGeometry>
       <pointsMaterial
         map={texture}
-        size={0.16}
+        size={isNight ? 0.22 : 0.16}
         transparent
-        opacity={0.42}
+        opacity={isNight ? 0.55 : 0.42}
         depthWrite={false}
         blending={THREE.AdditiveBlending}
-        color="#fffbeb"
+        color={isNight ? '#67e8f9' : '#fffbeb'}
         fog={true}
       />
     </points>

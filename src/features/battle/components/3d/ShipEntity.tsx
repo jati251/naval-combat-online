@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
@@ -27,7 +27,7 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf 
   // Dedicated chase camera state for player ship
   const cameraState = useRef(createInitialCameraState());
 
-  const [showNameplate, setShowNameplate] = useState(false);
+  const nameplateRef = useRef<THREE.Group>(null);
   const frameCount = useRef(Math.floor(Math.random() * 6));
   const isInitialized = useRef(false);
 
@@ -64,11 +64,11 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf 
         groupRef.current.visible = inView;
       }
 
-      // 2. Nameplate Culling: Only mount Drei Html overlay when close (110m)
-      if (!isSelf) {
+      // 2. Nameplate Culling (Zero React re-render: direct Group visibility toggle)
+      if (!isSelf && nameplateRef.current) {
         const shouldShow = inView && distSq <= NAMEPLATE_CULL_DISTANCE * NAMEPLATE_CULL_DISTANCE;
-        if (showNameplate !== shouldShow) {
-          setShowNameplate(shouldShow);
+        if (nameplateRef.current.visible !== shouldShow) {
+          nameplateRef.current.visible = shouldShow;
         }
       }
     }
@@ -138,23 +138,25 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf 
       />
 
       {/* Floating Health Bar and Nameplate (Culled beyond 110m for enemy vessels, hidden for player ship) */}
-      {!isSelf && showNameplate && (
-        <Html position={[0, nameplateY, 0]} center distanceFactor={45}>
-          <div className="flex flex-col items-center pointer-events-none select-none">
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-950/85 border border-slate-700/60 shadow-md text-[10px] font-bold tracking-wide uppercase">
-              <span className="text-amber-300">{ship.name}</span>
-            </div>
+      {!isSelf && (
+        <group ref={nameplateRef} position={[0, nameplateY, 0]} visible={false}>
+          <Html center distanceFactor={45}>
+            <div className="flex flex-col items-center pointer-events-none select-none">
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-950/85 border border-slate-700/60 shadow-md text-[10px] font-bold tracking-wide uppercase">
+                <span className="text-amber-300">{ship.name}</span>
+              </div>
 
-            <div className="w-20 h-1 bg-slate-950/90 border border-slate-800 rounded-full overflow-hidden mt-0.5">
-              <div
-                className={`h-full rounded-full transition-all duration-150 ${
-                  hpPercent > 50 ? 'bg-emerald-400' : hpPercent > 25 ? 'bg-amber-400' : 'bg-rose-500'
-                }`}
-                style={{ width: `${hpPercent}%` }}
-              />
+              <div className="w-20 h-1 bg-slate-950/90 border border-slate-800 rounded-full overflow-hidden mt-0.5">
+                <div
+                  className={`h-full rounded-full transition-all duration-150 ${
+                    hpPercent > 50 ? 'bg-emerald-400' : hpPercent > 25 ? 'bg-amber-400' : 'bg-rose-500'
+                  }`}
+                  style={{ width: `${hpPercent}%` }}
+                />
+              </div>
             </div>
-          </div>
-        </Html>
+          </Html>
+        </group>
       )}
     </group>
   );

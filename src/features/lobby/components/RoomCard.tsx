@@ -27,6 +27,15 @@ export const RoomCard: React.FC<RoomCardProps> = ({ room, onJoin }) => {
           >
             {isPlaying ? 'IN BATTLE' : 'WAITING'}
           </span>
+          <span
+            className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${
+              room.timeOfDay === 'NIGHT'
+                ? 'bg-indigo-950/70 text-indigo-300 border-indigo-700/50'
+                : 'bg-amber-950/70 text-amber-300 border-amber-700/50'
+            }`}
+          >
+            {room.timeOfDay === 'NIGHT' ? '🌙 NIGHT' : '☀️ DAY'}
+          </span>
         </div>
 
         <div className="flex items-center gap-2 text-xs text-slate-400">

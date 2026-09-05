@@ -1,6 +1,7 @@
 import type { ShipClass } from './ship';
 
 export type GameStage = 'LOBBY' | 'BATTLE' | 'DEBRIEF';
+export type TimeOfDay = 'DAY' | 'NIGHT';
 
 export interface RoomPlayer {
   id: string;
@@ -19,4 +20,5 @@ export interface RoomInfo {
   maxPlayers: number;
   windAngle: number;
   windSpeed: number;
+  timeOfDay: TimeOfDay;
 }

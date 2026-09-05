@@ -4,7 +4,7 @@ import { Canvas } from '@react-three/fiber';
 import { OceanWater } from './OceanWater';
 import { CannonSystem3D } from './CannonSystem3D';
 import { CannonFX2D } from './CannonFX2D';
-import { Environment3D, FOG_COLOR } from './Environment3D';
+import { Environment3D, FOG_COLOR, NIGHT_FOG_COLOR } from './Environment3D';
 import { Islands3D } from './Islands3D';
 import { Shipwrecks3D } from './Shipwrecks3D';
 import { JumpingFish3D } from './JumpingFish3D';
@@ -46,8 +46,12 @@ const CannonEntities: React.FC = React.memo(() => {
 });
 
 export const NavalCanvas: React.FC = React.memo(() => {
+  const timeOfDay = useGameStore((s) => s.timeOfDay);
+  const isNight = timeOfDay === 'NIGHT';
+  const bgColor = isNight ? NIGHT_FOG_COLOR : FOG_COLOR;
+
   return (
-    <div className="w-full h-full absolute inset-0 bg-sky-700">
+    <div className={`w-full h-full absolute inset-0 ${isNight ? 'bg-slate-950' : 'bg-sky-700'}`}>
       <Canvas
         camera={{ position: [0, 25, -45], fov: 55, near: 0.5, far: 1200 }}
         shadows
@@ -57,17 +61,17 @@ export const NavalCanvas: React.FC = React.memo(() => {
           alpha: false,
           powerPreference: 'high-performance',
           toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 1.15,
+          toneMappingExposure: isNight ? 1.05 : 1.15,
         }}
       >
-        <color attach="background" args={[FOG_COLOR]} />
+        <color attach="background" args={[bgColor]} />
         <Environment3D />
         <OceanWater />
         <Islands3D />
         <Shipwrecks3D />
         <JumpingFish3D />
         <MapBoundary3D />
-        <CaribbeanSeabirds3D />
+        {!isNight && <CaribbeanSeabirds3D />}
         <OceanAtmosphereParticles3D />
         <FleetEntities />
         <CannonEntities />

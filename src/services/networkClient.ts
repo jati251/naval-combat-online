@@ -131,12 +131,19 @@ class NetworkClient {
         break;
       }
       case 'ROOM_STATE': {
+        const room = msg.room as { timeOfDay?: 'DAY' | 'NIGHT' } | undefined;
+        if (room?.timeOfDay) {
+          store.setTimeOfDay(room.timeOfDay);
+        }
         store.setCurrentRoom(msg.room as never, (msg.selfId as string) || undefined);
         break;
       }
       case 'GAME_STARTED': {
         navalAudio.playShipBell();
         store.setStage('BATTLE');
+        if (msg.timeOfDay === 'DAY' || msg.timeOfDay === 'NIGHT') {
+          store.setTimeOfDay(msg.timeOfDay);
+        }
         if (typeof msg.windAngle === 'number' && typeof msg.windSpeed === 'number') {
           store.setWind(msg.windAngle, msg.windSpeed);
         }
@@ -208,7 +215,11 @@ class NetworkClient {
     this.send({ type: 'GET_ROOMS' });
   }
 
-  public createRoom(roomName: string, maxPlayers: number = 4): void {
+  public createRoom(
+    roomName: string,
+    maxPlayers: number = 4,
+    timeOfDay: 'DAY' | 'NIGHT' | 'RANDOM' = 'DAY'
+  ): void {
     const store = useGameStore.getState();
 
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
@@ -227,6 +238,7 @@ class NetworkClient {
       playerName: store.playerName,
       shipClass: store.selectedShip,
       maxPlayers,
+      timeOfDay,
     });
   }
 

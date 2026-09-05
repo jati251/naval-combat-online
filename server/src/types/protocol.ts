@@ -188,6 +188,8 @@ export interface RoomPlayer {
   score: number;
 }
 
+export type TimeOfDay = 'DAY' | 'NIGHT';
+
 export interface RoomInfo {
   id: string;
   name: string;
@@ -196,11 +198,12 @@ export interface RoomInfo {
   maxPlayers: number;
   windAngle: number;
   windSpeed: number;
+  timeOfDay: TimeOfDay;
 }
 
 // Client to Server Message
 export type ClientMessage =
-  | { type: 'CREATE_ROOM'; roomName: string; playerName: string; shipClass: ShipClass; maxPlayers?: number }
+  | { type: 'CREATE_ROOM'; roomName: string; playerName: string; shipClass: ShipClass; maxPlayers?: number; timeOfDay?: TimeOfDay | 'RANDOM' }
   | { type: 'JOIN_ROOM'; roomId: string; playerName: string; shipClass: ShipClass }
   | { type: 'LEAVE_ROOM' }
   | { type: 'SELECT_SHIP'; shipClass: ShipClass }
@@ -216,7 +219,7 @@ export type ServerMessage =
   | { type: 'ROOM_LIST'; rooms: RoomInfo[] }
   | { type: 'ROOM_STATE'; room: RoomInfo; selfId: string }
   | { type: 'ERROR'; message: string }
-  | { type: 'GAME_STARTED'; startTime: number; windAngle: number; windSpeed: number }
+  | { type: 'GAME_STARTED'; startTime: number; windAngle: number; windSpeed: number; timeOfDay: TimeOfDay }
   | {
       type: 'WORLD_SNAPSHOT';
       tick: number;

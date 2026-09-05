@@ -13,6 +13,8 @@ import {
   ManOWarModel,
 } from './ships';
 
+import { ShipLanterns } from './ships/common';
+
 export type { ShipModelProps };
 
 /**
@@ -44,25 +46,34 @@ export const ShipModel3D: React.FC<ShipModelProps> = React.memo(({
     sailTexture,
   };
 
-  switch (id) {
-    case 'gunboat':
-      return <GunboatModel {...subProps} />;
-    case 'sloop':
-      return <SloopModel {...subProps} />;
-    case 'corvette':
-      return <CorvetteModel {...subProps} />;
-    case 'carrack':
-      return <CarrackModel {...subProps} />;
-    case 'galleon':
-      return <GalleonModel {...subProps} />;
-    case 'frigate':
-      return <FrigateModel {...subProps} />;
-    case 'man_o_war':
-      return <ManOWarModel {...subProps} />;
-    case 'brig':
-    default:
-      return <BrigModel {...subProps} />;
-  }
+  const renderModel = () => {
+    switch (id) {
+      case 'gunboat':
+        return <GunboatModel {...subProps} />;
+      case 'sloop':
+        return <SloopModel {...subProps} />;
+      case 'corvette':
+        return <CorvetteModel {...subProps} />;
+      case 'carrack':
+        return <CarrackModel {...subProps} />;
+      case 'galleon':
+        return <GalleonModel {...subProps} />;
+      case 'frigate':
+        return <FrigateModel {...subProps} />;
+      case 'man_o_war':
+        return <ManOWarModel {...subProps} />;
+      case 'brig':
+      default:
+        return <BrigModel {...subProps} />;
+    }
+  };
+
+  return (
+    <group>
+      {renderModel()}
+      <ShipLanterns shipClass={id} isEnemy={isEnemy} />
+    </group>
+  );
 }, (prev, next) => {
   const prevId = prev.config?.id || prev.shipClass;
   const nextId = next.config?.id || next.shipClass;

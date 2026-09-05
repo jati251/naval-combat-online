@@ -7,3 +7,4 @@ export * from './BroadsideCannons';
 export * from './BowCatheadAnchors';
 export * from './StandingRigging';
 export * from './DeckDetails';
+export * from './ShipLanterns';

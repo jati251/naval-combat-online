@@ -108,7 +108,7 @@ function createCirrusCloudTexture(): THREE.CanvasTexture {
  * Multi-Tiered Caribbean Celestial Cloudscapes
  * Includes trade-wind cumulus banks and majestic high-altitude cirrus veils.
  */
-const CaribbeanClouds2D: React.FC = () => {
+const CaribbeanClouds2D: React.FC<{ isNight: boolean }> = ({ isNight }) => {
   const cumulusTex = useMemo(() => createCumulusCloudTexture(), []);
   const cirrusTex = useMemo(() => createCirrusCloudTexture(), []);
   const windAngle = useGameStore((s) => s.windAngle);
@@ -127,7 +127,6 @@ const CaribbeanClouds2D: React.FC = () => {
       const horizDist = Math.sqrt(x * x + z * z);
 
       // Fixed 3D orientation tangent to the celestial sphere:
-      // Prevents 2D sprites from spinning around their center when camera rotates!
       const rotY = Math.atan2(x, z);
       const rotX = -Math.atan2(y, horizDist) * 0.42;
 
@@ -140,11 +139,11 @@ const CaribbeanClouds2D: React.FC = () => {
         rotY,
         scaleX: 95 + Math.random() * 65,  // 95m to 160m width
         scaleY: 34 + Math.random() * 22,  // 34m to 56m height
-        opacity: 0.65 + Math.random() * 0.22,
+        opacity: (0.65 + Math.random() * 0.22) * (isNight ? 0.45 : 1.0),
       });
     }
     return items;
-  }, []);
+  }, [isNight]);
 
   // Layer 2: High Stratospheric Cirrus Streaks (14 grand veils with fixed celestial orientation)
   const cirrusClouds = useMemo(() => {
@@ -170,11 +169,11 @@ const CaribbeanClouds2D: React.FC = () => {
         rotY,
         scaleX: 190 + Math.random() * 110, // 190m to 300m expansive streaks
         scaleY: 28 + Math.random() * 14,
-        opacity: 0.35 + Math.random() * 0.18,
+        opacity: (0.35 + Math.random() * 0.18) * (isNight ? 0.35 : 1.0),
       });
     }
     return items;
-  }, []);
+  }, [isNight]);
 
   useFrame((state, delta) => {
     if (groupRef.current) {
@@ -187,6 +186,8 @@ const CaribbeanClouds2D: React.FC = () => {
       groupRef.current.rotation.y += delta * driftSpeed * Math.cos(windAngle);
     }
   });
+
+  const cloudColor = isNight ? '#94a3b8' : '#ffffff';
 
   return (
     <group ref={groupRef}>
@@ -201,6 +202,7 @@ const CaribbeanClouds2D: React.FC = () => {
           <planeGeometry />
           <meshBasicMaterial
             map={cirrusTex}
+            color={cloudColor}
             transparent
             opacity={c.opacity}
             depthWrite={false}
@@ -221,6 +223,7 @@ const CaribbeanClouds2D: React.FC = () => {
           <planeGeometry />
           <meshBasicMaterial
             map={cumulusTex}
+            color={cloudColor}
             transparent
             opacity={c.opacity}
             depthWrite={false}
@@ -233,19 +236,24 @@ const CaribbeanClouds2D: React.FC = () => {
   );
 };
 
+export const NIGHT_FOG_COLOR = '#091326';
+
 /**
- * Ultra-Vivid Caribbean Sky Dome with Rayleigh Atmospheric Scattering & Solar Corona
+ * Ultra-Vivid Celestial Sky Dome
+ * Day: Brilliant Rayleigh Atmospheric Scattering, Solar Corona, & Crepuscular Godrays
+ * Night: Midnight Obsidian/Indigo Sky, Radiant Silver Moon Disc, Lunar Corona, & Twinkling Stars
  */
-const CaribbeanSkyDome: React.FC = () => {
+const CaribbeanSkyDome: React.FC<{ isNight: boolean }> = ({ isNight }) => {
   const meshRef = useRef<THREE.Mesh>(null);
 
   const shaderMaterial = useMemo(() => {
     return new THREE.ShaderMaterial({
       uniforms: {
-        uTopColor: { value: new THREE.Color('#0165b3') },    // Deep royal Caribbean azure zenith
-        uMidColor: { value: new THREE.Color('#22a6f2') },    // Vibrant tropical cerulean mid-sky
-        uHorizonColor: { value: new THREE.Color(FOG_COLOR) },// Blends seamlessly into horizon fog
-        uSunPos: { value: new THREE.Vector3(70, 140, -50).normalize() },
+        uIsNight: { value: isNight ? 1.0 : 0.0 },
+        uTopColor: { value: new THREE.Color(isNight ? '#030712' : '#0165b3') },
+        uMidColor: { value: new THREE.Color(isNight ? '#0a1226' : '#22a6f2') },
+        uHorizonColor: { value: new THREE.Color(isNight ? NIGHT_FOG_COLOR : FOG_COLOR) },
+        uCelestialPos: { value: new THREE.Vector3(70, 140, -50).normalize() },
       },
       vertexShader: `
         varying vec3 vWorldPosition;
@@ -256,47 +264,81 @@ const CaribbeanSkyDome: React.FC = () => {
         }
       `,
       fragmentShader: `
+        uniform float uIsNight;
         uniform vec3 uTopColor;
         uniform vec3 uMidColor;
         uniform vec3 uHorizonColor;
-        uniform vec3 uSunPos;
+        uniform vec3 uCelestialPos;
         varying vec3 vWorldPosition;
+
+        // Hash function for procedural twinkling star field
+        float starHash(vec3 p) {
+          p = fract(p * 0.3183099 + 0.1);
+          p *= 17.0;
+          return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+        }
 
         void main() {
           vec3 dir = normalize(vWorldPosition);
           float h = max(0.0, dir.y);
 
-          // Realistic two-stage atmospheric Rayleigh gradient
+          // Rayleigh atmospheric gradient
           vec3 skyLower = mix(uHorizonColor, uMidColor, smoothstep(0.0, 0.35, h));
           vec3 sky = mix(skyLower, uTopColor, smoothstep(0.25, 0.95, h));
 
-          // Multi-layer Solar Bloom, Crepuscular Godrays & Radiant Corona
-          float sunDot = max(0.0, dot(dir, uSunPos));
-          
-          // 1. Brilliant white-hot sun disc
-          float sunDisc = smoothstep(0.9986, 0.9998, sunDot) * 4.0;
-          
-          // 2. Warm golden inner corona bloom
-          float innerCorona = pow(sunDot, 42.0) * 1.6;
-          
-          // 3. Wide atmospheric sunlight sheen
-          float broadGlow = pow(sunDot, 5.5) * 0.5;
-          
-          // 4. Subtle crepuscular godrays radiating from the tropical sun
-          vec3 sunToDir = dir - uSunPos;
-          float rayAngle = atan(sunToDir.x, sunToDir.z);
-          float r1 = sin(rayAngle * 14.0);
-          float r2 = sin(rayAngle * 28.0 + 1.2);
-          float r3 = sin(rayAngle * 42.0 - 0.7);
-          float rayPattern = pow(max(0.0, r1 * 0.5 + r2 * 0.35 + r3 * 0.15 + 0.28), 3.0);
-          float rayFalloff = smoothstep(0.68, 0.995, sunDot) * (1.0 - smoothstep(0.998, 1.0, sunDot));
-          float godrays = rayPattern * rayFalloff * 0.35;
+          float celestialDot = max(0.0, dot(dir, uCelestialPos));
 
-          vec3 sunLight = vec3(1.0, 0.98, 0.92) * sunDisc +
-                          vec3(1.0, 0.93, 0.72) * (innerCorona + godrays) +
-                          vec3(0.98, 0.92, 0.78) * broadGlow;
+          if (uIsNight > 0.5) {
+            // ──────────────── NIGHT BATTLE SKY ────────────────
+            // 1. Procedural High-Altitude Star Field
+            if (h > 0.12) {
+              vec3 starCoord = floor(dir * 180.0);
+              float starVal = starHash(starCoord);
+              if (starVal > 0.985) {
+                float starIntensity = pow((starVal - 0.985) / 0.015, 3.0) * smoothstep(0.12, 0.45, h);
+                sky += vec3(0.85, 0.92, 1.0) * starIntensity * 1.6;
+              }
+            }
 
-          sky += sunLight;
+            // 2. Glowing Silver Moon Disc
+            float moonDisc = smoothstep(0.9984, 0.9996, celestialDot) * 2.8;
+
+            // 3. Soft Cool Lunar Corona & Night Sheen
+            float innerLunarCorona = pow(celestialDot, 36.0) * 0.95;
+            float broadLunarGlow = pow(celestialDot, 5.0) * 0.28;
+
+            vec3 moonLight = vec3(0.92, 0.96, 1.0) * moonDisc +
+                            vec3(0.72, 0.85, 1.0) * innerLunarCorona +
+                            vec3(0.55, 0.72, 0.95) * broadLunarGlow;
+
+            sky += moonLight;
+          } else {
+            // ──────────────── DAY BATTLE SKY ────────────────
+            // 1. Brilliant white-hot sun disc
+            float sunDisc = smoothstep(0.9986, 0.9998, celestialDot) * 4.0;
+            
+            // 2. Warm golden inner corona bloom
+            float innerCorona = pow(celestialDot, 42.0) * 1.6;
+            
+            // 3. Wide atmospheric sunlight sheen
+            float broadGlow = pow(celestialDot, 5.5) * 0.5;
+            
+            // 4. Subtle crepuscular godrays radiating from the tropical sun
+            vec3 sunToDir = dir - uCelestialPos;
+            float rayAngle = atan(sunToDir.x, sunToDir.z);
+            float r1 = sin(rayAngle * 14.0);
+            float r2 = sin(rayAngle * 28.0 + 1.2);
+            float r3 = sin(rayAngle * 42.0 - 0.7);
+            float rayPattern = pow(max(0.0, r1 * 0.5 + r2 * 0.35 + r3 * 0.15 + 0.28), 3.0);
+            float rayFalloff = smoothstep(0.68, 0.995, celestialDot) * (1.0 - smoothstep(0.998, 1.0, celestialDot));
+            float godrays = rayPattern * rayFalloff * 0.35;
+
+            vec3 sunLight = vec3(1.0, 0.98, 0.92) * sunDisc +
+                            vec3(1.0, 0.93, 0.72) * (innerCorona + godrays) +
+                            vec3(0.98, 0.92, 0.78) * broadGlow;
+
+            sky += sunLight;
+          }
 
           gl_FragColor = vec4(sky, 1.0);
         }
@@ -304,7 +346,7 @@ const CaribbeanSkyDome: React.FC = () => {
       side: THREE.BackSide,
       depthWrite: false,
     });
-  }, []);
+  }, [isNight]);
 
   useFrame((state) => {
     if (meshRef.current) {
@@ -320,21 +362,28 @@ const CaribbeanSkyDome: React.FC = () => {
 };
 
 export const Environment3D: React.FC = React.memo(() => {
-  const sunPos: [number, number, number] = [70, 140, -50];
+  const timeOfDay = useGameStore((s) => s.timeOfDay);
+  const isNight = timeOfDay === 'NIGHT';
+
+  const lightPos: [number, number, number] = [70, 140, -50];
+
+  const fogColor = isNight ? NIGHT_FOG_COLOR : FOG_COLOR;
+  const fogNear = isNight ? 110 : FOG_NEAR;
+  const fogFar = isNight ? 740 : FOG_FAR;
 
   return (
     <>
-      {/* High-Atmosphere Caribbean Azure Sky Dome */}
-      <CaribbeanSkyDome />
+      {/* Dynamic Celestial Sky Dome (Day Azure or Night Obsidian with Stars & Moon) */}
+      <CaribbeanSkyDome isNight={isNight} />
 
-      {/* Atmospheric Tropical Sea Fog */}
-      <fog attach="fog" args={[FOG_COLOR, FOG_NEAR, FOG_FAR]} />
+      {/* Atmospheric Sea Fog */}
+      <fog attach="fog" args={[fogColor, fogNear, fogFar]} />
 
-      {/* Brilliant Overhead Caribbean Sunlight */}
+      {/* Celestial Directional Light (Brilliant Sun vs Silver Moon) */}
       <directionalLight
-        position={sunPos}
-        intensity={2.35}
-        color="#fffbeb"
+        position={lightPos}
+        intensity={isNight ? 0.75 : 2.35}
+        color={isNight ? '#c8dcff' : '#fffbeb'}
         castShadow
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}
@@ -347,12 +396,24 @@ export const Environment3D: React.FC = React.memo(() => {
         shadow-bias={-0.0003}
       />
 
-      {/* Rich Tropical Ambient Fill & Ocean Reflection */}
-      <ambientLight intensity={0.9} color="#cce6ff" />
-      <hemisphereLight args={['#38bdf8', '#0284c7', 0.85]} />
+      {/* Ambient Fill Lighting */}
+      <ambientLight
+        intensity={isNight ? 0.42 : 0.9}
+        color={isNight ? '#162038' : '#cce6ff'}
+      />
 
-      {/* Multi-Tiered Caribbean Celestial Cloudscapes (Cumulus & Cirrus) */}
-      <CaribbeanClouds2D />
+      {/* Ocean Reflection Hemisphere Fill */}
+      <hemisphereLight
+        args={
+          isNight
+            ? ['#1e293b', '#090d16', 0.45]
+            : ['#38bdf8', '#0284c7', 0.85]
+        }
+      />
+
+      {/* Multi-Tiered Celestial Cloudscapes (Cumulus & Cirrus) */}
+      <CaribbeanClouds2D isNight={isNight} />
     </>
   );
 });
+

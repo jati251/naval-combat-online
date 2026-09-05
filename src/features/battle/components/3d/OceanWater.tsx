@@ -1,7 +1,7 @@
 import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
-import { FOG_COLOR } from './Environment3D';
+import { FOG_COLOR, NIGHT_FOG_COLOR } from './Environment3D';
 import { ARENA_ISLANDS } from './Islands3D';
 import { useGameStore } from '@/stores/useGameStore';
 
@@ -11,6 +11,8 @@ interface OceanWaterProps {
 
 export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
+  const timeOfDay = useGameStore((s) => s.timeOfDay);
+  const isNight = timeOfDay === 'NIGHT';
 
   // High-density 160x160 vertex grid (25,600 quads) centered dynamically on camera
   // Delivers buttery-smooth organic swells and eliminates polygon faceting
@@ -33,20 +35,20 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }
     );
   }, []);
 
-  // Assassin's Creed IV: Black Flag & Sea of Thieves AAA Caribbean Ocean Shader
+  // Assassin's Creed IV: Black Flag & Sea of Thieves AAA Ocean Shader
   const shaderMaterial = useMemo(() => {
     return new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
-        uDeepWaterColor: { value: new THREE.Color('#074574') }, // Rich Caribbean deep sapphire (never pitch black!)
-        uMidWaterColor: { value: new THREE.Color('#0b71b0') },  // Luminous tropical sapphire
-        uShallowColor: { value: new THREE.Color('#06b6d4') },   // Sunlit turquoise aqua
-        uLagoonColor: { value: new THREE.Color('#10e7b8') },    // Crystal shallow shoreline lagoon
-        uCrestGlowColor: { value: new THREE.Color('#38bdf8') }, // Radiant crest highlight
-        uSubsurfaceColor: { value: new THREE.Color('#14b8a6') },// Bright tropical SSS transmission
-        uFoamColor: { value: new THREE.Color('#ffffff') },      // Crisp clean white sea froth
-        uSunColor: { value: new THREE.Color('#fffbeb') },       // Warm brilliant Caribbean sun
-        uSkyHorizonColor: { value: new THREE.Color(FOG_COLOR) }, // Fog horizon match
+        uDeepWaterColor: { value: new THREE.Color(isNight ? '#020817' : '#074574') },
+        uMidWaterColor: { value: new THREE.Color(isNight ? '#06152b' : '#0b71b0') },
+        uShallowColor: { value: new THREE.Color(isNight ? '#0b2545' : '#06b6d4') },
+        uLagoonColor: { value: new THREE.Color(isNight ? '#133863' : '#10e7b8') },
+        uCrestGlowColor: { value: new THREE.Color(isNight ? '#385f8a' : '#38bdf8') },
+        uSubsurfaceColor: { value: new THREE.Color(isNight ? '#0d2744' : '#14b8a6') },
+        uFoamColor: { value: new THREE.Color(isNight ? '#cbd5e1' : '#ffffff') },
+        uSunColor: { value: new THREE.Color(isNight ? '#c5daf8' : '#fffbeb') },
+        uSkyHorizonColor: { value: new THREE.Color(isNight ? NIGHT_FOG_COLOR : FOG_COLOR) },
         uLightDir: { value: new THREE.Vector3(70, 140, -50).normalize() },
         uIslandPos: { value: islandPositions },
         uIslandParams: { value: islandParams },
@@ -400,7 +402,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }
       transparent: false,
       wireframe: false,
     });
-  }, [islandPositions, islandParams]);
+  }, [isNight, islandPositions, islandParams]);
 
   // Smoothed real-time ship state refs to prevent 30Hz server-tick wake stutter
   const smoothShipPos = useRef(new THREE.Vector3(0, 0, 0));

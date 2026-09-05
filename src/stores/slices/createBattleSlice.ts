@@ -9,6 +9,7 @@ export interface CameraShakeEvent {
 
 export interface BattleSlice {
   serverTime: number;
+  timeOfDay: 'DAY' | 'NIGHT';
   ships: ShipSnapshot[];
   cannonballs: CannonballSnapshot[];
   winnerName: string | null;
@@ -23,6 +24,7 @@ export interface BattleSlice {
     ships: ShipSnapshot[],
     cannonballs: CannonballSnapshot[]
   ) => void;
+  setTimeOfDay: (timeOfDay: 'DAY' | 'NIGHT') => void;
   setWind: (windAngle: number, windSpeed: number) => void;
   addCombatLog: (text: string, type?: CombatLog['type']) => void;
   setWinner: (name: string) => void;
@@ -37,6 +39,7 @@ export const createBattleSlice: StateCreator<
   BattleSlice
 > = (set) => ({
   serverTime: 0,
+  timeOfDay: 'DAY',
   ships: [],
   cannonballs: [],
   winnerName: null,
@@ -52,6 +55,8 @@ export const createBattleSlice: StateCreator<
       ships,
       cannonballs,
     }),
+
+  setTimeOfDay: (timeOfDay) => set({ timeOfDay }),
 
   setWind: (windAngle, windSpeed) => set({ windAngle, windSpeed }),
 

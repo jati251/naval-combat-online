@@ -2,7 +2,7 @@ import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
-import { SHIP_PRESETS, type CannonballSnapshot } from '@/types/game';
+import { SHIP_PRESETS } from '@/types/game';
 import {
   MAX_FLASH,
   MAX_SMOKE,
@@ -89,6 +89,8 @@ export const CannonFX2D: React.FC = React.memo(() => {
     }
   };
 
+  const currentBallIds = useRef<Set<string>>(new Set());
+
   useFrame((_, delta) => {
     const { cannonballs, fireEvents } = useGameStore.getState();
 
@@ -100,17 +102,30 @@ export const CannonFX2D: React.FC = React.memo(() => {
           spawnBroadsideBurst(ev.ownerId, ev.side);
         }
       }
-      // Prune processed event set to prevent memory growth
-      if (processedFireEvents.current.size > 50) {
-        processedFireEvents.current.clear();
+      // Prune processed events when exceeding limit by retaining only active ones
+      if (processedFireEvents.current.size > 40) {
+        const activeIds = new Set(fireEvents.map((e) => e.id));
+        for (const id of processedFireEvents.current) {
+          if (!activeIds.has(id)) {
+            processedFireEvents.current.delete(id);
+          }
+        }
       }
     }
 
-    // 2. Track Ball Flight Smoke Trails & Detect Impacts
-    const currentBallMap = new Map<string, CannonballSnapshot>();
+    // 2. Track Ball Flight Smoke Trails & Detect Impacts (Zero-Allocation Loop)
+    currentBallIds.current.clear();
     for (const b of cannonballs) {
-      currentBallMap.set(b.id, b);
-      knownBallIds.current.set(b.id, { x: b.x, y: b.y, z: b.z });
+      currentBallIds.current.add(b.id);
+      let ballPos = knownBallIds.current.get(b.id);
+      if (!ballPos) {
+        ballPos = { x: b.x, y: b.y, z: b.z };
+        knownBallIds.current.set(b.id, ballPos);
+      } else {
+        ballPos.x = b.x;
+        ballPos.y = b.y;
+        ballPos.z = b.z;
+      }
 
       // Persistent smoke ribbon following each flying cannonball
       spawnSmoke(
@@ -127,7 +142,7 @@ export const CannonFX2D: React.FC = React.memo(() => {
 
     // Check vanished balls (impact with water or hit target)
     for (const [id, lastPos] of knownBallIds.current.entries()) {
-      if (!currentBallMap.has(id)) {
+      if (!currentBallIds.current.has(id)) {
         if (lastPos.y <= 1.8) {
           spawnWaterImpact(plumePool.current, smokePool.current, lastPos.x, lastPos.z);
         } else {

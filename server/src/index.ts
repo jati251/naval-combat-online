@@ -177,7 +177,20 @@ app.ws<SocketUserData>('/ws', {
 // Health check endpoint for Kubernetes
 app.get('/healthz', (res) => {
   res.writeHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify({ status: 'ok', uptime: process.uptime() }));
+  const stats = roomManager.getStats();
+  const mem = process.memoryUsage();
+  res.end(
+    JSON.stringify({
+      status: 'ok',
+      uptime: process.uptime(),
+      connections: clientSockets.size,
+      ...stats,
+      memory: {
+        rssMb: Math.round(mem.rss / (1024 * 1024)),
+        heapUsedMb: Math.round(mem.heapUsed / (1024 * 1024)),
+      },
+    })
+  );
 });
 
 // API room list endpoint
