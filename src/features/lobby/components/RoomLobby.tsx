@@ -46,8 +46,11 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
             <span className="text-[9px] font-cinzel font-bold px-2.5 py-0.5 rounded-full bg-amber-950/80 text-amber-300 border border-amber-500/50 shadow-sm">
               COUNCIL OF WAR
             </span>
+            <span className="text-[9px] font-cinzel font-bold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-400/50 shadow-sm">
+              ⚔ FIRST TO {room.targetKills || 5} SINKS
+            </span>
           </div>
-          <p className="text-xs font-fell italic text-amber-200/70 mt-1">
+          <p className="text-xs font-fell italic text-amber-200/80 mt-1">
             Captains Assembled in Wardroom:{' '}
             <strong className="text-amber-100 font-mono not-italic">{room.players.length}</strong> of{' '}
             <strong className="text-amber-100 font-mono not-italic">{room.maxPlayers}</strong> vessels
@@ -72,8 +75,8 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
               key={p.id}
               className={`flex items-center justify-between p-3.5 rounded-lg border transition-all ${
                 isMe
-                  ? 'pirate-panel border-amber-400 shadow-[0_0_15px_rgba(212,175,55,0.25)] ring-1 ring-amber-400/40'
-                  : 'bg-stone-950/70 border-stone-800/90'
+                  ? 'pirate-panel border-amber-400 shadow-[0_0_15px_rgba(212,175,55,0.3)] ring-1 ring-amber-400/40'
+                  : 'bg-[#121e2f]/90 border border-amber-500/30 shadow-sm'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -82,7 +85,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                   className={`w-10 h-10 rounded-lg flex items-center justify-center font-cinzel font-bold text-sm border shadow-md ${
                     p.isHost
                       ? 'bg-amber-950/80 text-amber-300 border-amber-500/60'
-                      : 'bg-stone-900 text-stone-300 border-stone-700/60'
+                      : 'bg-[#18273d] text-amber-100 border-amber-500/40'
                   }`}
                 >
                   {p.name.charAt(0).toUpperCase()}

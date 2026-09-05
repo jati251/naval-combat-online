@@ -30,6 +30,7 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf 
   const nameplateRef = useRef<THREE.Group>(null);
   const frameCount = useRef(Math.floor(Math.random() * 6));
   const isInitialized = useRef(false);
+  const prevWasSunk = useRef(ship.isSunk);
 
   // Smooth interpolation with dead reckoning, distance culling, and 100% lockstep camera
   useFrame((state, delta) => {
@@ -39,6 +40,26 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf 
     // Always fetch latest real-time snapshot from store to prevent stale closure during memoization
     const store = useGameStore.getState();
     const curShip = store.ships.find((s) => s.id === ship.id) || ship;
+
+    // Respawn snap detection: if ship was sunk and is now alive, or large position teleport
+    const wasSunk = prevWasSunk.current;
+    prevWasSunk.current = curShip.isSunk;
+
+    const distSqFromTarget =
+      (groupRef.current.position.x - curShip.x) ** 2 + (groupRef.current.position.z - curShip.z) ** 2;
+
+    if ((wasSunk && !curShip.isSunk) || distSqFromTarget > 2500) {
+      drBuffer.current = createDeadReckoningBuffer(
+        curShip.x,
+        curShip.y + 0.85,
+        curShip.z,
+        curShip.rotationY
+      );
+      groupRef.current.position.set(curShip.x, curShip.y + 0.85, curShip.z);
+      groupRef.current.rotation.y = curShip.rotationY;
+      groupRef.current.rotation.x = 0;
+      groupRef.current.rotation.z = 0;
+    }
 
     // Detect fresh server snapshot and absorb into dead reckoning buffer
     pushSnapshot(

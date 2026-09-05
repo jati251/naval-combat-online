@@ -68,23 +68,24 @@ export const RoomList: React.FC<RoomListProps> = ({
       {/* Rooms Scroll List */}
       <div className="flex-1 overflow-y-auto mt-3.5 space-y-2.5 max-h-[380px] pr-1.5">
         {rooms.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center py-16 text-amber-200/50 gap-3">
-            <div className="p-4 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400/60">
-              <Compass className="w-8 h-8" />
+          <div className="h-full flex flex-col items-center justify-center py-14 gap-3.5">
+            <div className="p-4 rounded-full bg-amber-500/20 border-2 border-amber-400/60 text-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.25)]">
+              <Compass className="w-9 h-9" />
             </div>
-            <div className="text-center">
-              <p className="font-cinzel text-sm font-bold text-amber-200/80 tracking-wider">
+            <div className="text-center px-4">
+              <p className="font-cinzel text-base font-bold text-amber-100 tracking-wider gold-emboss">
                 NO WARSHIPS ANCHORED
               </p>
-              <p className="text-xs font-fell italic text-amber-300/50 mt-1 max-w-xs">
-                The horizon lies calm. Hoist your colors and commission an armada of your own!
+              <p className="text-xs font-fell italic text-amber-200/90 mt-1 max-w-sm leading-relaxed">
+                The horizon lies calm. Hoist your colors, muster your crew, and commission a fleet of your own!
               </p>
             </div>
             <button
               onClick={onOpenCreateModal}
-              className="mt-1 text-xs font-cinzel font-bold text-amber-400 hover:text-amber-300 underline underline-offset-4 cursor-pointer"
+              className="mt-2 px-4 py-2 rounded-md bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/80 text-amber-100 font-cinzel font-bold text-xs uppercase tracking-wider transition-all duration-150 shadow-[0_0_12px_rgba(245,158,11,0.2)] cursor-pointer active:scale-95 flex items-center gap-1.5"
             >
-              Found a New Fleet Anchorage
+              <Plus className="w-3.5 h-3.5 text-amber-300" />
+              <span>Commission New Fleet</span>
             </button>
           </div>
         ) : (

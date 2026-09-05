@@ -33,10 +33,11 @@ export const ShipTurntable3D: React.FC<ShipTurntable3DProps> = ({ shipClass }) =
       <Canvas
         key={shipClass}
         camera={{ position: [0, camDist * 0.38, camDist], fov: 42 }}
-        gl={{ antialias: true, alpha: true }}
+        dpr={[1, 1.5]}
+        gl={{ antialias: false, alpha: true, powerPreference: 'high-performance' }}
       >
         <ambientLight intensity={0.9} />
-        <directionalLight position={[12, 22, 16]} intensity={2.6} castShadow />
+        <directionalLight position={[12, 22, 16]} intensity={2.6} />
         <pointLight position={[-12, 6, -10]} color="#38bdf8" intensity={1.5} />
 
         <RotatingShip shipClass={shipClass} />

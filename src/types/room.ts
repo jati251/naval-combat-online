@@ -10,6 +10,9 @@ export interface RoomPlayer {
   isReady: boolean;
   isHost: boolean;
   score: number;
+  kills: number;
+  deaths: number;
+  respawnCountdown?: number;
 }
 
 export interface RoomInfo {
@@ -18,6 +21,7 @@ export interface RoomInfo {
   status: 'LOBBY' | 'IN_GAME' | 'FINISHED';
   players: RoomPlayer[];
   maxPlayers: number;
+  targetKills: number;
   windAngle: number;
   windSpeed: number;
   timeOfDay: TimeOfDay;

@@ -50,14 +50,21 @@ export const NavalCanvas: React.FC = React.memo(() => {
   const isNight = timeOfDay === 'NIGHT';
   const bgColor = isNight ? NIGHT_FOG_COLOR : FOG_COLOR;
 
+  // Detect mobile device or touch viewport
+  const isMobile = typeof window !== 'undefined' && (
+    'ontouchstart' in window ||
+    navigator.maxTouchPoints > 0 ||
+    window.innerWidth <= 1024
+  );
+
   return (
     <div className={`w-full h-full absolute inset-0 ${isNight ? 'bg-slate-950' : 'bg-sky-700'}`}>
       <Canvas
         camera={{ position: [0, 25, -45], fov: 55, near: 0.5, far: 1200 }}
-        shadows
-        dpr={[1, 1.5]}
+        shadows={!isMobile}
+        dpr={isMobile ? 1 : [1, 1.5]}
         gl={{
-          antialias: true,
+          antialias: !isMobile,
           alpha: false,
           powerPreference: 'high-performance',
           toneMapping: THREE.ACESFilmicToneMapping,
@@ -66,13 +73,13 @@ export const NavalCanvas: React.FC = React.memo(() => {
       >
         <color attach="background" args={[bgColor]} />
         <Environment3D />
-        <OceanWater />
+        <OceanWater isMobile={isMobile} />
         <Islands3D />
         <Shipwrecks3D />
-        <JumpingFish3D />
+        {!isMobile && <JumpingFish3D />}
         <MapBoundary3D />
-        {!isNight && <CaribbeanSeabirds3D />}
-        <OceanAtmosphereParticles3D />
+        {!isMobile && !isNight && <CaribbeanSeabirds3D />}
+        {!isMobile && <OceanAtmosphereParticles3D />}
         <FleetEntities />
         <CannonEntities />
       </Canvas>

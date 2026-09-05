@@ -73,7 +73,7 @@ export class RoomManager {
         if (!canCreate.allowed) {
           this.sendDirect(clientId, {
             type: 'ERROR',
-            message: canCreate.reason || 'Mohon tunggu beberapa detik sebelum membuat room baru!',
+            message: canCreate.reason || 'Please wait a few moments before commissioning a new fleet!',
           });
           return;
         }
@@ -90,6 +90,7 @@ export class RoomManager {
           roomId,
           msg.roomName || `Fleet Arena #${roomId.substring(5)}`,
           msg.maxPlayers || 4,
+          msg.targetKills || 5,
           resolvedTimeOfDay,
           (topic, payload) => this.broadcastToTopic(topic, payload),
           (cid, payload) => this.sendDirect(cid, payload)
@@ -111,12 +112,12 @@ export class RoomManager {
       case 'JOIN_ROOM': {
         const room = this.rooms.get(msg.roomId);
         if (!room) {
-          this.sendDirect(clientId, { type: 'ERROR', message: 'Room tidak ditemukan!' });
+          this.sendDirect(clientId, { type: 'ERROR', message: 'Fleet anchorage not found!' });
           return;
         }
 
         if (room.players.size >= room.maxPlayers) {
-          this.sendDirect(clientId, { type: 'ERROR', message: 'Room sudah penuh!' });
+          this.sendDirect(clientId, { type: 'ERROR', message: 'Fleet anchorage is already fully crewed!' });
           return;
         }
 

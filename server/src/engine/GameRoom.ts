@@ -19,6 +19,7 @@ export class GameRoom {
   public maxPlayers: number;
   public status: 'LOBBY' | 'IN_GAME' | 'FINISHED' = 'LOBBY';
   public timeOfDay: 'DAY' | 'NIGHT';
+  public targetKills: number = 5;
 
   public players: Map<string, RoomPlayer> = new Map();
   public ships: Map<string, ShipSimulationState> = new Map();
@@ -28,6 +29,7 @@ export class GameRoom {
   public windSpeed: number = 10 + Math.random() * 6; // knots
 
   private autoResetTimer: NodeJS.Timeout | null = null;
+  private respawnTimers: Map<string, NodeJS.Timeout> = new Map();
   private tickSeq: number = 0;
   private startTime: number = 0;
   private lastTickTime: number = 0;
@@ -43,6 +45,7 @@ export class GameRoom {
     id: string,
     name: string,
     maxPlayers: number,
+    targetKills: number = 5,
     timeOfDay: 'DAY' | 'NIGHT' = 'DAY',
     broadcast: (roomId: string, message: ServerMessage) => void,
     sendDirect: (clientId: string, message: ServerMessage) => void
@@ -50,6 +53,7 @@ export class GameRoom {
     this.id = id;
     this.name = name;
     this.maxPlayers = maxPlayers;
+    this.targetKills = targetKills;
     this.timeOfDay = timeOfDay;
     this.broadcast = broadcast;
     this.sendDirect = sendDirect;
@@ -68,6 +72,8 @@ export class GameRoom {
       isReady: isHost, // Host is ready by default
       isHost,
       score: 0,
+      kills: 0,
+      deaths: 0,
     });
 
     this.broadcastRoomState();
@@ -83,6 +89,8 @@ export class GameRoom {
       isReady: true,
       isHost,
       score: 0,
+      kills: 0,
+      deaths: 0,
     });
 
     const config = SERVER_SHIP_CONFIGS[shipClass];
@@ -359,7 +367,15 @@ export class GameRoom {
           if (hitShip.health <= 0 && !hitShip.isSunk) {
             hitShip.isSunk = true;
             const killer = this.players.get(ball.ownerId);
-            if (killer) killer.score += 100;
+            if (killer) {
+              killer.kills = (killer.kills || 0) + 1;
+              killer.score += 100;
+            }
+            const victim = this.players.get(hitShip.id);
+            if (victim) {
+              victim.deaths = (victim.deaths || 0) + 1;
+              victim.respawnCountdown = 5;
+            }
 
             this.broadcast(this.id, {
               type: 'SHIP_SUNK',
@@ -367,7 +383,29 @@ export class GameRoom {
               killerId: ball.ownerId,
             });
 
-            this.checkVictoryCondition();
+            // Check if killer has reached the deathmatch victory goal
+            if (killer && killer.kills >= this.targetKills) {
+              this.status = 'FINISHED';
+              this.broadcast(this.id, {
+                type: 'GAME_OVER',
+                winnerId: killer.id,
+                winnerName: killer.name,
+              });
+
+              this.broadcastRoomState();
+
+              if (this.autoResetTimer) clearTimeout(this.autoResetTimer);
+              this.autoResetTimer = setTimeout(() => {
+                if (this.status === 'FINISHED' && this.players.size > 0) {
+                  this.resetToLobby();
+                }
+              }, 12000);
+              return;
+            }
+
+            // Deathmatch respawn flow: Sunk ship respawns after 5 seconds at a safe perimeter
+            this.broadcastRoomState();
+            this.scheduleShipRespawn(hitShip.id);
           }
         }
       );
@@ -377,6 +415,59 @@ export class GameRoom {
     if (simulatedSteps > 0) {
       this.broadcastSnapshot();
     }
+  }
+
+  private scheduleShipRespawn(shipId: string): void {
+    const existing = this.respawnTimers.get(shipId);
+    if (existing) clearTimeout(existing);
+
+    const timer = setTimeout(() => {
+      this.respawnTimers.delete(shipId);
+      if (this.status !== 'IN_GAME') return;
+
+      const ship = this.ships.get(shipId);
+      const player = this.players.get(shipId);
+      if (!ship || !player) return;
+
+      const existingAliveShips = Array.from(this.ships.values())
+        .filter((s) => s.id !== shipId && !s.isSunk)
+        .map((s) => ({ x: s.x, z: s.z }));
+
+      const spawn = PhysicsEngine.findSafeSpawnPoint(this.players.size, 4, existingAliveShips);
+      const config = SERVER_SHIP_CONFIGS[ship.shipClass];
+
+      ship.x = spawn.x;
+      ship.y = 0;
+      ship.z = spawn.z;
+      ship.vx = 0;
+      ship.vz = 0;
+      ship.speed = 0;
+      ship.rotationY = spawn.rotationY;
+      ship.pitch = 0;
+      ship.roll = 0;
+      ship.rudder = 0;
+      ship.sail = 'HALF_SAIL';
+      ship.health = config.maxHealth;
+      ship.isSunk = false;
+      ship.reloadTimerPort = 0;
+      ship.reloadTimerStarboard = 0;
+
+      player.respawnCountdown = undefined;
+
+      this.broadcast(this.id, {
+        type: 'SHIP_RESPAWNED',
+        shipId,
+        x: spawn.x,
+        z: spawn.z,
+        rotationY: spawn.rotationY,
+        health: config.maxHealth,
+      });
+
+      this.broadcastRoomState();
+      this.broadcastSnapshot();
+    }, 5000);
+
+    this.respawnTimers.set(shipId, timer);
   }
 
   public broadcastSnapshot(): void {
@@ -427,21 +518,15 @@ export class GameRoom {
   private checkVictoryCondition(): void {
     if (this.status !== 'IN_GAME') return;
 
-    const aliveShips = Array.from(this.ships.values()).filter((s) => !s.isSunk);
     const totalPlayers = this.players.size;
 
-    // Trigger game over if:
-    // 1. All ships are sunk (mutual destruction)
-    // 2. Only 1 alive ship left in a multiplayer match
-    // 3. Only 1 player remains mid-game because other captains disconnected / retreated
-    const shouldEnd =
-      (aliveShips.length === 0 && totalPlayers > 0) ||
-      (this.wasMultiplayer && aliveShips.length <= 1) ||
-      (this.wasMultiplayer && totalPlayers <= 1);
+    // In Fleet Deathmatch, match only ends prematurely if opponents disconnect mid-game
+    const shouldEnd = this.wasMultiplayer && totalPlayers <= 1;
 
     if (shouldEnd) {
       this.status = 'FINISHED';
 
+      const aliveShips = Array.from(this.ships.values()).filter((s) => !s.isSunk);
       const winner = aliveShips[0] || Array.from(this.ships.values())[0];
       const winnerName = winner?.name || (totalPlayers === 1 ? 'Sole Survivor' : 'No one');
       this.broadcast(this.id, {
@@ -467,14 +552,20 @@ export class GameRoom {
       clearTimeout(this.autoResetTimer);
       this.autoResetTimer = null;
     }
+    this.respawnTimers.forEach((t) => clearTimeout(t));
+    this.respawnTimers.clear();
     this.activeVolleyTimers.forEach(t => clearTimeout(t));
     this.activeVolleyTimers.clear();
     this.status = 'LOBBY';
     this.ships.clear();
     this.cannonballs = [];
-    // Unready all players except host
+    // Reset player scores & readiness for next match
     for (const player of this.players.values()) {
       player.isReady = player.isHost;
+      player.kills = 0;
+      player.deaths = 0;
+      player.score = 0;
+      player.respawnCountdown = undefined;
     }
     this.broadcastRoomState();
   }
@@ -486,6 +577,7 @@ export class GameRoom {
       status: this.status,
       players: Array.from(this.players.values()),
       maxPlayers: this.maxPlayers,
+      targetKills: this.targetKills,
       windAngle: this.windAngle,
       windSpeed: this.windSpeed,
       timeOfDay: this.timeOfDay,
@@ -515,6 +607,8 @@ export class GameRoom {
       clearTimeout(this.autoResetTimer);
       this.autoResetTimer = null;
     }
+    this.respawnTimers.forEach((t) => clearTimeout(t));
+    this.respawnTimers.clear();
     this.activeVolleyTimers.forEach(t => clearTimeout(t));
     this.activeVolleyTimers.clear();
     this.players.clear();

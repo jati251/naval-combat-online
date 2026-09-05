@@ -7,20 +7,22 @@ import { useGameStore } from '@/stores/useGameStore';
 
 interface OceanWaterProps {
   size?: number;
+  isMobile?: boolean;
 }
 
-export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }) => {
+export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, isMobile = false }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const timeOfDay = useGameStore((s) => s.timeOfDay);
   const isNight = timeOfDay === 'NIGHT';
 
-  // High-density 160x160 vertex grid (25,600 quads) centered dynamically on camera
-  // Delivers buttery-smooth organic swells and eliminates polygon faceting
+  // Responsive vertex grid density: 64x64 on mobile (4,096 quads) for high-performance 60fps,
+  // 160x160 on desktop (25,600 quads) for maximum geometric fidelity.
   const geometry = useMemo(() => {
-    const geo = new THREE.PlaneGeometry(size, size, 160, 160);
+    const segments = isMobile ? 64 : 160;
+    const geo = new THREE.PlaneGeometry(size, size, segments, segments);
     geo.rotateX(-Math.PI / 2);
     return geo;
-  }, [size]);
+  }, [size, isMobile]);
 
   // Pack arena islands data into uniform arrays: position/seed and elongation params
   const islandPositions = useMemo(() => {

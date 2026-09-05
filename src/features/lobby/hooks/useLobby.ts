@@ -58,7 +58,12 @@ export const useLobby = () => {
   }, [allCaptainsReady, otherPlayers]);
 
   const handleCreateRoom = useCallback(
-    (roomName: string, maxPlayers: number, timeOfDay: 'DAY' | 'NIGHT' | 'RANDOM' = 'DAY') => {
+    (
+      roomName: string,
+      maxPlayers: number,
+      timeOfDay: 'DAY' | 'NIGHT' | 'RANDOM' = 'DAY',
+      targetKills: number = 5
+    ) => {
       if (!roomName.trim()) {
         useToastStore
           .getState()
@@ -74,7 +79,7 @@ export const useLobby = () => {
           );
         return false;
       }
-      networkClient.createRoom(roomName.trim(), maxPlayers, timeOfDay);
+      networkClient.createRoom(roomName.trim(), maxPlayers, timeOfDay, targetKills);
       setShowCreateModal(false);
       return true;
     },

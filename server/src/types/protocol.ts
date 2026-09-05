@@ -186,6 +186,9 @@ export interface RoomPlayer {
   isReady: boolean;
   isHost: boolean;
   score: number;
+  kills: number;
+  deaths: number;
+  respawnCountdown?: number;
 }
 
 export type TimeOfDay = 'DAY' | 'NIGHT';
@@ -196,6 +199,7 @@ export interface RoomInfo {
   status: 'LOBBY' | 'IN_GAME' | 'FINISHED';
   players: RoomPlayer[];
   maxPlayers: number;
+  targetKills: number;
   windAngle: number;
   windSpeed: number;
   timeOfDay: TimeOfDay;
@@ -203,7 +207,7 @@ export interface RoomInfo {
 
 // Client to Server Message
 export type ClientMessage =
-  | { type: 'CREATE_ROOM'; roomName: string; playerName: string; shipClass: ShipClass; maxPlayers?: number; timeOfDay?: TimeOfDay | 'RANDOM' }
+  | { type: 'CREATE_ROOM'; roomName: string; playerName: string; shipClass: ShipClass; maxPlayers?: number; targetKills?: number; timeOfDay?: TimeOfDay | 'RANDOM' }
   | { type: 'JOIN_ROOM'; roomId: string; playerName: string; shipClass: ShipClass }
   | { type: 'LEAVE_ROOM' }
   | { type: 'SELECT_SHIP'; shipClass: ShipClass }
@@ -246,6 +250,14 @@ export type ServerMessage =
       type: 'SHIP_SUNK';
       shipId: string;
       killerId?: string;
+    }
+  | {
+      type: 'SHIP_RESPAWNED';
+      shipId: string;
+      x: number;
+      z: number;
+      rotationY: number;
+      health: number;
     }
   | {
       type: 'GAME_OVER';

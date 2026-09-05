@@ -1,12 +1,27 @@
 @import "tailwindcss";
 
 @layer base {
-  body {
-    font-family: 'IM Fell English', Georgia, serif;
-    background-color: #05080e;
-    color: #e6ded1;
+  html, body, #root {
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    margin: 0;
+    padding: 0;
+    overflow: hidden !important;
+    overscroll-behavior: none !important;
+    -webkit-overflow-scrolling: auto;
+    touch-action: none;
     user-select: none;
     -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  body {
+    font-family: 'IM Fell English', Georgia, serif;
+    background-color: #0b1626;
+    color: #f5eedf;
+    position: fixed;
+    inset: 0;
   }
   
   h1, h2, h3, h4, .font-cinzel {
@@ -31,36 +46,39 @@
 }
 
 /* ==========================================================================
-   AUTHENTIC 18TH CENTURY PIRATE & MARITIME SURFACES
+   AUTHENTIC 18TH CENTURY PIRATE & MARITIME SURFACES (HIGH CONTRAST)
    ========================================================================== */
 
-/* Dark Weathered Oak & Mahogany Timber Plank */
+/* Dark Weathered Oak & Mahogany Timber Plank with Luminous Brass Trim */
 .pirate-panel {
-  background: radial-gradient(circle at 50% 0%, rgba(35, 25, 17, 0.95) 0%, rgba(16, 12, 9, 0.96) 100%);
-  border: 1px solid rgba(212, 175, 55, 0.35);
+  background: linear-gradient(180deg, rgba(28, 40, 58, 0.94) 0%, rgba(16, 24, 38, 0.97) 100%);
+  border: 1.5px solid rgba(245, 180, 50, 0.65);
   box-shadow: 
-    0 12px 36px rgba(0, 0, 0, 0.85),
-    inset 0 1px 0 rgba(255, 235, 165, 0.15),
-    inset 0 0 16px rgba(0, 0, 0, 0.6);
+    0 12px 32px rgba(0, 0, 0, 0.7),
+    0 0 14px rgba(245, 158, 11, 0.15),
+    inset 0 1px 0 rgba(255, 235, 165, 0.3),
+    inset 0 0 16px rgba(0, 0, 0, 0.4);
 }
 
-/* Aged Sea-Chart Parchment Backdrop */
+/* Aged Sea-Chart Parchment Backdrop with Warm Maritime Glow */
 .pirate-parchment {
   background: 
-    radial-gradient(circle at center, rgba(32, 24, 16, 0.94) 0%, rgba(18, 14, 10, 0.98) 100%);
-  border: 1px solid rgba(197, 155, 39, 0.32);
+    radial-gradient(ellipse at 50% 20%, rgba(32, 45, 66, 0.95) 0%, rgba(18, 27, 42, 0.98) 100%);
+  border: 1.5px solid rgba(245, 180, 50, 0.65);
   box-shadow: 
-    0 8px 30px rgba(0, 0, 0, 0.7),
-    inset 0 0 40px rgba(0, 0, 0, 0.5);
+    0 10px 30px rgba(0, 0, 0, 0.65),
+    0 0 18px rgba(245, 158, 11, 0.15),
+    inset 0 1px 0 rgba(255, 235, 165, 0.35),
+    inset 0 0 24px rgba(0, 0, 0, 0.35);
 }
 
 /* Heavy Carved Deck Timber Plaque for HUD */
 .naval-plaque {
-  background: linear-gradient(180deg, rgba(28, 20, 14, 0.88) 0%, rgba(14, 10, 7, 0.92) 100%);
-  border: 1px solid rgba(212, 175, 55, 0.35);
+  background: linear-gradient(180deg, rgba(26, 38, 56, 0.92) 0%, rgba(15, 23, 36, 0.96) 100%);
+  border: 1.5px solid rgba(245, 180, 50, 0.6);
   box-shadow: 
-    0 4px 16px rgba(0, 0, 0, 0.6),
-    inset 0 1px 1px rgba(245, 210, 120, 0.2);
+    0 6px 20px rgba(0, 0, 0, 0.6),
+    inset 0 1px 1px rgba(255, 235, 165, 0.3);
 }
 
 /* Polished Burnished Brass Border Frame with Rivets */
@@ -104,10 +122,10 @@
 /* Antique Chart Grid Overlay */
 .cartography-grid {
   background-image: 
-    radial-gradient(rgba(212, 175, 55, 0.08) 1px, transparent 1px),
-    linear-gradient(to right, rgba(212, 175, 55, 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(212, 175, 55, 0.03) 1px, transparent 1px);
-  background-size: 40px 40px, 40px 40px, 40px 40px;
+    radial-gradient(rgba(245, 180, 50, 0.18) 1.5px, transparent 1.5px),
+    linear-gradient(to right, rgba(212, 175, 55, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(212, 175, 55, 0.08) 1px, transparent 1px);
+  background-size: 44px 44px, 44px 44px, 44px 44px;
 }
 
 /* Gunpowder Ember Matchlock Glow */

@@ -184,6 +184,21 @@ class NetworkClient {
         store.addCombatLog(`💥 ${name} was shattered and sent to Davy Jones' locker!`, 'sink');
         break;
       }
+      case 'SHIP_RESPAWNED': {
+        navalAudio.playShipBell();
+        const shipId = msg.shipId as string;
+        const player = store.currentRoom?.players.find((p) => p.id === shipId);
+        const name = player?.name || 'Vessel';
+
+        if (shipId === store.selfId) {
+          store.setLocalSail('HALF_SAIL');
+          store.setLocalRudder(0);
+          store.addCombatLog(`⚓ Your warship has refitted and returned to the line of battle!`, 'info');
+        } else {
+          store.addCombatLog(`⚓ Captain ${name} has refitted and returned to the line of battle!`, 'info');
+        }
+        break;
+      }
       case 'GAME_OVER': {
         navalAudio.playShipBell();
         store.setWinner((msg.winnerName as string) || 'Victor');
@@ -218,7 +233,8 @@ class NetworkClient {
   public createRoom(
     roomName: string,
     maxPlayers: number = 4,
-    timeOfDay: 'DAY' | 'NIGHT' | 'RANDOM' = 'DAY'
+    timeOfDay: 'DAY' | 'NIGHT' | 'RANDOM' = 'DAY',
+    targetKills: number = 5
   ): void {
     const store = useGameStore.getState();
 
@@ -238,6 +254,7 @@ class NetworkClient {
       playerName: store.playerName,
       shipClass: store.selectedShip,
       maxPlayers,
+      targetKills,
       timeOfDay,
     });
   }

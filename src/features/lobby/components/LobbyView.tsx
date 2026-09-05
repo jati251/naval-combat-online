@@ -39,10 +39,11 @@ export const LobbyView: React.FC = () => {
   } = useLobby();
 
   return (
-    <div className="w-full h-full min-h-screen bg-[#05080e] text-[#e8ded1] flex flex-col items-center justify-between p-3 sm:p-6 relative overflow-x-hidden overflow-y-auto">
-      {/* Background Ambience: Deep Stormy Ocean Map Table */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,#0b1e32_0%,#05080e_80%)] pointer-events-none" />
-      <div className="absolute inset-0 cartography-grid opacity-30 pointer-events-none" />
+    <div className="w-full h-full min-h-screen bg-[#0b1626] text-[#f7f0e4] flex flex-col items-center justify-between p-3 sm:p-6 relative overflow-x-hidden overflow-y-auto">
+      {/* Background Ambience: Deep Regal Ocean Map Table with Officer's Lantern Glow */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,#1d385c_0%,#11233a_55%,#091424_100%)] pointer-events-none" />
+      <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-[800px] h-[320px] bg-amber-500/15 blur-[90px] rounded-full pointer-events-none" />
+      <div className="absolute inset-0 cartography-grid opacity-45 pointer-events-none" />
 
       {/* Top Header Bar */}
       <LobbyHeader

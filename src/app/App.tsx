@@ -15,7 +15,7 @@ export const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="w-screen h-screen overflow-hidden bg-[#05080e] text-[#e8ded1] relative">
+    <div className="fixed inset-0 w-full h-full h-[100dvh] overflow-hidden bg-[#0b1626] text-[#f5eedf] select-none touch-none">
       <OrientationLockOverlay />
       <ToastContainer />
       {stage === 'LOBBY' && <LobbyView />}
