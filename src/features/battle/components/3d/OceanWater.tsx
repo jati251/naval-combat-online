@@ -7,12 +7,12 @@ interface OceanWaterProps {
   size?: number;
 }
 
-export const OceanWater: React.FC<OceanWaterProps> = ({ size = 680 }) => {
+export const OceanWater: React.FC<OceanWaterProps> = ({ size = 1600 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
 
-  // Highly optimized 40x40 vertex grid (1,600 vertices - buttery smooth 120 FPS)
+  // Expansive 50x50 vertex grid across 1600m (flawless seamless horizon, zero edge artifacts)
   const geometry = useMemo(() => {
-    const geo = new THREE.PlaneGeometry(size, size, 40, 40);
+    const geo = new THREE.PlaneGeometry(size, size, 50, 50);
     geo.rotateX(-Math.PI / 2);
     return geo;
   }, [size]);
@@ -154,9 +154,9 @@ export const OceanWater: React.FC<OceanWaterProps> = ({ size = 680 }) => {
           float crestBreak = smoothstep(1.05, 1.38, vWaveHeight);
           vec3 finalColor = mix(baseShaded, uFoamColor, crestBreak * 0.45);
 
-          // 6. Horizon Sky Fog (seamless blend matching scene fog 40m - 320m)
+          // 6. Horizon Sky Fog (seamless blend matching scene fog 50m - 440m)
           float dist = length(vWorldPosition - cameraPosition);
-          float horizonFog = smoothstep(40.0, 320.0, dist);
+          float horizonFog = smoothstep(50.0, 440.0, dist);
           finalColor = mix(finalColor, uSkyHorizonColor, horizonFog);
 
           gl_FragColor = vec4(finalColor, 1.0);

@@ -10,6 +10,7 @@ import { SpeedRudderControl } from './SpeedRudderControl';
 import { BroadsideGauges } from './BroadsideGauges';
 import { AimCrosshair } from './AimCrosshair';
 import { CombatLogFeed } from './CombatLogFeed';
+import { BoundaryWarningAlert } from './BoundaryWarningAlert';
 
 export const BattleHUD: React.FC = () => {
   const { changeSail, setRudder, fireBattery } = useShipControls();
@@ -74,8 +75,9 @@ export const BattleHUD: React.FC = () => {
         onLeave={handleLeave}
       />
 
-      {/* --- CENTER SECTION: AIMING RETICLE --- */}
+      {/* --- CENTER SECTION: AIMING RETICLE & BOUNDARY WARNING --- */}
       <AimCrosshair isAiming={isAiming} aimDirection={aimDirection} />
+      <BoundaryWarningAlert />
 
       {/* Sunk Notice Overlay */}
       {selfShip?.isSunk && (

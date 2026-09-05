@@ -7,6 +7,9 @@ import { ShipModel3D } from './ShipModel3D';
 import { CannonSystem3D } from './CannonSystem3D';
 import { Environment3D, FOG_COLOR, MAX_VIEW_DISTANCE, NAMEPLATE_CULL_DISTANCE } from './Environment3D';
 import { Islands3D } from './Islands3D';
+import { MapBoundary3D } from './MapBoundary3D';
+import { CaribbeanSeabirds3D } from './CaribbeanSeabirds3D';
+import { OceanAtmosphereParticles3D } from './OceanAtmosphereParticles3D';
 import { useGameStore } from '@/stores/useGameStore';
 import { useBattleCamera } from '../../hooks/useBattleCamera';
 import type { ShipSnapshot } from '@/types/game';
@@ -135,6 +138,9 @@ export const NavalCanvas: React.FC = () => {
         <Environment3D />
         <OceanWater />
         <Islands3D />
+        <MapBoundary3D />
+        <CaribbeanSeabirds3D />
+        <OceanAtmosphereParticles3D />
         <CameraRig />
 
         {/* Render Ships */}

@@ -3,6 +3,8 @@ import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { type ShipConfig, type SailState, SHIP_PRESETS } from '@/types/game';
 
+import { createWoodPlankTexture, createSailClothTexture } from './textures/proceduralTextures';
+
 interface ShipModel3DProps {
   config?: ShipConfig;
   shipClass?: string;
@@ -27,6 +29,11 @@ export const ShipModel3D: React.FC<ShipModel3DProps> = ({
 
   const mastCount = id === 'sloop' ? 1 : id === 'brig' ? 2 : 3;
 
+  // Procedural Canvas Textures for High-Fidelity Naval Materials
+  const hullTexture = useMemo(() => createWoodPlankTexture(hullColor, '#1f130b', 8), [hullColor]);
+  const deckTexture = useMemo(() => createWoodPlankTexture('#a16207', '#451a03', 10), []);
+  const sailTexture = useMemo(() => createSailClothTexture(sailColor), [sailColor]);
+
   const mastPositions = useMemo(() => {
     if (mastCount === 1) return [0];
     if (mastCount === 2) return [-length * 0.22, length * 0.18];
@@ -46,127 +53,197 @@ export const ShipModel3D: React.FC<ShipModel3DProps> = ({
   useFrame((state) => {
     const t = state.clock.getElapsedTime();
     if (flagRef.current) {
-      flagRef.current.rotation.y = Math.sin(t * 8) * 0.2;
-      flagRef.current.rotation.z = Math.cos(t * 6) * 0.12;
+      flagRef.current.rotation.y = Math.sin(t * 8) * 0.22;
+      flagRef.current.rotation.z = Math.cos(t * 6) * 0.14;
     }
     if (rudderMeshRef.current) {
       rudderMeshRef.current.rotation.y = -rudderAngle * 0.55;
     }
   });
 
-  const sailScaleY = sailState === 'ANCHOR' ? 0.2 : sailState === 'HALF_SAIL' ? 0.6 : 1.0;
+  const sailScaleY = sailState === 'ANCHOR' ? 0.2 : sailState === 'HALF_SAIL' ? 0.65 : 1.0;
 
   return (
     <group>
-      {/* Main Wood Hull (Deep, seaworthy 3.6m hull) */}
+      {/* 1. Main Wood Hull with Procedural Timber Planks */}
       <mesh position={[0, 1.2, 0]} castShadow receiveShadow>
         <boxGeometry args={[width, 3.6, length]} />
-        <meshStandardMaterial color={hullColor} roughness={0.65} metalness={0.08} />
+        <meshStandardMaterial map={hullTexture} roughness={0.65} metalness={0.08} />
       </mesh>
 
-      {/* Gold/Wood Trim Gunwale */}
-      <mesh position={[0, 3.0, 0]} castShadow receiveShadow>
-        <boxGeometry args={[width + 0.3, 0.3, length + 0.4]} />
+      {/* 2. Gilded Trim Gunwale Bulwarks */}
+      <mesh position={[0, 3.05, 0]} castShadow receiveShadow>
+        <boxGeometry args={[width + 0.35, 0.35, length + 0.4]} />
         <meshStandardMaterial color={trimColor} roughness={0.35} metalness={0.45} />
       </mesh>
 
-      {/* Pointed Bow / Front Protrusion */}
+      {/* 3. Sculpted Bow / Raked Stem */}
       <mesh position={[0, 1.3, length * 0.5 + 1.2]} rotation={[Math.PI / 4, 0, 0]} castShadow receiveShadow>
         <coneGeometry args={[width * 0.5, 3.6, 4]} />
-        <meshStandardMaterial color={hullColor} roughness={0.65} />
+        <meshStandardMaterial map={hullTexture} roughness={0.65} />
       </mesh>
 
-      {/* Bowsprit Spar Pole */}
-      <mesh position={[0, 3.2, length * 0.5 + 2.5]} rotation={[0.4, 0, 0]} castShadow>
-        <cylinderGeometry args={[0.1, 0.15, 4.5, 8]} />
-        <meshStandardMaterial color="#4a2511" roughness={0.8} />
+      {/* 4. Carved Gilded Bow Figurehead */}
+      <mesh position={[0, 2.6, length * 0.5 + 2.2]} rotation={[-0.4, 0, 0]} castShadow>
+        <coneGeometry args={[0.35, 1.1, 5]} />
+        <meshStandardMaterial color="#f59e0b" roughness={0.3} metalness={0.8} />
       </mesh>
 
-      {/* Raised Main Deck Planks */}
-      <mesh position={[0, 2.85, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      {/* 5. Bowsprit Spar Pole */}
+      <mesh position={[0, 3.2, length * 0.5 + 2.8]} rotation={[0.38, 0, 0]} castShadow>
+        <cylinderGeometry args={[0.1, 0.18, 5.2, 8]} />
+        <meshStandardMaterial color="#382013" roughness={0.8} />
+      </mesh>
+
+      {/* 6. Main Deck Planks with Real Woodgrain */}
+      <mesh position={[0, 2.86, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[width * 0.88, length * 0.92]} />
-        <meshStandardMaterial color="#b47b48" roughness={0.8} />
+        <meshStandardMaterial map={deckTexture} roughness={0.75} />
       </mesh>
 
-      {/* Stern Cabin (Raised quarterdeck) */}
-      <mesh position={[0, 3.7, -length * 0.38]} castShadow receiveShadow>
-        <boxGeometry args={[width * 0.9, 1.7, length * 0.24]} />
-        <meshStandardMaterial color={isEnemy ? '#881337' : '#1e3a5f'} roughness={0.6} />
-      </mesh>
+      {/* 7. Raised Quarterdeck Captain's Cabin */}
+      <group position={[0, 3.7, -length * 0.38]}>
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[width * 0.92, 1.7, length * 0.25]} />
+          <meshStandardMaterial color={isEnemy ? '#881337' : '#1e3a5f'} map={hullTexture} roughness={0.6} />
+        </mesh>
 
-      {/* Rudder */}
+        {/* Leaded-Glass Cabin Windows on Stern */}
+        {[-width * 0.28, -width * 0.1, width * 0.1, width * 0.28].map((wx, wIdx) => (
+          <mesh key={`win-${wIdx}`} position={[wx, 0.1, -length * 0.126]}>
+            <planeGeometry args={[width * 0.14, 0.7]} />
+            <meshStandardMaterial
+              color="#fef08a"
+              emissive="#f59e0b"
+              emissiveIntensity={0.7}
+              roughness={0.2}
+            />
+          </mesh>
+        ))}
+
+        {/* Ornate Stern Brass Lantern */}
+        <group position={[0, 0.9, -length * 0.14]}>
+          <mesh castShadow>
+            <cylinderGeometry args={[0.12, 0.18, 0.45, 6]} />
+            <meshStandardMaterial
+              color="#fbbf24"
+              emissive="#f59e0b"
+              emissiveIntensity={1.2}
+              metalness={0.8}
+            />
+          </mesh>
+          <pointLight color="#f59e0b" intensity={0.6} distance={6} decay={2} />
+        </group>
+      </group>
+
+      {/* 8. Steerable Rudder Blade */}
       <group position={[0, 0.6, -length * 0.5]}>
         <mesh ref={rudderMeshRef} position={[0, 0, -0.4]} castShadow>
           <boxGeometry args={[0.18, 2.4, 0.9]} />
-          <meshStandardMaterial color="#382013" />
+          <meshStandardMaterial color="#2d170b" roughness={0.85} />
         </mesh>
       </group>
 
-      {/* Cannons on Port and Starboard Sides */}
+      {/* 9. Broadside Cannons with Wooden Carriages */}
       {cannonPositions.map((posZ, idx) => (
         <group key={`cannons-${idx}`}>
           {/* Port cannon barrel */}
-          <mesh position={[-width * 0.5 - 0.3, 2.65, posZ]} rotation={[0, 0, Math.PI / 2]} castShadow>
-            <cylinderGeometry args={[0.12, 0.16, 1.1, 8]} />
-            <meshStandardMaterial color="#1f2228" metalness={0.85} roughness={0.25} />
-          </mesh>
+          <group position={[-width * 0.5 - 0.25, 2.65, posZ]}>
+            <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+              <cylinderGeometry args={[0.12, 0.17, 1.2, 8]} />
+              <meshStandardMaterial color="#18181b" metalness={0.9} roughness={0.2} />
+            </mesh>
+            {/* Wooden gun carriage block */}
+            <mesh position={[0.25, -0.15, 0]}>
+              <boxGeometry args={[0.35, 0.25, 0.45]} />
+              <meshStandardMaterial color="#451a03" />
+            </mesh>
+          </group>
+
           {/* Starboard cannon barrel */}
-          <mesh position={[width * 0.5 + 0.3, 2.65, posZ]} rotation={[0, 0, -Math.PI / 2]} castShadow>
-            <cylinderGeometry args={[0.12, 0.16, 1.1, 8]} />
-            <meshStandardMaterial color="#1f2228" metalness={0.85} roughness={0.25} />
-          </mesh>
+          <group position={[width * 0.5 + 0.25, 2.65, posZ]}>
+            <mesh rotation={[0, 0, -Math.PI / 2]} castShadow>
+              <cylinderGeometry args={[0.12, 0.17, 1.2, 8]} />
+              <meshStandardMaterial color="#18181b" metalness={0.9} roughness={0.2} />
+            </mesh>
+            {/* Wooden gun carriage block */}
+            <mesh position={[-0.25, -0.15, 0]}>
+              <boxGeometry args={[0.35, 0.25, 0.45]} />
+              <meshStandardMaterial color="#451a03" />
+            </mesh>
+          </group>
         </group>
       ))}
 
-      {/* Masts and Sails */}
+      {/* 10. Masts, Rigging Lines, and Textured Sails */}
       {mastPositions.map((mastZ, mIdx) => {
-        const mastHeight = length * 0.75 + (mIdx === 1 ? 2 : 0);
+        const mastHeight = length * 0.75 + (mIdx === 1 ? 2.2 : 0);
         return (
           <group key={`mast-${mIdx}`} position={[0, 2.9, mastZ]}>
-            {/* Mast Pole */}
+            {/* Wooden Mast Trunk */}
             <mesh position={[0, mastHeight * 0.5, 0]} castShadow receiveShadow>
               <cylinderGeometry args={[0.16, 0.28, mastHeight, 8]} />
-              <meshStandardMaterial color="#4a2511" roughness={0.8} />
+              <meshStandardMaterial color="#382013" roughness={0.8} />
+            </mesh>
+
+            {/* Standing Rigging Shrouds (Rope Stays to Port & Starboard Gunwales) */}
+            <mesh position={[-width * 0.38, mastHeight * 0.45, 0]} rotation={[0, 0, -0.18]}>
+              <cylinderGeometry args={[0.02, 0.02, mastHeight * 0.95, 4]} />
+              <meshBasicMaterial color="#1c1917" />
+            </mesh>
+            <mesh position={[width * 0.38, mastHeight * 0.45, 0]} rotation={[0, 0, 0.18]}>
+              <cylinderGeometry args={[0.02, 0.02, mastHeight * 0.95, 4]} />
+              <meshBasicMaterial color="#1c1917" />
             </mesh>
 
             {/* Lower Yardarm & Sail */}
             <group position={[0, mastHeight * 0.45, 0]}>
-              <mesh position={[0, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+              <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
                 <cylinderGeometry args={[0.08, 0.08, width * 1.5, 8]} />
-                <meshStandardMaterial color="#2d1c12" />
+                <meshStandardMaterial color="#2d1c12" roughness={0.8} />
               </mesh>
-              <mesh position={[0, -mastHeight * 0.16 * sailScaleY, 0.2]} scale={[1, sailScaleY, 1]} castShadow receiveShadow>
+              <mesh
+                position={[0, -mastHeight * 0.16 * sailScaleY, 0.2]}
+                scale={[1, sailScaleY, 1]}
+                castShadow
+                receiveShadow
+              >
                 <planeGeometry args={[width * 1.4, mastHeight * 0.32]} />
-                <meshStandardMaterial color={sailColor} side={THREE.DoubleSide} roughness={0.85} />
+                <meshStandardMaterial map={sailTexture} side={THREE.DoubleSide} roughness={0.85} />
               </mesh>
             </group>
 
             {/* Upper Yardarm & Top Sail */}
             <group position={[0, mastHeight * 0.82, 0]}>
-              <mesh position={[0, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+              <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
                 <cylinderGeometry args={[0.06, 0.06, width * 1.1, 8]} />
-                <meshStandardMaterial color="#2d1c12" />
+                <meshStandardMaterial color="#2d1c12" roughness={0.8} />
               </mesh>
-              <mesh position={[0, -mastHeight * 0.12 * sailScaleY, 0.15]} scale={[1, sailScaleY, 1]} castShadow receiveShadow>
+              <mesh
+                position={[0, -mastHeight * 0.12 * sailScaleY, 0.15]}
+                scale={[1, sailScaleY, 1]}
+                castShadow
+                receiveShadow
+              >
                 <planeGeometry args={[width * 1.0, mastHeight * 0.24]} />
-                <meshStandardMaterial color={sailColor} side={THREE.DoubleSide} roughness={0.85} />
+                <meshStandardMaterial map={sailTexture} side={THREE.DoubleSide} roughness={0.85} />
               </mesh>
             </group>
 
-            {/* Crow's Nest Platform */}
+            {/* Crow's Nest Lookout Platform */}
             <mesh position={[0, mastHeight * 0.65, 0]} castShadow receiveShadow>
-              <cylinderGeometry args={[0.5, 0.4, 0.4, 8]} />
-              <meshStandardMaterial color="#1a110a" />
+              <cylinderGeometry args={[0.5, 0.4, 0.45, 8]} />
+              <meshStandardMaterial color="#1a110a" roughness={0.85} />
             </mesh>
 
-            {/* Masthead Flag */}
+            {/* Masthead Banner Flag */}
             {mIdx === mastPositions.length - 1 && (
-              <mesh ref={flagRef} position={[0, mastHeight + 0.4, -0.6]} rotation={[0, 0, 0]} castShadow>
-                <planeGeometry args={[1.2, 0.65]} />
+              <mesh ref={flagRef} position={[0, mastHeight + 0.45, -0.6]} castShadow>
+                <planeGeometry args={[1.3, 0.7]} />
                 <meshStandardMaterial
-                  color={isEnemy ? '#b91c1c' : '#1e3a8a'}
+                  color={isEnemy ? '#dc2626' : '#2563eb'}
                   side={THREE.DoubleSide}
-                  roughness={0.7}
+                  roughness={0.65}
                 />
               </mesh>
             )}
