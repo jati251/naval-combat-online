@@ -3,20 +3,20 @@ import { AlertTriangle, Compass } from 'lucide-react';
 import { useGameStore } from '@/stores/useGameStore';
 import { ARENA_RADIUS } from '../3d/MapBoundary3D';
 
-export const BoundaryWarningAlert: React.FC = () => {
-  const ships = useGameStore((s) => s.ships);
-  const selfId = useGameStore((s) => s.selfId);
-  const selfShip = ships.find((s) => s.id === selfId);
+export const BoundaryWarningAlert: React.FC = React.memo(() => {
+  const boundaryState = useGameStore((s) => {
+    const selfShip = s.ships.find((ship) => ship.id === s.selfId);
+    if (!selfShip || selfShip.isSunk) return null;
+    const dist = Math.hypot(selfShip.x, selfShip.z);
+    if (dist < 420) return null;
+    const remaining = Math.max(0, Math.round(ARENA_RADIUS - dist));
+    const isCritical = remaining < 30;
+    return { remaining, isCritical };
+  });
 
-  if (!selfShip || selfShip.isSunk) return null;
+  if (!boundaryState) return null;
 
-  const dist = Math.hypot(selfShip.x, selfShip.z);
-  const WARNING_THRESHOLD = 420;
-
-  if (dist < WARNING_THRESHOLD) return null;
-
-  const remaining = Math.max(0, Math.round(ARENA_RADIUS - dist));
-  const isCritical = remaining < 30;
+  const { remaining, isCritical } = boundaryState;
 
   return (
     <div className="absolute top-28 left-1/2 -translate-x-1/2 z-40 pointer-events-none animate-bounce">
@@ -43,4 +43,4 @@ export const BoundaryWarningAlert: React.FC = () => {
       </div>
     </div>
   );
-};
+});

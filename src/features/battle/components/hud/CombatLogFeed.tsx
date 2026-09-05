@@ -5,7 +5,7 @@ interface CombatLogFeedProps {
   logs: CombatLog[];
 }
 
-export const CombatLogFeed: React.FC<CombatLogFeedProps> = ({ logs }) => {
+export const CombatLogFeed: React.FC<CombatLogFeedProps> = React.memo(({ logs }) => {
   if (logs.length === 0) return null;
 
   return (
@@ -28,4 +28,4 @@ export const CombatLogFeed: React.FC<CombatLogFeedProps> = ({ logs }) => {
       ))}
     </div>
   );
-};
+});

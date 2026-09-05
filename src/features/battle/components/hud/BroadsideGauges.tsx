@@ -8,7 +8,7 @@ interface BroadsideGaugesProps {
   onFireBattery: () => void;
 }
 
-export const BroadsideGauges: React.FC<BroadsideGaugesProps> = ({
+export const BroadsideGauges: React.FC<BroadsideGaugesProps> = React.memo(({
   portProgress,
   stbdProgress,
   aimDirection,
@@ -79,4 +79,4 @@ export const BroadsideGauges: React.FC<BroadsideGaugesProps> = ({
       <div className="text-[9px] text-slate-500 font-mono">HOLD Q / E TO AIM BROADSIDE</div>
     </div>
   );
-};
+});

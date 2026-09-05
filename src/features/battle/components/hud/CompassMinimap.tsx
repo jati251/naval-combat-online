@@ -12,7 +12,7 @@ interface CompassMinimapProps {
   windSpeed: number;
 }
 
-export const CompassMinimap: React.FC<CompassMinimapProps> = ({
+export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({
   selfShip,
   ships,
   selfId,
@@ -109,4 +109,4 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = ({
       </div>
     </div>
   );
-};
+});

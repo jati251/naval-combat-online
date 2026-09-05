@@ -10,7 +10,7 @@ interface SpeedRudderControlProps {
   onSetRudder: (value: number) => void;
 }
 
-export const SpeedRudderControl: React.FC<SpeedRudderControlProps> = ({
+export const SpeedRudderControl: React.FC<SpeedRudderControlProps> = React.memo(({
   localSail,
   speedKnots,
   localRudder,
@@ -92,4 +92,4 @@ export const SpeedRudderControl: React.FC<SpeedRudderControlProps> = ({
       <div className="text-[9px] text-slate-500 font-mono">STEER: A / D KEY</div>
     </div>
   );
-};
+});

@@ -24,6 +24,8 @@ export const ShipModel3D: React.FC<ShipModel3DProps> = React.memo(({
 
   const flagRef = useRef<THREE.Mesh>(null);
   const rudderMeshRef = useRef<THREE.Mesh>(null);
+  const rudderAngleRef = useRef(rudderAngle);
+  rudderAngleRef.current = rudderAngle;
 
   const { hullColor, trimColor, sailColor, length, width, cannonsPerSide, id } = config;
 
@@ -57,7 +59,7 @@ export const ShipModel3D: React.FC<ShipModel3DProps> = React.memo(({
       flagRef.current.rotation.z = Math.cos(t * 6) * 0.14;
     }
     if (rudderMeshRef.current) {
-      rudderMeshRef.current.rotation.y = -rudderAngle * 0.55;
+      rudderMeshRef.current.rotation.y = -rudderAngleRef.current * 0.55;
     }
   });
 
@@ -256,7 +258,6 @@ export const ShipModel3D: React.FC<ShipModel3DProps> = React.memo(({
   return (
     prev.shipClass === next.shipClass &&
     prev.sailState === next.sailState &&
-    prev.isEnemy === next.isEnemy &&
-    Math.abs((prev.rudderAngle ?? 0) - (next.rudderAngle ?? 0)) < 0.05
+    prev.isEnemy === next.isEnemy
   );
 });

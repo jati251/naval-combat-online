@@ -85,6 +85,8 @@ export interface ShipSnapshot {
   x: number;
   y: number;
   z: number;
+  vx?: number;
+  vz?: number;
   rotationY: number; // yaw
   pitch: number;
   roll: number;

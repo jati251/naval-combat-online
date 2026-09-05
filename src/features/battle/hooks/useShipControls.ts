@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { useGameStore } from '@/stores/useGameStore';
 import { networkClient } from '@/services/networkClient';
@@ -26,7 +26,7 @@ export function useShipControls() {
   const lastNetworkSync = useRef(0);
   const keyPressTimers = useRef<{ [key: string]: number }>({});
 
-  const fireBattery = (side: 'port' | 'starboard') => {
+  const fireBattery = useCallback((side: 'port' | 'starboard') => {
     const store = useGameStore.getState();
     const selfShip = store.ships.find((s) => s.id === store.selfId);
     if (selfShip?.isSunk) return;
@@ -39,7 +39,7 @@ export function useShipControls() {
       networkClient.fireBroadside(side);
       triggerFireCooldown(side, config.reloadTime);
     }
-  };
+  }, [triggerFireCooldown]);
 
   useEffect(() => {
     // 1. Smooth Rudder Loop (Runs every frame for fluid wheel response)
@@ -169,17 +169,17 @@ export function useShipControls() {
     };
   }, [setLocalRudder, cycleSailState, setAimDirection, triggerFireCooldown]);
 
-  const changeSail = (sail: SailState) => {
+  const changeSail = useCallback((sail: SailState) => {
     navalAudio.playSailShift();
     setLocalSail(sail);
     networkClient.sendInput(-currentRudder.current, sail);
-  };
+  }, [setLocalSail]);
 
-  const setRudder = (rudder: number) => {
+  const setRudder = useCallback((rudder: number) => {
     currentRudder.current = rudder;
     setLocalRudder(rudder);
     networkClient.sendInput(-rudder, useGameStore.getState().localSail);
-  };
+  }, [setLocalRudder]);
 
   return { changeSail, setRudder, fireBattery };
 }

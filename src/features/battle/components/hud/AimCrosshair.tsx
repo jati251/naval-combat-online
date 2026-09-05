@@ -7,7 +7,7 @@ interface AimCrosshairProps {
   aimDirection: AimDirection;
 }
 
-export const AimCrosshair: React.FC<AimCrosshairProps> = ({ isAiming, aimDirection }) => {
+export const AimCrosshair: React.FC<AimCrosshairProps> = React.memo(({ isAiming, aimDirection }) => {
   if (!isAiming || aimDirection === 'none') return null;
 
   return (
@@ -24,4 +24,4 @@ export const AimCrosshair: React.FC<AimCrosshairProps> = ({ isAiming, aimDirecti
       </div>
     </div>
   );
-};
+});

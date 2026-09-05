@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useGameStore } from '@/stores/useGameStore';
 import { networkClient } from '@/services/networkClient';
 import { useShipControls } from '../../hooks/useShipControls';
@@ -41,19 +41,23 @@ export const BattleHUD: React.FC = () => {
   const aliveShips = ships.filter((s) => !s.isSunk);
   const sunkCount = ships.filter((s) => s.isSunk).length;
 
-  const handleLeave = () => {
+  const handleLeave = useCallback(() => {
     if (confirm('Return to port and abandon the engagement?')) {
       networkClient.leaveRoom();
     }
-  };
+  }, []);
 
-  const handleFire = () => {
+  const handleToggleMute = useCallback(() => {
+    setMuted(!isMuted);
+  }, [setMuted, isMuted]);
+
+  const handleFire = useCallback(() => {
     if (aimDirection === 'port' || aimDirection === 'starboard') {
       fireBattery(aimDirection);
     } else {
       fireBattery('starboard');
     }
-  };
+  }, [aimDirection, fireBattery]);
 
   return (
     <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-6 select-none z-20">
@@ -71,7 +75,7 @@ export const BattleHUD: React.FC = () => {
         sunkCount={sunkCount}
         ping={ping}
         isMuted={isMuted}
-        onToggleMute={() => setMuted(!isMuted)}
+        onToggleMute={handleToggleMute}
         onLeave={handleLeave}
       />
 

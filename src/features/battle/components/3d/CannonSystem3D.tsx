@@ -17,6 +17,8 @@ const cannonballMat = new THREE.MeshStandardMaterial({
   emissiveIntensity: 0.85,
 });
 
+const EMPTY_TRAJECTORY: number[] = [];
+
 export const CannonSystem3D: React.FC<CannonSystem3DProps> = React.memo(({ cannonballs }) => {
   const selfId = useGameStore((s) => s.selfId);
   const ships = useGameStore((s) => s.ships);
@@ -25,10 +27,10 @@ export const CannonSystem3D: React.FC<CannonSystem3DProps> = React.memo(({ canno
 
   const selfShip = ships.find((s) => s.id === selfId);
 
-  // Ballistic aiming arc trajectory (Black Flag style)
+  // Ballistic aiming arc trajectory (computed only when actively aiming)
   const trajectoryPoints = useMemo(() => {
     if (!isAiming || aimDirection === 'none' || !selfShip || selfShip.isSunk) {
-      return [];
+      return EMPTY_TRAJECTORY;
     }
 
     const pts: number[] = [];
@@ -54,7 +56,15 @@ export const CannonSystem3D: React.FC<CannonSystem3DProps> = React.memo(({ canno
     }
 
     return pts;
-  }, [isAiming, aimDirection, selfShip]);
+  }, [
+    isAiming,
+    aimDirection,
+    selfShip?.x,
+    selfShip?.y,
+    selfShip?.z,
+    selfShip?.rotationY,
+    selfShip?.isSunk,
+  ]);
 
   return (
     <group>

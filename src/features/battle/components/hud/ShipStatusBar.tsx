@@ -16,7 +16,7 @@ interface ShipStatusBarProps {
   onLeave: () => void;
 }
 
-export const ShipStatusBar: React.FC<ShipStatusBarProps> = ({
+export const ShipStatusBar: React.FC<ShipStatusBarProps> = React.memo(({
   shipName,
   shipClass,
   config,
@@ -105,4 +105,4 @@ export const ShipStatusBar: React.FC<ShipStatusBarProps> = ({
       </div>
     </div>
   );
-};
+});

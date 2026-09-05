@@ -34,6 +34,8 @@ export class GameRoom {
   private tickSeq: number = 0;
   private startTime: number = 0;
   private lastTickTime: number = 0;
+  private tickAccumulator: number = 0;
+  private readonly FIXED_DT: number = 1 / 30; // 33.333ms deterministic timestep
   private wasMultiplayer: boolean = false;
 
   // Broadcast and direct send callbacks
@@ -243,6 +245,7 @@ export class GameRoom {
     this.wasMultiplayer = this.players.size > 1;
     this.startTime = Date.now();
     this.lastTickTime = this.startTime;
+    this.tickAccumulator = 0;
     this.cannonballs = [];
     this.ships.clear();
 
@@ -297,58 +300,69 @@ export class GameRoom {
       this.sendDirect(playerId, startMsg);
     }
 
-    // Start 30Hz simulation loop
+    // Start 30Hz simulation loop (1000/30 ~ 33.3ms)
     this.tickTimer = setInterval(() => this.tick(), 1000 / 30);
     return true;
   }
 
   private tick(): void {
     const now = Date.now();
-    const dt = Math.min(0.1, (now - this.lastTickTime) / 1000);
+    const elapsed = Math.min(0.15, (now - this.lastTickTime) / 1000);
     this.lastTickTime = now;
-    const serverTime = (now - this.startTime) / 1000;
-    this.tickSeq++;
+    this.tickAccumulator += elapsed;
 
-    // Update each ship's physics
-    for (const ship of this.ships.values()) {
-      PhysicsEngine.updateShip(ship, dt, serverTime, this.windAngle, this.windSpeed);
-    }
+    let simulatedSteps = 0;
+    // Step deterministic physics at exactly FIXED_DT (30Hz)
+    while (this.tickAccumulator >= this.FIXED_DT && simulatedSteps < 4) {
+      this.tickAccumulator -= this.FIXED_DT;
+      simulatedSteps++;
+      this.tickSeq++;
+      const serverTime = (now - this.startTime) / 1000;
 
-    // Update cannonballs & check impacts
-    this.cannonballs = PhysicsEngine.updateCannonballs(
-      this.cannonballs,
-      this.ships,
-      dt,
-      serverTime,
-      (ball, hitShip) => {
-        hitShip.health = Math.max(0, hitShip.health - ball.damage);
+      // Update each ship's physics with deterministic FIXED_DT
+      for (const ship of this.ships.values()) {
+        PhysicsEngine.updateShip(ship, this.FIXED_DT, serverTime, this.windAngle, this.windSpeed);
+      }
 
-        this.broadcast(this.id, {
-          type: 'HIT_EVENT',
-          targetId: hitShip.id,
-          attackerId: ball.ownerId,
-          damage: ball.damage,
-          hitPos: [ball.x, ball.y, ball.z],
-          remainingHp: hitShip.health,
-        });
-
-        if (hitShip.health <= 0 && !hitShip.isSunk) {
-          hitShip.isSunk = true;
-          const killer = this.players.get(ball.ownerId);
-          if (killer) killer.score += 100;
+      // Update cannonballs & check impacts
+      this.cannonballs = PhysicsEngine.updateCannonballs(
+        this.cannonballs,
+        this.ships,
+        this.FIXED_DT,
+        serverTime,
+        (ball, hitShip) => {
+          hitShip.health = Math.max(0, hitShip.health - ball.damage);
 
           this.broadcast(this.id, {
-            type: 'SHIP_SUNK',
-            shipId: hitShip.id,
-            killerId: ball.ownerId,
+            type: 'HIT_EVENT',
+            targetId: hitShip.id,
+            attackerId: ball.ownerId,
+            damage: ball.damage,
+            hitPos: [ball.x, ball.y, ball.z],
+            remainingHp: hitShip.health,
           });
 
-          this.checkVictoryCondition();
-        }
-      }
-    );
+          if (hitShip.health <= 0 && !hitShip.isSunk) {
+            hitShip.isSunk = true;
+            const killer = this.players.get(ball.ownerId);
+            if (killer) killer.score += 100;
 
-    this.broadcastSnapshot();
+            this.broadcast(this.id, {
+              type: 'SHIP_SUNK',
+              shipId: hitShip.id,
+              killerId: ball.ownerId,
+            });
+
+            this.checkVictoryCondition();
+          }
+        }
+      );
+    }
+
+    // Broadcast snapshot whenever simulation stepped forward
+    if (simulatedSteps > 0) {
+      this.broadcastSnapshot();
+    }
   }
 
   public broadcastSnapshot(): void {
