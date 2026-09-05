@@ -10,38 +10,42 @@ export const ISLAND_LOD_DISTANCE = 160;
 export const NAMEPLATE_CULL_DISTANCE = 120;
 
 /**
- * Procedural 2D Soft Cumulus Cloud Canvas Texture
- * Generated once in memory (0.5ms) - lightweight, smooth, and painterly.
+ * Procedural 2D Feathery Cirrocumulus / Stratus Cloud Texture
+ * Wide, soft, painterly horizontal wisps that look realistic and majestic.
  */
 function createCloudSpriteTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
-  canvas.width = 256;
+  canvas.width = 512;
   canvas.height = 128;
   const ctx = canvas.getContext('2d');
   if (!ctx) return new THREE.CanvasTexture(canvas);
 
-  ctx.clearRect(0, 0, 256, 128);
+  ctx.clearRect(0, 0, 512, 128);
 
-  const drawPuff = (cx: number, cy: number, r: number, alpha: number) => {
-    const grad = ctx.createRadialGradient(cx, cy, r * 0.1, cx, cy, r);
+  // Helper to draw soft horizontal elliptical puffs
+  const drawWisp = (cx: number, cy: number, rx: number, ry: number, alpha: number) => {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(rx, ry);
+    const grad = ctx.createRadialGradient(0, 0, 0.05, 0, 0, 1.0);
     grad.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
-    grad.addColorStop(0.65, `rgba(242, 248, 255, ${alpha * 0.85})`);
+    grad.addColorStop(0.35, `rgba(255, 255, 255, ${alpha * 0.85})`);
+    grad.addColorStop(0.7, `rgba(240, 248, 255, ${alpha * 0.35})`);
     grad.addColorStop(1, 'rgba(235, 245, 255, 0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.arc(0, 0, 1, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
   };
 
-  // Base puffs (flat bottomed Caribbean cumulus)
-  drawPuff(60, 75, 42, 0.9);
-  drawPuff(110, 68, 52, 0.95);
-  drawPuff(160, 72, 46, 0.9);
-  drawPuff(198, 80, 36, 0.85);
-
-  // Top billows
-  drawPuff(98, 48, 38, 0.95);
-  drawPuff(142, 44, 42, 0.95);
+  // Multiple soft, horizontally stretched wisps composing an elegant Caribbean sky cloud
+  drawWisp(256, 64, 190, 32, 0.55);
+  drawWisp(200, 60, 130, 26, 0.65);
+  drawWisp(310, 68, 140, 24, 0.6);
+  drawWisp(140, 66, 95, 20, 0.45);
+  drawWisp(370, 62, 100, 20, 0.45);
+  drawWisp(256, 52, 110, 20, 0.7);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.needsUpdate = true;
@@ -50,8 +54,8 @@ function createCloudSpriteTexture(): THREE.CanvasTexture {
 
 /**
  * Standard Game Dev 2D Billboard Cloud Layer
- * High-altitude Caribbean cumulus clouds anchored around the camera.
- * Never encroaches on player ship, feather-light 0 GPU lag.
+ * High-altitude Caribbean wispy clouds floating in the upper troposphere (120m - 165m).
+ * Feather-light, zero visual clutter near the ship or HUD header.
  */
 const CaribbeanClouds2D: React.FC = () => {
   const texture = useMemo(() => createCloudSpriteTexture(), []);
@@ -65,18 +69,20 @@ const CaribbeanClouds2D: React.FC = () => {
       z: number;
       scaleX: number;
       scaleY: number;
+      opacity: number;
     }> = [];
-    const count = 12;
+    const count = 10;
     for (let i = 0; i < count; i++) {
-      const angle = (i / count) * Math.PI * 2 + (Math.random() * 0.25 - 0.12);
-      const dist = 260 + Math.random() * 60; // 260m - 320m distant perimeter
+      const angle = (i / count) * Math.PI * 2 + (Math.random() * 0.35 - 0.17);
+      const dist = 320 + Math.random() * 80; // Far on the horizon perimeter
       items.push({
         id: i,
         x: Math.cos(angle) * dist,
-        y: 65 + Math.random() * 25, // 65m - 90m high in the sky
+        y: 120 + Math.random() * 45, // Elevated high in the sky (120m - 165m)
         z: Math.sin(angle) * dist,
-        scaleX: 130 + Math.random() * 50,
-        scaleY: 48 + Math.random() * 20,
+        scaleX: 180 + Math.random() * 80, // Wide horizontal wisps
+        scaleY: 22 + Math.random() * 12,  // Flat vertical profile
+        opacity: 0.45 + Math.random() * 0.15,
       });
     }
     return items;
@@ -87,8 +93,8 @@ const CaribbeanClouds2D: React.FC = () => {
       // Keep cloud dome centered horizontally with the camera
       groupRef.current.position.x = state.camera.position.x;
       groupRef.current.position.z = state.camera.position.z;
-      // Majestic celestial rotation
-      groupRef.current.rotation.y += delta * 0.005;
+      // Gentle celestial drift
+      groupRef.current.rotation.y += delta * 0.003;
     }
   });
 
@@ -96,7 +102,7 @@ const CaribbeanClouds2D: React.FC = () => {
     <group ref={groupRef}>
       {cloudSprites.map((c) => (
         <sprite key={c.id} position={[c.x, c.y, c.z]} scale={[c.scaleX, c.scaleY, 1]}>
-          <spriteMaterial map={texture} transparent opacity={0.82} depthWrite={false} fog={false} />
+          <spriteMaterial map={texture} transparent opacity={c.opacity} depthWrite={false} fog={false} />
         </sprite>
       ))}
     </group>
@@ -104,7 +110,7 @@ const CaribbeanClouds2D: React.FC = () => {
 };
 
 /**
- * Ultra-Fast Caribbean Sky Dome
+ * Ultra-Fast Caribbean Sky Dome with Solar Corona Bloom
  * Centered on camera, 800m radius - never clipped by camera frustum.
  */
 const CaribbeanSkyDome: React.FC = () => {
@@ -136,13 +142,25 @@ const CaribbeanSkyDome: React.FC = () => {
           float h = max(0.0, dir.y);
 
           // Fast power gradient
-          vec3 sky = mix(uHorizonColor, uTopColor, pow(h, 0.5));
+          vec3 sky = mix(uHorizonColor, uTopColor, pow(h, 0.45));
 
-          // Golden midday sun disc
+          // Multi-layer Solar Bloom & Radiant Corona
           float sunDot = max(0.0, dot(dir, uSunPos));
-          float sunDisc = smoothstep(0.997, 0.9995, sunDot);
-          float sunGlow = pow(sunDot, 12.0) * 0.45;
-          sky += vec3(1.0, 0.96, 0.85) * (sunDisc * 2.2 + sunGlow);
+          
+          // 1. Brilliant white-hot sun disc
+          float sunDisc = smoothstep(0.9985, 0.9998, sunDot) * 3.5;
+          
+          // 2. Intense golden inner bloom corona
+          float innerCorona = pow(sunDot, 48.0) * 1.4;
+          
+          // 3. Wide atmospheric sunlight bloom sheen
+          float broadGlow = pow(sunDot, 6.0) * 0.45;
+          
+          vec3 sunLight = vec3(1.0, 0.98, 0.88) * sunDisc +
+                          vec3(1.0, 0.92, 0.65) * innerCorona +
+                          vec3(0.95, 0.88, 0.72) * broadGlow;
+
+          sky += sunLight;
 
           gl_FragColor = vec4(sky, 1.0);
         }

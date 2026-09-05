@@ -9,6 +9,7 @@ import { Environment3D, FOG_COLOR, MAX_VIEW_DISTANCE, NAMEPLATE_CULL_DISTANCE } 
 import { Islands3D } from './Islands3D';
 import { MapBoundary3D } from './MapBoundary3D';
 import { CaribbeanSeabirds3D } from './CaribbeanSeabirds3D';
+import { CaribbeanGodRays3D } from './CaribbeanGodRays3D';
 import { OceanAtmosphereParticles3D } from './OceanAtmosphereParticles3D';
 import { useGameStore } from '@/stores/useGameStore';
 import { useBattleCamera } from '../../hooks/useBattleCamera';
@@ -140,6 +141,7 @@ export const NavalCanvas: React.FC = () => {
         <Islands3D />
         <MapBoundary3D />
         <CaribbeanSeabirds3D />
+        <CaribbeanGodRays3D />
         <OceanAtmosphereParticles3D />
         <CameraRig />
 

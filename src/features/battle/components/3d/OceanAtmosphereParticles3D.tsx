@@ -90,12 +90,12 @@ export const OceanAtmosphereParticles3D: React.FC = () => {
       </bufferGeometry>
       <pointsMaterial
         map={texture}
-        size={1.6}
+        size={0.16}
         transparent
-        opacity={0.65}
+        opacity={0.42}
         depthWrite={false}
         blending={THREE.AdditiveBlending}
-        color="#bae6fd"
+        color="#fffbeb"
         fog={true}
       />
     </points>

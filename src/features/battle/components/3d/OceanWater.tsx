@@ -143,12 +143,13 @@ export const OceanWater: React.FC<OceanWaterProps> = ({ size = 1600 }) => {
           vec3 skyReflection = mix(vec3(0.22, 0.58, 0.88), vec3(0.68, 0.88, 1.0), fresnel);
           vec3 baseShaded = mix(waterColor + sss, skyReflection, fresnel * 0.42);
 
-          // 4. Blinn-Phong Sun Specular Glint (radiant midday sparkle)
+          // 4. Multi-Layer Sun Specular Reflection & Glistening Ocean Bloom
           vec3 halfVector = normalize(lightDir + viewDir);
           float NdotH = max(dot(normal, halfVector), 0.0);
-          float broadSheen = pow(NdotH, 32.0) * 0.35;
-          float sharpGlint = pow(NdotH, 180.0) * 1.1;
-          baseShaded += uSunColor * (broadSheen + sharpGlint);
+          float oceanBloomSheen = pow(NdotH, 14.0) * 0.45;     // Broad warm gold sheen
+          float specularCore = pow(NdotH, 64.0) * 0.85;        // Mid specular highlight
+          float diamondGlint = pow(NdotH, 280.0) * 2.6;        // Brilliant glistening sun diamond glint
+          baseShaded += uSunColor * (oceanBloomSheen + specularCore + diamondGlint);
 
           // 5. Natural Soft Wave Crest Foam (breaks naturally on highest swells, zero artifacts)
           float crestBreak = smoothstep(1.05, 1.38, vWaveHeight);
