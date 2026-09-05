@@ -34,9 +34,9 @@ export const SHIP_PRESETS: Record<ShipClass, ShipConfig> = {
     cannonDamage: 18,
     length: 12,
     width: 4,
-    hullColor: '#3d2516',
-    trimColor: '#c29d59',
-    sailColor: '#f1e7d0',
+    hullColor: '#5c3317',
+    trimColor: '#eab308',
+    sailColor: '#fffbeb',
   },
   brig: {
     id: 'brig',
@@ -52,9 +52,9 @@ export const SHIP_PRESETS: Record<ShipClass, ShipConfig> = {
     cannonDamage: 22,
     length: 18,
     width: 5.5,
-    hullColor: '#2b1b11',
-    trimColor: '#e0a845',
-    sailColor: '#e2d7c0',
+    hullColor: '#4a2511',
+    trimColor: '#f59e0b',
+    sailColor: '#f8fafc',
   },
   frigate: {
     id: 'frigate',
@@ -70,9 +70,9 @@ export const SHIP_PRESETS: Record<ShipClass, ShipConfig> = {
     cannonDamage: 26,
     length: 24,
     width: 7.2,
-    hullColor: '#1c140d',
-    trimColor: '#d4af37',
-    sailColor: '#c9bda5',
+    hullColor: '#382013',
+    trimColor: '#fbbf24',
+    sailColor: '#f1f5f9',
   },
 };
 

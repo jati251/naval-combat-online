@@ -1,5 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
+import { MAX_VIEW_DISTANCE, ISLAND_LOD_DISTANCE } from './Environment3D';
 
 export interface IslandDefinition {
   id: string;
@@ -113,22 +115,107 @@ const PalmTree: React.FC<{ position: [number, number, number]; scale?: number }>
   );
 };
 
+interface IslandEntityProps {
+  island: IslandDefinition;
+  materials: {
+    sand: THREE.Material;
+    rock: THREE.Material;
+    vegetation: THREE.Material;
+  };
+}
+
+/**
+ * Optimized Island Entity with Game Dev Distance Culling & Level of Detail (LOD)
+ */
+const IslandEntity: React.FC<IslandEntityProps> = ({ island, materials }) => {
+  const groupRef = useRef<THREE.Group>(null);
+  const palmsRef = useRef<THREE.Group>(null);
+  const frameCount = useRef(Math.floor(Math.random() * 6));
+
+  useFrame(({ camera }) => {
+    frameCount.current++;
+    // Throttled check once every 6 frames with staggered offset (takes 0.0001ms)
+    if (frameCount.current % 6 !== 0) return;
+
+    const dx = camera.position.x - island.x;
+    const dz = camera.position.z - island.z;
+    const distSq = dx * dx + dz * dz;
+
+    // 1. Distance Culling: When beyond view distance (260m), Three.js skips drawing completely
+    const inViewDistance = distSq <= MAX_VIEW_DISTANCE * MAX_VIEW_DISTANCE;
+    if (groupRef.current && groupRef.current.visible !== inViewDistance) {
+      groupRef.current.visible = inViewDistance;
+    }
+
+    if (!inViewDistance) return;
+
+    // 2. Level of Detail (LOD): Hide detailed palm tree meshes at mid-to-far range (130m)
+    if (palmsRef.current) {
+      const showPalms = distSq <= ISLAND_LOD_DISTANCE * ISLAND_LOD_DISTANCE;
+      if (palmsRef.current.visible !== showPalms) {
+        palmsRef.current.visible = showPalms;
+      }
+    }
+  });
+
+  return (
+    <group ref={groupRef} position={[island.x, 0, island.z]}>
+      {/* Low Sandy Beach Shoal / Perimeter */}
+      <mesh position={[0, 0.8, 0]} receiveShadow material={materials.sand}>
+        <cylinderGeometry args={[island.radius * 1.1, island.sandRadius, 2.4, 18]} />
+      </mesh>
+
+      {/* Tropical Vegetation Shelf */}
+      <mesh position={[0, 2.2, 0]} receiveShadow material={materials.vegetation}>
+        <cylinderGeometry args={[island.radius * 0.92, island.radius * 1.05, 1.8, 14]} />
+      </mesh>
+
+      {/* Main Limestone Sea Cliff Peak */}
+      <mesh
+        position={[0, island.height * 0.45 + 1.5, 0]}
+        castShadow
+        receiveShadow
+        material={materials.rock}
+      >
+        <coneGeometry args={[island.radius * 0.75, island.height, 10]} />
+      </mesh>
+
+      {/* Secondary Crag Peak */}
+      <mesh
+        position={[island.radius * 0.35, island.height * 0.35 + 1, -island.radius * 0.25]}
+        castShadow
+        receiveShadow
+        material={materials.rock}
+      >
+        <coneGeometry args={[island.radius * 0.55, island.height * 0.75, 8]} />
+      </mesh>
+
+      {/* Scattered Coconut Palms (High-Detail LOD 0 only) */}
+      <group ref={palmsRef}>
+        {island.palms.map(([px, pz, pScale], pIdx) => (
+          <PalmTree key={pIdx} position={[px, 2.6, pz]} scale={pScale} />
+        ))}
+      </group>
+    </group>
+  );
+};
+
 export const Islands3D: React.FC = () => {
   const materials = useMemo(() => {
     return {
       sand: new THREE.MeshStandardMaterial({
-        color: '#d6a86c',
-        roughness: 0.95,
+        color: '#fde047',
+        roughness: 0.9,
         metalness: 0.02,
       }),
       rock: new THREE.MeshStandardMaterial({
-        color: '#475569',
-        roughness: 0.88,
-        metalness: 0.08,
+        color: '#64748b',
+        roughness: 0.85,
+        metalness: 0.05,
       }),
       vegetation: new THREE.MeshStandardMaterial({
-        color: '#155e37',
-        roughness: 0.85,
+        color: '#16a34a',
+        roughness: 0.8,
       }),
     };
   }, []);
@@ -136,42 +223,7 @@ export const Islands3D: React.FC = () => {
   return (
     <group>
       {ARENA_ISLANDS.map((island) => (
-        <group key={island.id} position={[island.x, 0, island.z]}>
-          {/* Low Sandy Beach Shoal / Perimeter */}
-          <mesh position={[0, 0.8, 0]} receiveShadow material={materials.sand}>
-            <cylinderGeometry args={[island.radius * 1.1, island.sandRadius, 2.4, 20]} />
-          </mesh>
-
-          {/* Tropical Vegetation Shelf */}
-          <mesh position={[0, 2.2, 0]} receiveShadow material={materials.vegetation}>
-            <cylinderGeometry args={[island.radius * 0.92, island.radius * 1.05, 1.8, 16]} />
-          </mesh>
-
-          {/* Main Limestone Sea Cliff Peak */}
-          <mesh
-            position={[0, island.height * 0.45 + 1.5, 0]}
-            castShadow
-            receiveShadow
-            material={materials.rock}
-          >
-            <coneGeometry args={[island.radius * 0.75, island.height, 10]} />
-          </mesh>
-
-          {/* Secondary Crag Peak */}
-          <mesh
-            position={[island.radius * 0.35, island.height * 0.35 + 1, -island.radius * 0.25]}
-            castShadow
-            receiveShadow
-            material={materials.rock}
-          >
-            <coneGeometry args={[island.radius * 0.55, island.height * 0.75, 8]} />
-          </mesh>
-
-          {/* Scattered Coconut Palms */}
-          {island.palms.map(([px, pz, pScale], pIdx) => (
-            <PalmTree key={pIdx} position={[px, 2.6, pz]} scale={pScale} />
-          ))}
-        </group>
+        <IslandEntity key={island.id} island={island} materials={materials} />
       ))}
     </group>
   );

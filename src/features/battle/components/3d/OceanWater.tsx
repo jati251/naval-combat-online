@@ -1,35 +1,36 @@
 import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
+import { FOG_COLOR } from './Environment3D';
 
 interface OceanWaterProps {
   size?: number;
 }
 
-export const OceanWater: React.FC<OceanWaterProps> = ({ size = 2600 }) => {
+export const OceanWater: React.FC<OceanWaterProps> = ({ size = 680 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
 
-  // Pre-rotated horizontal XZ geometry (optimized to 140x140 for 120FPS performance)
+  // Highly optimized 40x40 vertex grid (1,600 vertices - buttery smooth 120 FPS)
   const geometry = useMemo(() => {
-    const geo = new THREE.PlaneGeometry(size, size, 140, 140);
+    const geo = new THREE.PlaneGeometry(size, size, 40, 40);
     geo.rotateX(-Math.PI / 2);
     return geo;
   }, [size]);
 
-  // Assassin's Creed IV: Black Flag Caribbean Ocean Shader with Depth Texture & Organic Foam
+  // Assassin's Creed IV: Black Flag Radiant Caribbean Ocean Shader
   const shaderMaterial = useMemo(() => {
     return new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
-        uDeepWaterColor: { value: new THREE.Color('#011933') }, // Deep Caribbean abyss
-        uMidWaterColor: { value: new THREE.Color('#006580') },  // Vibrant tropical azure
-        uShallowColor: { value: new THREE.Color('#019da2') },   // Sunlit turquoise
-        uCrestGlowColor: { value: new THREE.Color('#08d9b8') }, // Radiant crest highlight
-        uSubsurfaceColor: { value: new THREE.Color('#05ffd1') },// Emerald SSS transmission
-        uFoamColor: { value: new THREE.Color('#f4fbfb') },      // Crisp organic sea froth
-        uSunColor: { value: new THREE.Color('#fff4d6') },       // Warm golden Caribbean sun
-        uSkyHorizonColor: { value: new THREE.Color('#5ca2d2') }, // Horizon fog blend
-        uLightDir: { value: new THREE.Vector3(140, 65, 110).normalize() },
+        uDeepWaterColor: { value: new THREE.Color('#034a7d') }, // Vibrant Caribbean cobalt
+        uMidWaterColor: { value: new THREE.Color('#0284c7') },  // Luminous tropical azure
+        uShallowColor: { value: new THREE.Color('#06b6d4') },   // Sunlit turquoise aqua
+        uCrestGlowColor: { value: new THREE.Color('#2dd4bf') }, // Radiant emerald crest highlight
+        uSubsurfaceColor: { value: new THREE.Color('#14b8a6') },// Bright tropical SSS transmission
+        uFoamColor: { value: new THREE.Color('#ffffff') },      // Crisp clean white sea froth
+        uSunColor: { value: new THREE.Color('#fffbeb') },       // Warm brilliant Caribbean sun
+        uSkyHorizonColor: { value: new THREE.Color(FOG_COLOR) }, // Exact match with fog horizon
+        uLightDir: { value: new THREE.Vector3(70, 140, -50).normalize() },
       },
       vertexShader: `
         uniform float uTime;
@@ -47,14 +48,14 @@ export const OceanWater: React.FC<OceanWaterProps> = ({ size = 2600 }) => {
         // 4 Gerstner waves synchronized with server WaveMath.ts physics
         const int NUM_WAVES = 4;
         const Wave waves[NUM_WAVES] = Wave[NUM_WAVES](
-          Wave(vec2(1.0, 0.3), 0.32, 52.0, 3.4),
-          Wave(vec2(0.6, 0.8), 0.22, 28.0, 2.6),
-          Wave(vec2(-0.3, 0.95), 0.18, 16.0, 2.0),
-          Wave(vec2(-0.7, -0.7), 0.12, 8.0, 1.4)
+          Wave(vec2(1.0, 0.25), 0.10, 85.0, 2.8),
+          Wave(vec2(0.55, 0.85), 0.08, 44.0, 2.2),
+          Wave(vec2(-0.35, 0.92), 0.06, 22.0, 1.7),
+          Wave(vec2(-0.75, -0.65), 0.04, 11.0, 1.3)
         );
 
         void main() {
-          vec3 pos = position; // pos.y is 0.0
+          vec3 pos = position;
           vec3 displaced = pos;
 
           vec3 tangent = vec3(1.0, 0.0, 0.0);
@@ -62,11 +63,13 @@ export const OceanWater: React.FC<OceanWaterProps> = ({ size = 2600 }) => {
 
           for (int i = 0; i < NUM_WAVES; i++) {
             Wave w = waves[i];
-            float k = 6.283185307 / w.wavelength;
+            vec2 d = normalize(w.direction);
+            float k = 6.283185 / w.wavelength;
             float c = w.speed;
             float a = w.steepness / k;
-            float dx = w.direction.x;
-            float dz = w.direction.y;
+
+            float dx = d.x;
+            float dz = d.y;
 
             float dotProd = dx * pos.x + dz * pos.z;
             float phase = k * (dotProd - c * uTime);
@@ -111,89 +114,49 @@ export const OceanWater: React.FC<OceanWaterProps> = ({ size = 2600 }) => {
         varying vec3 vWorldPosition;
         varying float vWaveHeight;
 
-        // 2D Hash function for procedural organic turbulence
-        float hash(vec2 p) {
-          return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
-        }
-
-        // Value noise
-        float noise(vec2 p) {
-          vec2 i = floor(p);
-          vec2 f = fract(p);
-          vec2 u = f * f * (3.0 - 2.0 * f);
-          return mix(
-            mix(hash(i + vec2(0.0, 0.0)), hash(i + vec2(1.0, 0.0)), u.x),
-            mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
-            u.y
-          );
-        }
-
-        // Fractional Brownian Motion for natural, streak-free sea froth
-        float fbm(vec2 p) {
-          float v = 0.0;
-          v += 0.500 * noise(p); p *= 2.02;
-          v += 0.250 * noise(p); p *= 2.03;
-          v += 0.125 * noise(p);
-          return v;
-        }
-
         void main() {
           vec3 baseNormal = normalize(vNormal);
           vec3 lightDir = normalize(uLightDir);
           vec3 viewDir = normalize(cameraPosition - vWorldPosition);
 
-          // Micro-chop normal perturbation (fine surface tension)
-          vec2 chopUV = vWorldPosition.xz * 1.1;
-          float c1 = sin(chopUV.x * 3.2 + uTime * 2.8) * cos(chopUV.y * 3.2 + uTime * 2.1);
-          float c2 = sin(chopUV.x * 6.5 - uTime * 3.6) * cos(chopUV.y * 6.0 + uTime * 3.0);
-          vec3 rippleOffset = vec3((c1 + c2 * 0.4) * 0.05, 0.0, (c1 - c2 * 0.4) * 0.05);
+          // Natural organic directional ripple chop (continuous water surface)
+          float r1 = sin(vWorldPosition.x * 0.8 + vWorldPosition.z * 0.4 + uTime * 2.4);
+          float r2 = sin(-vWorldPosition.x * 0.4 + vWorldPosition.z * 0.9 - uTime * 1.8);
+          float r3 = sin(vWorldPosition.x * 1.5 - vWorldPosition.z * 1.2 + uTime * 3.1);
+          vec3 rippleOffset = vec3((r1 + r3 * 0.35) * 0.025, 0.0, (r2 - r3 * 0.35) * 0.025);
           vec3 normal = normalize(baseNormal + rippleOffset);
 
-          // 1. Layered Caribbean Water Depth Color Gradient
-          float depthFactor = clamp((vWaveHeight + 1.8) / 3.8, 0.0, 1.0);
-          vec3 waterColor = mix(uDeepWaterColor, uMidWaterColor, smoothstep(0.0, 0.55, depthFactor));
+          // 1. Vibrant Caribbean Sunlit Depth Gradient
+          float depthFactor = clamp((vWaveHeight + 1.2) / 2.4, 0.0, 1.0);
+          vec3 waterColor = mix(uDeepWaterColor, uMidWaterColor, smoothstep(0.0, 0.5, depthFactor));
           waterColor = mix(waterColor, uShallowColor, smoothstep(0.4, 0.85, depthFactor));
-          waterColor = mix(waterColor, uCrestGlowColor, smoothstep(0.75, 1.0, depthFactor) * 0.65);
+          waterColor = mix(waterColor, uCrestGlowColor, smoothstep(0.75, 1.0, depthFactor) * 0.45);
 
-          // 2. Moving Underwater Sun Caustics (adds physical optical depth)
-          vec2 causticUV1 = vWorldPosition.xz * 0.12 + vec2(uTime * 0.05, uTime * 0.03);
-          vec2 causticUV2 = vWorldPosition.xz * 0.18 - vec2(uTime * 0.04, uTime * 0.06);
-          float caustic1 = pow(abs(sin(causticUV1.x * 5.5 + sin(causticUV1.y * 4.0))), 2.0);
-          float caustic2 = pow(abs(cos(causticUV2.x * 6.5 + cos(causticUV2.y * 5.0))), 2.0);
-          float caustics = (caustic1 + caustic2) * 0.5 * smoothstep(-1.2, 1.5, vWaveHeight);
-          waterColor += uCrestGlowColor * (caustics * 0.18);
+          // 2. Subsurface Scattering (bright tropical turquoise crest illumination)
+          vec3 sssLightDir = normalize(lightDir + normal * 0.35);
+          float sssFactor = pow(max(dot(viewDir, -sssLightDir), 0.0), 3.0);
+          float crestThickness = smoothstep(0.3, 1.2, vWaveHeight);
+          vec3 sss = uSubsurfaceColor * (sssFactor * crestThickness * 0.65);
 
-          // 3. Subsurface Scattering: radiant emerald/turquoise transmission through crests
-          vec3 sssLightDir = normalize(lightDir + normal * 0.3);
-          float sssFactor = pow(max(dot(viewDir, -sssLightDir), 0.0), 3.5);
-          float crestThickness = smoothstep(0.3, 2.3, vWaveHeight);
-          vec3 sss = uSubsurfaceColor * (sssFactor * crestThickness * 1.35);
+          // 3. Fresnel reflection of brilliant Caribbean sky
+          float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 3.5);
+          vec3 skyReflection = mix(vec3(0.22, 0.58, 0.88), vec3(0.68, 0.88, 1.0), fresnel);
+          vec3 baseShaded = mix(waterColor + sss, skyReflection, fresnel * 0.42);
 
-          // 4. Fresnel reflection of tropical sky
-          float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 4.0);
-          vec3 skyReflection = mix(vec3(0.42, 0.68, 0.88), vec3(0.85, 0.94, 1.0), fresnel);
-
-          // 5. Blinn-Phong Sun Highway Specular (calibrated, anti-glare)
+          // 4. Blinn-Phong Sun Specular Glint (radiant midday sparkle)
           vec3 halfVector = normalize(lightDir + viewDir);
           float NdotH = max(dot(normal, halfVector), 0.0);
-          float broadSheen = pow(NdotH, 32.0) * 0.18;
-          float sharpGlint = pow(NdotH, 180.0) * 0.95;
-          vec3 sunSpecular = uSunColor * (broadSheen + sharpGlint);
+          float broadSheen = pow(NdotH, 32.0) * 0.35;
+          float sharpGlint = pow(NdotH, 180.0) * 1.1;
+          baseShaded += uSunColor * (broadSheen + sharpGlint);
 
-          // 6. Natural Organic Fractal Foam (replaces artificial honeycomb polka dots)
-          float crestHeight = smoothstep(1.0, 2.3, vWaveHeight);
-          vec2 foamUV = vWorldPosition.xz * 0.35 + vec2(uTime * 0.08, -uTime * 0.06);
-          float frothNoise = fbm(foamUV * 4.5);
-          float foamMask = smoothstep(0.4, 0.72, frothNoise) * crestHeight;
+          // 5. Natural Soft Wave Crest Foam (breaks naturally on highest swells, zero artifacts)
+          float crestBreak = smoothstep(1.05, 1.38, vWaveHeight);
+          vec3 finalColor = mix(baseShaded, uFoamColor, crestBreak * 0.45);
 
-          // 7. Compose final water color
-          vec3 finalColor = waterColor + sss + (skyReflection * fresnel * 0.85);
-          finalColor += sunSpecular;
-          finalColor = mix(finalColor, uFoamColor, clamp(foamMask * 0.85, 0.0, 1.0));
-
-          // 8. Horizon Atmospheric Fog (seamless blend)
+          // 6. Horizon Sky Fog (seamless blend matching scene fog 40m - 320m)
           float dist = length(vWorldPosition - cameraPosition);
-          float horizonFog = smoothstep(450.0, 1600.0, dist);
+          float horizonFog = smoothstep(40.0, 320.0, dist);
           finalColor = mix(finalColor, uSkyHorizonColor, horizonFog);
 
           gl_FragColor = vec4(finalColor, 1.0);

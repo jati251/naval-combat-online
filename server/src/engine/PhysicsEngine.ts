@@ -8,8 +8,8 @@ import {
 export const SERVER_ISLANDS = [
   { id: 'dead-mans-cay', x: -150, z: 140, radius: 42 },
   { id: 'isla-de-la-muerte', x: 160, z: -130, radius: 50 },
-  { id: 'smugglers-reef', x: -110, z: -160, radius: 36 },
-  { id: 'tortuga-atoll', x: 170, z: 150, radius: 44 },
+  { id: 'smugglers-reef', x: 130, z: 80, radius: 32 },
+  { id: 'tortuga-atoll', x: -140, z: -120, radius: 36 },
 ];
 
 export class PhysicsEngine {
