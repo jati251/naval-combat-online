@@ -18,6 +18,9 @@ export interface ControlsSlice {
   resetControls: () => void;
 }
 
+let activePortTimer: ReturnType<typeof setInterval> | null = null;
+let activeStarboardTimer: ReturnType<typeof setInterval> | null = null;
+
 export const createControlsSlice: StateCreator<
   ControlsSlice,
   [],
@@ -53,8 +56,24 @@ export const createControlsSlice: StateCreator<
   setAimDirection: (aimDirection, isAiming) => set({ aimDirection, isAiming }),
 
   triggerFireCooldown: (side, durationSec) => {
+    // Clear any existing running timer for this side
+    if (side === 'port' && activePortTimer) {
+      clearInterval(activePortTimer);
+      activePortTimer = null;
+    } else if (side === 'starboard' && activeStarboardTimer) {
+      clearInterval(activeStarboardTimer);
+      activeStarboardTimer = null;
+    }
+
     const startTime = performance.now();
-    const interval = 50; // ms
+    const intervalMs = 50;
+
+    // Immediately reset progress to 0
+    if (side === 'port') {
+      set({ portReloadProgress: 0 });
+    } else {
+      set({ starboardReloadProgress: 0 });
+    }
 
     const timer = setInterval(() => {
       const elapsed = (performance.now() - startTime) / 1000;
@@ -68,11 +87,25 @@ export const createControlsSlice: StateCreator<
 
       if (progress >= 1.0) {
         clearInterval(timer);
+        if (side === 'port') activePortTimer = null;
+        else activeStarboardTimer = null;
       }
-    }, interval);
+    }, intervalMs);
+
+    if (side === 'port') activePortTimer = timer;
+    else activeStarboardTimer = timer;
   },
 
-  resetControls: () =>
+  resetControls: () => {
+    if (activePortTimer) {
+      clearInterval(activePortTimer);
+      activePortTimer = null;
+    }
+    if (activeStarboardTimer) {
+      clearInterval(activeStarboardTimer);
+      activeStarboardTimer = null;
+    }
+
     set({
       localRudder: 0,
       localSail: 'ANCHOR',
@@ -80,5 +113,6 @@ export const createControlsSlice: StateCreator<
       starboardReloadProgress: 1,
       aimDirection: 'none',
       isAiming: false,
-    }),
+    });
+  },
 });

@@ -423,9 +423,10 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }
       const { ships, selfId } = useGameStore.getState();
       const selfShip = ships.find((s) => s.id === selfId);
       if (selfShip && !selfShip.isSunk) {
-        // High-precision smooth position and heading tracking
-        const targetPos = new THREE.Vector3(selfShip.x, selfShip.y, selfShip.z);
-        smoothShipPos.current.lerp(targetPos, Math.min(1.0, 24 * delta));
+        // High-precision smooth position and heading tracking without GC allocations
+        smoothShipPos.current.x = THREE.MathUtils.lerp(smoothShipPos.current.x, selfShip.x, Math.min(1.0, 24 * delta));
+        smoothShipPos.current.y = THREE.MathUtils.lerp(smoothShipPos.current.y, selfShip.y, Math.min(1.0, 24 * delta));
+        smoothShipPos.current.z = THREE.MathUtils.lerp(smoothShipPos.current.z, selfShip.z, Math.min(1.0, 24 * delta));
         smoothShipHeading.current = THREE.MathUtils.lerp(smoothShipHeading.current, selfShip.rotationY, Math.min(1.0, 20 * delta));
         smoothShipSpeed.current = THREE.MathUtils.lerp(smoothShipSpeed.current, selfShip.speed ?? 0, Math.min(1.0, 14 * delta));
 

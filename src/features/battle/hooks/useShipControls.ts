@@ -1,23 +1,21 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { useGameStore } from '@/stores/useGameStore';
 import { networkClient } from '@/services/networkClient';
-import { navalAudio } from '@/features/battle/services/navalAudio';
-import { SHIP_PRESETS, type SailState } from '@/types/game';
+import { navalAudio } from '../services/navalAudio';
+import { useShipActions } from './useShipActions';
 
 /**
- * Handles keyboard & mouse input for Black Flag naval combat.
+ * Global Keyboard & Mouse Input Manager for Black Flag naval combat.
+ * Mount ONCE at the top-level Battle component.
  * - Smooth rudder steering (A / D, Left / Right) with continuous lerp
  * - Rigging speed control (W / S, Up / Down) with audio whoosh
  * - Broadside battery aiming (Hold Q: Port, Hold E: Starboard)
  * - Salvo fire (Space bar or Left Mouse Click) with instant cannon thunder
  */
 export function useShipControls() {
+  const actions = useShipActions();
   const setLocalRudder = useGameStore((s) => s.setLocalRudder);
-  const setLocalSail = useGameStore((s) => s.setLocalSail);
-  const cycleSailState = useGameStore((s) => s.cycleSailState);
-  const setAimDirection = useGameStore((s) => s.setAimDirection);
-  const triggerFireCooldown = useGameStore((s) => s.triggerFireCooldown);
 
   const keys = useRef<{ [key: string]: boolean }>({});
   const currentRudder = useRef(0);
@@ -26,29 +24,10 @@ export function useShipControls() {
   const lastNetworkSync = useRef(0);
   const keyPressTimers = useRef<{ [key: string]: number }>({});
 
-  const fireBattery = useCallback((side: 'port' | 'starboard') => {
-    const store = useGameStore.getState();
-    const selfShip = store.ships.find((s) => s.id === store.selfId);
-    if (selfShip?.isSunk) return;
-
-    const config = selfShip ? SHIP_PRESETS[selfShip.shipClass] : SHIP_PRESETS.brig;
-    const progress = side === 'port' ? store.portReloadProgress : store.starboardReloadProgress;
-
-    if (progress >= 1.0) {
-      navalAudio.playCannonFire();
-      if (selfShip) {
-        store.triggerFireEvent(selfShip.id, side);
-      }
-      store.triggerCameraShake(0.48, side);
-      networkClient.fireBroadside(side);
-      triggerFireCooldown(side, config.reloadTime);
-    }
-  }, [triggerFireCooldown]);
-
   useEffect(() => {
-    // 1. Smooth Rudder Loop (Runs every frame for fluid wheel response)
     let lastTime = performance.now();
 
+    // 1. Smooth Rudder Loop (Runs every frame for fluid wheel response)
     const loop = (now: number) => {
       const dt = Math.min((now - lastTime) / 1000, 0.08);
       lastTime = now;
@@ -95,23 +74,21 @@ export function useShipControls() {
       keys.current[key] = true;
       keyPressTimers.current[key] = performance.now();
 
-      // Unlock Audio
+      // Unlock Audio context on first interaction
       navalAudio.init();
 
       // Sail Rigging changes (W / S)
       if (key === 'w' || e.key === 'ArrowUp') {
-        cycleSailState('up');
-        networkClient.sendInput(-currentRudder.current, useGameStore.getState().localSail);
+        actions.cycleSail('up');
       } else if (key === 's' || e.key === 'ArrowDown') {
-        cycleSailState('down');
-        networkClient.sendInput(-currentRudder.current, useGameStore.getState().localSail);
+        actions.cycleSail('down');
       }
 
       // Broadside Battery Aiming (Hold Q for Port, Hold E for Starboard)
       if (key === 'q') {
-        setAimDirection('port', true);
+        actions.setAim('port', true);
       } else if (key === 'e') {
-        setAimDirection('starboard', true);
+        actions.setAim('starboard', true);
       }
 
       // Salvo Fire (Space Bar)
@@ -119,7 +96,7 @@ export function useShipControls() {
         e.preventDefault();
         const store = useGameStore.getState();
         const sideToFire = store.aimDirection !== 'none' ? store.aimDirection : 'port';
-        fireBattery(sideToFire);
+        actions.fireBattery(sideToFire);
       }
     };
 
@@ -132,22 +109,21 @@ export function useShipControls() {
         const pressDuration = performance.now() - (keyPressTimers.current['q'] || 0);
         // Quick tap (< 220ms) fires immediately
         if (pressDuration < 220) {
-          fireBattery('port');
+          actions.fireBattery('port');
         }
-        setAimDirection('none', false);
+        actions.setAim('none', false);
       } else if (key === 'e') {
         const pressDuration = performance.now() - (keyPressTimers.current['e'] || 0);
         // Quick tap (< 220ms) fires immediately
         if (pressDuration < 220) {
-          fireBattery('starboard');
+          actions.fireBattery('starboard');
         }
-        setAimDirection('none', false);
+        actions.setAim('none', false);
       }
     };
 
     // 3. Pointer Handlers (Left Click to fire aimed battery)
     const handlePointerDown = (e: MouseEvent) => {
-      // Don't intercept clicks on interactive buttons or modals
       const target = e.target as HTMLElement;
       if (target.closest('button') || target.closest('input') || target.closest('a')) {
         return;
@@ -157,7 +133,7 @@ export function useShipControls() {
         navalAudio.init();
         const store = useGameStore.getState();
         const sideToFire = store.aimDirection !== 'none' ? store.aimDirection : 'port';
-        fireBattery(sideToFire);
+        actions.fireBattery(sideToFire);
       }
     };
 
@@ -171,20 +147,7 @@ export function useShipControls() {
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('mousedown', handlePointerDown);
     };
-  }, [setLocalRudder, cycleSailState, setAimDirection, triggerFireCooldown]);
+  }, [actions, setLocalRudder]);
 
-  const changeSail = useCallback((sail: SailState) => {
-    navalAudio.playSailShift();
-    setLocalSail(sail);
-    networkClient.sendInput(-currentRudder.current, sail);
-  }, [setLocalSail]);
-
-  const setRudder = useCallback((rudder: number) => {
-    currentRudder.current = rudder;
-    setLocalRudder(rudder);
-    networkClient.sendInput(-rudder, useGameStore.getState().localSail);
-  }, [setLocalRudder]);
-
-  return { changeSail, setRudder, fireBattery };
+  return actions;
 }
-

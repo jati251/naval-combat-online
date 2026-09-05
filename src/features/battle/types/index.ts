@@ -10,3 +10,7 @@ export type {
   GerstnerWaveParams,
   IslandDefinition,
 } from '@/types';
+
+export * from './controls';
+export * from './entities';
+export * from './camera';

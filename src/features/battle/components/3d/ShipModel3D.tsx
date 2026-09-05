@@ -18,6 +18,7 @@ export type { ShipModelProps };
 /**
  * Main ShipModel3D Router Component
  * Dispatches to bespoke 3D architectures for all 8 distinct naval classes.
+ * Memoized to prevent heavy mesh re-renders during high-frequency steering.
  */
 export const ShipModel3D: React.FC<ShipModelProps> = React.memo(({
   config: propConfig,
@@ -68,7 +69,7 @@ export const ShipModel3D: React.FC<ShipModelProps> = React.memo(({
   return (
     prevId === nextId &&
     prev.sailState === next.sailState &&
-    prev.rudderAngle === next.rudderAngle &&
+    Math.abs((prev.rudderAngle ?? 0) - (next.rudderAngle ?? 0)) < 0.08 &&
     prev.isEnemy === next.isEnemy
   );
 });

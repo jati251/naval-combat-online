@@ -3,6 +3,7 @@ import { Volume2, VolumeX, LogOut, Swords, Skull } from 'lucide-react';
 import { useGameStore } from '@/stores/useGameStore';
 import { networkClient } from '@/services/networkClient';
 import { useShipControls } from '../../hooks/useShipControls';
+import { useShipActions } from '../../hooks/useShipActions';
 import { SHIP_PRESETS } from '@/types';
 import { DebriefModal } from './DebriefModal';
 import { CompassMinimap } from './CompassMinimap';
@@ -60,7 +61,7 @@ const ShipStatusContainer: React.FC = React.memo(() => {
 });
 
 const SpeedRudderContainer: React.FC = React.memo(() => {
-  const { changeSail, setRudder } = useShipControls();
+  const { changeSail, setRudder } = useShipActions();
   const localSail = useGameStore((s) => s.localSail);
   const localRudder = useGameStore((s) => s.localRudder);
   const speed = useGameStore((s) => {
@@ -82,7 +83,7 @@ const SpeedRudderContainer: React.FC = React.memo(() => {
 });
 
 const BroadsideGaugesContainer: React.FC = React.memo(() => {
-  const { fireBattery } = useShipControls();
+  const { fireBattery } = useShipActions();
   const portProgress = useGameStore((s) => s.portReloadProgress);
   const stbdProgress = useGameStore((s) => s.starboardReloadProgress);
   const aimDirection = useGameStore((s) => s.aimDirection);
@@ -182,6 +183,9 @@ const DamageHitVignette: React.FC = React.memo(() => {
  * All dynamic data is isolated in leaf components.
  */
 export const BattleHUD: React.FC = () => {
+  // Mount global keyboard, mouse, and steering loop singleton
+  useShipControls();
+
   const isMuted = useGameStore((s) => s.isMuted);
   const setMuted = useGameStore((s) => s.setMuted);
 

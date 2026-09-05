@@ -10,11 +10,11 @@ interface Streak {
 }
 
 /**
- * Lightweight Peripheral Motion Blur & High-Speed Wind Streaks.
+ * Ultra-Optimized Peripheral Speed Vignette & High-Speed Wind Streaks.
  * Operates purely on the DOM / 2D Compositor:
  * - 0 impact on Three.js Canvas (preserves full hardware MSAA, ACESFilmic tone mapping & deep ocean colors)
  * - 0 React re-renders (runs on direct RAF with DOM ref updates)
- * - Reticle center & ship stay 100% crisp; outer edges blur dynamically with speed & camera panning
+ * - Static GPU blur shader with fast opacity modulation (eliminates compositor pipeline stalls)
  */
 export const SpeedMotionBlurOverlay: React.FC = React.memo(() => {
   const blurRef = useRef<HTMLDivElement>(null);
@@ -71,23 +71,21 @@ export const SpeedMotionBlurOverlay: React.FC = React.memo(() => {
       // Decay mouse pan velocity
       mouseVelocity.current = Math.max(0, mouseVelocity.current - mouseVelocity.current * 7.0 * dt);
 
-      // Speed ratio (kicks in above 6 knots up to 14 knots)
+      // Speed ratio (kicks in above 5 knots up to 14 knots)
       const speedRatio = Math.max(0, Math.min(1.0, (shipSpeed - 5.0) / 8.5));
-      const targetBlur = speedRatio * 3.8 + mouseVelocity.current * 2.2;
+      const targetIntensity = speedRatio * 0.85 + Math.min(0.4, mouseVelocity.current * 0.2);
 
       // Smooth interpolation
-      smoothBlur.current += (targetBlur - smoothBlur.current) * Math.min(1.0, 10 * dt);
+      smoothBlur.current += (targetIntensity - smoothBlur.current) * Math.min(1.0, 10 * dt);
 
-      // Update peripheral backdrop blur
+      // Modulate peripheral blur opacity purely (static backdrop filter avoids pipeline stalls)
       if (blurRef.current) {
-        if (smoothBlur.current > 0.15) {
-          blurRef.current.style.opacity = '1';
-          const px = Math.round(smoothBlur.current * 10) / 10;
-          blurRef.current.style.backdropFilter = `blur(${px}px)`;
-          (blurRef.current.style as CSSStyleDeclaration & { webkitBackdropFilter: string }).webkitBackdropFilter = `blur(${px}px)`;
+        if (smoothBlur.current > 0.05) {
+          blurRef.current.style.display = 'block';
+          blurRef.current.style.opacity = smoothBlur.current.toFixed(2);
         } else {
+          blurRef.current.style.display = 'none';
           blurRef.current.style.opacity = '0';
-          blurRef.current.style.backdropFilter = 'none';
         }
       }
 
@@ -166,12 +164,15 @@ export const SpeedMotionBlurOverlay: React.FC = React.memo(() => {
 
   return (
     <>
-      {/* 1. Dynamic Peripheral CSS Backdrop Blur (Center is 100% transparent & crisp) */}
+      {/* 1. Fast GPU Peripheral Vignette Blur (Static 3px blur with GPU opacity blending) */}
       <div
         ref={blurRef}
-        className="pointer-events-none absolute inset-0 z-10 transition-opacity duration-150"
+        className="pointer-events-none absolute inset-0 z-10"
         style={{
+          display: 'none',
           opacity: 0,
+          backdropFilter: 'blur(3px)',
+          WebkitBackdropFilter: 'blur(3px)',
           maskImage: 'radial-gradient(ellipse 65% 58% at 50% 46%, transparent 35%, black 85%)',
           WebkitMaskImage: 'radial-gradient(ellipse 65% 58% at 50% 46%, transparent 35%, black 85%)',
         }}
