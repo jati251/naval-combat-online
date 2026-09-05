@@ -352,7 +352,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }
             totalShoreFoam = clamp((edgeFoam * 0.9 + swashWave * 0.6) * (0.4 + shoreFroth * 0.6), 0.0, 1.0);
           }
 
-          // 9. Natural Fluid-Dynamic Ship Wake (Continuous Milky Sea Churn & Sleek Kelvin V-Wash)
+          // 9. Dynamic Broad-Spreading Ship Wake with Bintik-Bintik Bubble Froth (Wide & Natural)
           float shipWakeFoam = 0.0;
           if (uShipSpeed > 0.35 && camDist < 180.0) {
             vec2 rel = vWorldPosition.xz - uShipPos.xz;
@@ -363,35 +363,33 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }
             float lz = sinH * rel.x + cosH * rel.y;
 
             float behind = -lz;
-            if (behind > -0.6 && behind < 70.0) {
+            if (behind > -1.0 && behind < 88.0) {
               float latDist = abs(lx);
 
-              // 1. Natural Kelvin V-wake boundary
-              float wakeSpread = 0.80 + pow(max(0.0, behind + 0.5), 0.52) * 0.72;
-              float vArm = exp(-pow(abs(latDist - wakeSpread) / 0.70, 2.0)) * 0.75;
+              // 1. Broad expanding Kelvin V-wake arms ("melebar")
+              float wakeSpread = 1.35 + pow(max(0.0, behind + 1.0), 0.68) * 1.55;
+              float vArm = (1.0 - smoothstep(0.0, 2.6, abs(latDist - wakeSpread))) * 0.85;
 
-              // 2. Churned keel center wash: rich milky white froth stream along the center
-              float centerCoreWidth = 1.15 + max(0.0, behind) * 0.045;
-              float centerCore = exp(-(latDist * latDist) / (centerCoreWidth * centerCoreWidth));
+              // 2. Wide expanding center churn field ("melebar")
+              float centerSpread = 2.0 + max(0.0, behind) * 0.16;
+              float centerFroth = exp(-(latDist * latDist) / (centerSpread * centerSpread));
 
-              // 3. Fluid turbulence streaks (continuous fluid flow, completely free of Voronoi dark dots!)
-              float stream1 = sin(lx * 2.8 + sin(behind * 0.45 - uTime * 2.2)) * 0.5 + 0.5;
-              float stream2 = cos(behind * 0.9 - uTime * 2.6 + lx * 1.6) * 0.5 + 0.5;
-              float fluidStreaks = stream1 * 0.6 + stream2 * 0.4;
+              // 3. User-preferred "bintik-bintik" cellular bubble froth texture
+              float foamCell = cellularFoam(vec2(lx * 1.5, behind * 0.80 - uTime * 0.65));
+              float bintik = smoothstep(0.14, 0.62, foamCell);
 
-              // 4. Fine liquid froth modulation
-              float microDetail = sin(lx * 6.5 + behind * 2.2) * cos(behind * 3.0 - uTime * 2.8) * 0.12 + 0.88;
+              // 4. Fluid swirling turbulence (prevents rigidity / kaku)
+              float turbulence = sin(lx * 1.8 + sin(behind * 0.45 - uTime * 2.2)) * 0.5 + 0.5;
+              float bintikFroth = bintik * (0.65 + turbulence * 0.35);
 
-              // Combine center wash and V-arms: bright creamy center with natural fluid texture
-              float wakeBody = (centerCore * 1.35 + vArm * 0.85) * (0.70 + fluidStreaks * 0.30) * microDetail;
+              // 5. Smooth lead-in fade (seamless emergence from under the transom, no sharp cut)
+              float leadIn = smoothstep(-0.8, 3.2, behind);
 
-              // 5. Seamless lead-in fade emerging from under the stern (-0.5m to 2.2m)
-              float leadIn = smoothstep(-0.5, 2.2, behind);
+              // 6. Natural backwards distance decay
+              float trailFade = exp(-max(0.0, behind) * 0.032) * (1.0 - smoothstep(65.0, 88.0, behind));
 
-              // 6. Natural backward distance decay
-              float trailFade = exp(-max(0.0, behind) * 0.042) * (1.0 - smoothstep(48.0, 70.0, behind));
-
-              shipWakeFoam = clamp(wakeBody * leadIn * trailFade, 0.0, 1.0) * min(1.0, uShipSpeed / 2.4);
+              shipWakeFoam = (vArm * 0.75 + centerFroth * 1.15) * bintikFroth * leadIn * trailFade * min(1.0, uShipSpeed / 2.5);
+              shipWakeFoam = clamp(shipWakeFoam, 0.0, 1.0);
             }
           }
 

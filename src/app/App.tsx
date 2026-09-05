@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useGameStore } from '@/stores/useGameStore';
 import { networkClient } from '@/services/networkClient';
 import { LobbyView } from '@/features/lobby';
-import { NavalCanvas, BattleHUD } from '@/features/battle';
+import { NavalCanvas, BattleHUD, SpeedMotionBlurOverlay } from '@/features/battle';
 import { ToastContainer } from '@/components/ui/ToastContainer';
 
 export const App: React.FC = () => {
@@ -21,6 +21,7 @@ export const App: React.FC = () => {
       {(stage === 'BATTLE' || stage === 'DEBRIEF') && (
         <>
           <NavalCanvas />
+          <SpeedMotionBlurOverlay />
           <BattleHUD />
         </>
       )}
