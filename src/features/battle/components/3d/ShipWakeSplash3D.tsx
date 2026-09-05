@@ -1,26 +1,53 @@
 import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
+import { useGameStore } from '@/stores/useGameStore';
 
 /**
- * Procedural water splash droplet texture.
+ * High-definition 2D stylized cartoon water bubble sprite texture.
+ * Features a crisp luminous rim, translucent aqua body, and twin specular glints.
  */
-function createSplashTexture(): THREE.CanvasTexture {
+function create2DBubbleTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = 64;
   canvas.height = 64;
   const ctx = canvas.getContext('2d');
   if (!ctx) return new THREE.CanvasTexture(canvas);
 
-  const grad = ctx.createRadialGradient(32, 32, 2, 32, 32, 28);
-  grad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-  grad.addColorStop(0.35, 'rgba(240, 249, 255, 0.8)');
-  grad.addColorStop(0.7, 'rgba(186, 230, 253, 0.35)');
-  grad.addColorStop(1, 'rgba(186, 230, 253, 0)');
+  ctx.clearRect(0, 0, 64, 64);
+  const cx = 32;
+  const cy = 32;
+  const r = 24;
 
-  ctx.fillStyle = grad;
+  // 1. Soft translucent buoyant aqua core
+  const bodyGrad = ctx.createRadialGradient(cx, cy, 2, cx, cy, r);
+  bodyGrad.addColorStop(0, 'rgba(255, 255, 255, 0.15)');
+  bodyGrad.addColorStop(0.65, 'rgba(186, 230, 253, 0.40)');
+  bodyGrad.addColorStop(0.85, 'rgba(125, 211, 252, 0.75)');
+  bodyGrad.addColorStop(1, 'rgba(255, 255, 255, 0.98)');
+
+  ctx.fillStyle = bodyGrad;
   ctx.beginPath();
-  ctx.arc(32, 32, 28, 0, Math.PI * 2);
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 2. Crisp bright bubble perimeter rim
+  ctx.strokeStyle = 'rgba(255, 255, 255, 1.0)';
+  ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r - 1.0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // 3. Primary top-left specular highlight glint (star glint)
+  ctx.fillStyle = 'rgba(255, 255, 255, 1.0)';
+  ctx.beginPath();
+  ctx.ellipse(cx - 8, cy - 9, 6.0, 3.2, -Math.PI / 4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 4. Secondary bottom-right water reflection glint
+  ctx.fillStyle = 'rgba(224, 242, 254, 0.9)';
+  ctx.beginPath();
+  ctx.ellipse(cx + 8, cy + 8, 4.2, 2.2, -Math.PI / 4, 0, Math.PI * 2);
   ctx.fill();
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -28,54 +55,51 @@ function createSplashTexture(): THREE.CanvasTexture {
   return texture;
 }
 
-let cachedSplashTexture: THREE.CanvasTexture | null = null;
-function getSplashTexture(): THREE.CanvasTexture {
-  if (!cachedSplashTexture) {
-    cachedSplashTexture = createSplashTexture();
+let cachedBubbleTexture: THREE.CanvasTexture | null = null;
+function getBubbleTexture(): THREE.CanvasTexture {
+  if (!cachedBubbleTexture) {
+    cachedBubbleTexture = create2DBubbleTexture();
   }
-  return cachedSplashTexture;
+  return cachedBubbleTexture;
 }
 
 interface ShipWakeSplash3DProps {
-  speed: number;
-  rudderAngle?: number;
+  shipId: string;
   shipLength?: number;
   shipWidth?: number;
-  isSunk?: boolean;
+}
+
+interface BubbleParticle {
+  x: number;
+  y: number;
+  z: number;
+  vx: number;
+  vy: number;
+  vz: number;
+  wobbleSpeed: number;
+  wobblePhase: number;
+  life: number;
+  maxLife: number;
 }
 
 /**
- * High-Performance Dynamic Stern Wake Spray & Churning Foam Particles.
- * Emits continuous, buttery-smooth water droplets & froth behind the ship's rudder.
- * Operates at 60-120fps with delta-time physics, eliminating all 30Hz tick stutter.
+ * Lightweight 2D Water Bubbles & Stern Froth for Player & Opponent vessels.
+ * Directly reads real-time speed & rudder in useFrame to eliminate memoization starvation.
  */
 export const ShipWakeSplash3D: React.FC<ShipWakeSplash3DProps> = React.memo(({
-  speed,
-  rudderAngle = 0,
-  shipLength = 22,
+  shipId,
+  shipLength = 18,
   shipWidth = 6.0,
-  isSunk = false,
 }) => {
-  const texture = useMemo(() => getSplashTexture(), []);
+  const texture = useMemo(() => getBubbleTexture(), []);
   const pointsRef = useRef<THREE.Points>(null);
 
-  const count = 75; // Optimal particle budget per ship
-  const particles = useRef<{
-    x: number;
-    y: number;
-    z: number;
-    vx: number;
-    vy: number;
-    vz: number;
-    life: number;
-    maxLife: number;
-    size: number;
-  }[]>([]);
+  const count = 55; // Crisp, balanced bubble budget per vessel
+  const particles = useRef<BubbleParticle[]>([]);
 
   // Initial buffer allocation
-  const [positions, sizes] = useMemo(() => {
+  const positions = useMemo(() => {
     const pos = new Float32Array(count * 3);
-    const sz = new Float32Array(count);
     particles.current = [];
 
     for (let i = 0; i < count; i++) {
@@ -86,40 +110,52 @@ export const ShipWakeSplash3D: React.FC<ShipWakeSplash3DProps> = React.memo(({
         vx: 0,
         vy: 0,
         vz: 0,
+        wobbleSpeed: 3 + Math.random() * 4,
+        wobblePhase: Math.random() * Math.PI * 2,
         life: 0,
         maxLife: 1.0,
-        size: 0,
       });
       pos[i * 3 + 1] = -100;
-      sz[i] = 0;
     }
-    return [pos, sz];
+    return pos;
   }, [count]);
 
   const emitAccumulator = useRef(0);
 
   useFrame((_, delta) => {
-    if (!pointsRef.current || isSunk) return;
+    if (!pointsRef.current) return;
+
+    // Fetch live state from Zustand on every frame (bypasses parent React.memo prop stagnation)
+    const store = useGameStore.getState();
+    const curShip = store.ships.find((s) => s.id === shipId);
+    if (!curShip || curShip.isSunk) {
+      if (pointsRef.current.visible) pointsRef.current.visible = false;
+      return;
+    }
+    if (!pointsRef.current.visible) pointsRef.current.visible = true;
+
+    const currentSpeed = Math.max(0, curShip.speed ?? 0);
+    const rudderAngle = curShip.rudder ?? 0;
 
     const geo = pointsRef.current.geometry;
     const posAttr = geo.attributes.position as THREE.BufferAttribute;
-    const szAttr = geo.attributes.size as THREE.BufferAttribute;
     const posArr = posAttr.array as Float32Array;
-    const szArr = szAttr.array as Float32Array;
 
     const halfLen = shipLength * 0.5;
     const halfWid = shipWidth * 0.5;
-    const sternZ = -halfLen * 0.95; // Behind the stern transom
+    const sternZ = -halfLen * 0.95;
 
-    // Emission rate proportional to ship speed
-    const currentSpeed = Math.max(0, speed);
-    const emitRate = currentSpeed > 0.4 ? currentSpeed * 28 : 0; // particles per second
+    // Local waterline level: ship group is at y=+0.85, so sea surface is at local y = -0.72
+    const waterLevelY = -0.72;
+
+    // Emission rate scales with true real-time ship speed (15-35 bubbles/sec at speed)
+    const emitRate = currentSpeed > 0.4 ? 10 + currentSpeed * 2.2 : 0;
     emitAccumulator.current += emitRate * delta;
 
     while (emitAccumulator.current >= 1.0) {
       emitAccumulator.current -= 1.0;
 
-      // Find an inactive or oldest particle
+      // Find an inactive slot
       let slot = -1;
       for (let i = 0; i < count; i++) {
         if (particles.current[i].life <= 0) {
@@ -132,68 +168,66 @@ export const ShipWakeSplash3D: React.FC<ShipWakeSplash3DProps> = React.memo(({
       }
 
       const p = particles.current[slot];
-      // Emit from port and starboard quarter hulls (natural twin curling streams)
+
+      // 65% stern churn bubbles, 35% hull waterline bubbles
+      const isFlank = Math.random() < 0.35;
       const side = Math.random() > 0.5 ? 1 : -1;
-      const quarterOffset = side * (halfWid * 0.55 + Math.random() * halfWid * 0.45);
-      const rudderShift = -rudderAngle * halfWid * 0.6;
-      const spreadX = quarterOffset + rudderShift;
-      const spreadZ = sternZ - Math.random() * 1.6;
 
-      p.x = spreadX;
-      p.y = 0.12 + Math.random() * 0.22;
-      p.z = spreadZ;
+      if (isFlank) {
+        // Flank waterline bubble
+        const flankZ = -halfLen * (0.1 + Math.random() * 0.65);
+        p.x = side * (halfWid * 0.82 + Math.random() * 0.4);
+        p.y = waterLevelY + 0.02 + Math.random() * 0.08;
+        p.z = flankZ;
+        p.vx = side * (0.6 + Math.random() * 0.5);
+        p.vy = 0.06 + Math.random() * 0.12;
+        p.vz = -currentSpeed * 0.75 - (0.5 + Math.random() * 0.8);
+        p.maxLife = 1.0 + Math.random() * 0.7;
+      } else {
+        // Stern wake bubble behind rudder
+        const rudderOffset = -rudderAngle * halfWid * 0.5;
+        const spreadX = (Math.random() - 0.5) * halfWid * 1.2 + rudderOffset;
+        p.x = spreadX;
+        p.y = waterLevelY + 0.04 + Math.random() * 0.12;
+        p.z = sternZ - Math.random() * 1.5;
+        p.vx = (Math.random() - 0.5) * 0.8 - rudderAngle * 1.2;
+        p.vy = 0.10 + Math.random() * 0.18;
+        p.vz = -currentSpeed * 0.95 - (0.8 + Math.random() * 1.2);
+        p.maxLife = 1.2 + Math.random() * 0.8;
+      }
 
-      // Natural curling lateral fan outward from hull
-      const lateralVel = side * (1.6 + Math.random() * 2.4) - rudderAngle * 1.8;
-      // Backward velocity matches true ship speed so water streams behind into the sea
-      const backwardVel = -currentSpeed * 1.05 - (1.2 + Math.random() * 2.4);
-      const upwardVel = 0.6 + Math.random() * 1.5 * Math.min(1.0, currentSpeed / 3.0);
-
-      p.vx = lateralVel;
-      p.vy = upwardVel;
-      p.vz = backwardVel;
-
-      p.maxLife = 0.6 + Math.random() * 0.6;
       p.life = p.maxLife;
-      p.size = 1.5 + Math.random() * 1.3;
     }
 
-    // Update active particles with gravity and lateral expansion
-    const gravity = -3.8;
-    const drag = Math.max(0, 1.0 - 0.9 * delta);
-
+    // Update active 2D bubbles
     for (let i = 0; i < count; i++) {
       const p = particles.current[i];
       if (p.life > 0) {
         p.life -= delta;
 
-        p.x += p.vx * delta;
+        // Subtle organic bobbing & upward buoyancy
+        p.wobblePhase += p.wobbleSpeed * delta;
+        const wobbleX = Math.sin(p.wobblePhase) * 0.35 * delta;
+
+        p.x += (p.vx + wobbleX) * delta;
         p.y += p.vy * delta;
         p.z += p.vz * delta;
 
-        p.vy += gravity * delta;
-        p.vx *= drag;
-        p.vz *= drag;
+        // Water drag deceleration
+        p.vx *= Math.max(0, 1.0 - 1.1 * delta);
+        p.vz *= Math.max(0, 1.0 - 0.85 * delta);
 
-        // Fade out size as life ends
-        const progress = 1.0 - (p.life / p.maxLife);
-        const currentSz = p.size * (1.0 + progress * 0.8) * (1.0 - progress);
-
+        // Clamp y to float buoyant right at the waterline
         posArr[i * 3] = p.x;
-        posArr[i * 3 + 1] = Math.max(0.05, p.y);
+        posArr[i * 3 + 1] = Math.min(waterLevelY + 0.35, Math.max(waterLevelY - 0.05, p.y));
         posArr[i * 3 + 2] = p.z;
-        szArr[i] = currentSz;
       } else {
         posArr[i * 3 + 1] = -100;
-        szArr[i] = 0;
       }
     }
 
     posAttr.needsUpdate = true;
-    szAttr.needsUpdate = true;
   });
-
-  if (isSunk) return null;
 
   return (
     <points ref={pointsRef}>
@@ -202,19 +236,15 @@ export const ShipWakeSplash3D: React.FC<ShipWakeSplash3DProps> = React.memo(({
           attach="attributes-position"
           args={[positions, 3]}
         />
-        <bufferAttribute
-          attach="attributes-size"
-          args={[sizes, 1]}
-        />
       </bufferGeometry>
       <pointsMaterial
         map={texture}
         transparent
         depthWrite={false}
         blending={THREE.NormalBlending}
-        opacity={0.82}
-        color="#f0f9ff"
-        size={2.2}
+        opacity={0.92}
+        color="#ffffff"
+        size={3.2}
         sizeAttenuation
       />
     </points>

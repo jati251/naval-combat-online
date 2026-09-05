@@ -6,41 +6,43 @@ import { ShipModel3D } from './ShipModel3D';
 import { ShipWakeSplash3D } from './ShipWakeSplash3D';
 import { MAX_VIEW_DISTANCE, NAMEPLATE_CULL_DISTANCE } from './Environment3D';
 import { SHIP_PRESETS } from '@/types';
+import type { ShipEntityProps } from '../../types/entities';
 import {
   createDeadReckoningBuffer,
   pushSnapshot,
   extrapolatePosition,
 } from '../../utils/deadReckoning';
+import { createInitialCameraState, updateChaseCamera } from '../../utils/cameraController';
 import { lerpAngle, damp } from '../../utils/math';
-
-import type { ShipEntityProps } from '../../types/entities';
+import { useGameStore } from '@/stores/useGameStore';
 
 export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf }) => {
   const groupRef = useRef<THREE.Group>(null);
-  const shipRef = useRef(ship);
-  shipRef.current = ship;
 
   // High-precision dead reckoning extrapolation buffer
   const drBuffer = useRef(
     createDeadReckoningBuffer(ship.x, ship.y + 0.85, ship.z, ship.rotationY)
   );
 
+  // Dedicated chase camera state for player ship
+  const cameraState = useRef(createInitialCameraState());
+
   const [showNameplate, setShowNameplate] = useState(false);
   const frameCount = useRef(Math.floor(Math.random() * 6));
   const isInitialized = useRef(false);
 
-  // Smooth interpolation with dead reckoning and distance culling
+  // Smooth interpolation with dead reckoning, distance culling, and 100% lockstep camera
   useFrame((state, delta) => {
-    const { camera } = state;
+    const { camera, clock } = state;
     if (!groupRef.current) return;
-    const curShip = shipRef.current;
 
-    // Detect fresh server snapshot and absorb smoothly into dead reckoning buffer
+    // Always fetch latest real-time snapshot from store to prevent stale closure during memoization
+    const store = useGameStore.getState();
+    const curShip = store.ships.find((s) => s.id === ship.id) || ship;
+
+    // Detect fresh server snapshot and absorb into dead reckoning buffer
     pushSnapshot(
       drBuffer.current,
-      groupRef.current.position.x,
-      groupRef.current.position.z,
-      groupRef.current.rotation.y,
       curShip.x,
       curShip.y,
       curShip.z,
@@ -81,8 +83,8 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf 
       groupRef.current.rotation.z = curShip.roll;
       isInitialized.current = true;
     } else {
-      // Extrapolate smooth target with collision clamping and error decay
-      const target = extrapolatePosition(drBuffer.current, delta, curShip.isSunk);
+      // Extrapolate smooth target with collision clamping
+      const target = extrapolatePosition(drBuffer.current, curShip.isSunk);
 
       // High-precision smooth transform damping (60-120fps)
       groupRef.current.position.x = damp(groupRef.current.position.x, target.x, 24, delta);
@@ -93,6 +95,23 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf 
       groupRef.current.rotation.y = lerpAngle(groupRef.current.rotation.y, target.heading, Math.min(1.0, 20 * delta));
       groupRef.current.rotation.x = damp(groupRef.current.rotation.x, curShip.pitch, 12, delta);
       groupRef.current.rotation.z = damp(groupRef.current.rotation.z, curShip.roll, 12, delta);
+    }
+
+    // 100% Lockstep Chase Camera: camera follows the visual ship transform directly
+    if (isSelf && !curShip.isSunk) {
+      updateChaseCamera({
+        camera,
+        delta,
+        elapsedTime: clock.elapsedTime,
+        shipX: groupRef.current.position.x,
+        shipY: groupRef.current.position.y,
+        shipZ: groupRef.current.position.z,
+        shipHeading: groupRef.current.rotation.y,
+        shipSpeed: curShip.speed ?? 0,
+        aimDirection: store.aimDirection,
+        cameraState: cameraState.current,
+        shakeEvent: store.cameraShake,
+      });
     }
   });
 
@@ -111,13 +130,11 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf 
         isEnemy={!isSelf}
       />
 
-      {/* Dynamic Stern Wake Spray & Foam Particles */}
+      {/* Dynamic Stern Wake Spray & 2D Bubbles (Reads live state directly) */}
       <ShipWakeSplash3D
-        speed={ship.speed ?? 0}
-        rudderAngle={ship.rudder ?? 0}
+        shipId={ship.id}
         shipLength={shipLen}
         shipWidth={shipWid}
-        isSunk={ship.isSunk}
       />
 
       {/* Floating Health Bar and Nameplate (Culled beyond 110m for enemy vessels, hidden for player ship) */}
@@ -143,7 +160,7 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf 
   );
 }, (prev, next) => {
   // Memoization: Only re-render when structural attributes change
-  // High-frequency transforms (position, rotation, pitch, roll, rudder) are handled via ref in useFrame
+  // High-frequency transforms (position, rotation, pitch, roll) are read in useFrame from store
   return (
     prev.ship.id === next.ship.id &&
     prev.ship.shipClass === next.ship.shipClass &&

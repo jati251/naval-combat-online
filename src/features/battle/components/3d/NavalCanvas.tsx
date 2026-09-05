@@ -23,10 +23,11 @@ const BattleCameraRig: React.FC = () => {
 const FleetEntities: React.FC = React.memo(() => {
   const ships = useGameStore((s) => s.ships);
   const selfId = useGameStore((s) => s.selfId);
+  const hasSelfShip = ships.some((s) => s.id === selfId && !s.isSunk);
 
   return (
     <>
-      <BattleCameraRig />
+      {!hasSelfShip && <BattleCameraRig />}
       {ships.map((ship) => (
         <ShipEntity key={ship.id} ship={ship} isSelf={ship.id === selfId} />
       ))}

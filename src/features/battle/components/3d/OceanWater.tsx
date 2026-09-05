@@ -366,30 +366,23 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }
             if (behind > -1.0 && behind < 88.0) {
               float latDist = abs(lx);
 
-              // 1. Broad expanding Kelvin V-wake arms ("melebar")
-              float wakeSpread = 1.35 + pow(max(0.0, behind + 1.0), 0.68) * 1.55;
-              float vArm = (1.0 - smoothstep(0.0, 2.6, abs(latDist - wakeSpread))) * 0.85;
+              // 1. Soft expanding Kelvin V-wake arms
+              float wakeSpread = 1.2 + pow(max(0.0, behind), 0.62) * 1.35;
+              float vArm = (1.0 - smoothstep(0.0, 1.6, abs(latDist - wakeSpread))) * 0.55;
 
-              // 2. Wide expanding center churn field ("melebar")
-              float centerSpread = 2.0 + max(0.0, behind) * 0.16;
-              float centerFroth = exp(-(latDist * latDist) / (centerSpread * centerSpread));
+              // 2. Smooth soft center churn field
+              float centerSpread = 1.8 + behind * 0.12;
+              float centerFroth = exp(-(latDist * latDist) / (centerSpread * centerSpread)) * 0.65;
 
-              // 3. User-preferred "bintik-bintik" cellular bubble froth texture
-              float foamCell = cellularFoam(vec2(lx * 1.5, behind * 0.80 - uTime * 0.65));
-              float bintik = smoothstep(0.14, 0.62, foamCell);
+              // 3. Subtle organic wave motion (clean, no harsh polka-dot artifacts)
+              float ripple = sin(behind * 0.4 - uTime * 1.8) * 0.1 + 0.9;
 
-              // 4. Fluid swirling turbulence (prevents rigidity / kaku)
-              float turbulence = sin(lx * 1.8 + sin(behind * 0.45 - uTime * 2.2)) * 0.5 + 0.5;
-              float bintikFroth = bintik * (0.65 + turbulence * 0.35);
+              // 4. Smooth emergence from transom and backwards decay
+              float leadIn = smoothstep(-0.5, 2.0, behind);
+              float trailFade = exp(-max(0.0, behind) * 0.038) * (1.0 - smoothstep(45.0, 68.0, behind));
 
-              // 5. Smooth lead-in fade (seamless emergence from under the transom, no sharp cut)
-              float leadIn = smoothstep(-0.8, 3.2, behind);
-
-              // 6. Natural backwards distance decay
-              float trailFade = exp(-max(0.0, behind) * 0.032) * (1.0 - smoothstep(65.0, 88.0, behind));
-
-              shipWakeFoam = (vArm * 0.75 + centerFroth * 1.15) * bintikFroth * leadIn * trailFade * min(1.0, uShipSpeed / 2.5);
-              shipWakeFoam = clamp(shipWakeFoam, 0.0, 1.0);
+              shipWakeFoam = (vArm + centerFroth) * ripple * leadIn * trailFade * min(1.0, uShipSpeed / 2.0);
+              shipWakeFoam = clamp(shipWakeFoam, 0.0, 0.65);
             }
           }
 
