@@ -64,11 +64,11 @@ export const NavalCanvas: React.FC = React.memo(() => {
   return (
     <div className={`w-full h-full absolute inset-0 ${isNight ? 'bg-slate-950' : 'bg-sky-700'}`}>
       <Canvas
-        camera={{ position: [0, 25, -45], fov: 55, near: 0.5, far: 1200 }}
+        camera={{ position: [0, 25, -45], fov: 55, near: 0.5, far: 1400 }}
         shadows={!isMobile}
-        dpr={isMobile ? [1, 1.35] : [1, 1.5]}
+        dpr={isMobile ? [1.5, 2.25] : [1.5, 2.0]}
         gl={{
-          antialias: !isMobile,
+          antialias: true,
           alpha: false,
           powerPreference: 'high-performance',
           toneMapping: THREE.ACESFilmicToneMapping,
@@ -78,12 +78,12 @@ export const NavalCanvas: React.FC = React.memo(() => {
         <color attach="background" args={[bgColor]} />
         <Environment3D isMobile={isMobile} />
         <OceanWater isMobile={isMobile} />
-        <Islands3D />
-        {!isMobile && <Shipwrecks3D />}
-        {!isMobile && <JumpingFish3D />}
+        <Islands3D isMobile={isMobile} />
+        <Shipwrecks3D isMobile={isMobile} />
+        <JumpingFish3D />
         <MapBoundary3D isMobile={isMobile} />
-        {!isMobile && !isNight && <CaribbeanSeabirds3D />}
-        {!isMobile && <OceanAtmosphereParticles3D />}
+        {!isNight && <CaribbeanSeabirds3D />}
+        <OceanAtmosphereParticles3D isMobile={isMobile} />
         <FleetEntities isMobile={isMobile} />
         <CannonEntities isMobile={isMobile} />
       </Canvas>

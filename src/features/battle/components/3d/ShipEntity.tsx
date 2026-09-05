@@ -4,7 +4,11 @@ import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import { ShipModel3D } from './ShipModel3D';
 import { ShipWakeSplash3D } from './ShipWakeSplash3D';
-import { MAX_VIEW_DISTANCE, NAMEPLATE_CULL_DISTANCE } from './Environment3D';
+import {
+  MAX_VIEW_DISTANCE_DESKTOP,
+  MAX_VIEW_DISTANCE_MOBILE,
+  NAMEPLATE_CULL_DISTANCE,
+} from './Environment3D';
 import { SHIP_PRESETS } from '@/types';
 import type { ShipEntityProps } from '../../types/entities';
 import {
@@ -79,8 +83,9 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf,
       const dz = camera.position.z - curShip.z;
       const distSq = dx * dx + dz * dz;
 
-      // 1. Distance Culling: Skip rendering ships beyond view distance
-      const inView = isSelf || distSq <= MAX_VIEW_DISTANCE * MAX_VIEW_DISTANCE;
+      // 1. Distance Culling: Skip rendering ships beyond view distance (fully veiled by fog)
+      const maxViewDist = isMobile ? MAX_VIEW_DISTANCE_MOBILE : MAX_VIEW_DISTANCE_DESKTOP;
+      const inView = isSelf || distSq <= maxViewDist * maxViewDist;
       if (groupRef.current.visible !== inView) {
         groupRef.current.visible = inView;
       }

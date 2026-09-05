@@ -16,12 +16,16 @@ import {
 export type { IslandDefinition };
 export { ARENA_ISLANDS };
 
+interface Islands3DProps {
+  isMobile?: boolean;
+}
+
 /**
  * Islands3D Root Component
  * Sets up shared standard materials with procedural textures and renders
  * all 8 unique Caribbean arena islands.
  */
-export const Islands3D: React.FC = React.memo(() => {
+export const Islands3D: React.FC<Islands3DProps> = React.memo(({ isMobile = false }) => {
   const rockTexture = useMemo(() => createCliffRockTexture(), []);
   const sandTexture = useMemo(() => createBeachSandTexture(), []);
   const vegTexture = useMemo(() => createVegetationTexture(), []);
@@ -66,7 +70,7 @@ export const Islands3D: React.FC = React.memo(() => {
   return (
     <group>
       {ARENA_ISLANDS.map((island) => (
-        <IslandEntity key={island.id} island={island} materials={materials} />
+        <IslandEntity key={island.id} island={island} materials={materials} isMobile={isMobile} />
       ))}
     </group>
   );

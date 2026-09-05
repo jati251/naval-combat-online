@@ -5,7 +5,6 @@ import type { IslandDefinition } from './types';
 import { createIslandTerrainGeometry, createBeachGeometry, getIslandElevation } from './islandGeometries';
 import { PalmTree, JungleTree, TropicalBush } from './IslandVegetation';
 import { RockFormation } from './RockFormation';
-import { ISLAND_LOD_DISTANCE } from '../Environment3D';
 
 export interface IslandMaterials {
   sand: THREE.Material;
@@ -19,34 +18,74 @@ export interface IslandMaterials {
 interface IslandEntityProps {
   island: IslandDefinition;
   materials: IslandMaterials;
+  isMobile?: boolean;
 }
 
 /**
  * High-Detail Island Entity with procedural terrain, unique silhouette per type,
  * organic vegetation scatter, coastal rock formations, and smooth atmospheric fog integration.
  */
-export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, materials }) => {
-  const groupRef = useRef<THREE.Group>(null);
+export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, materials, isMobile = false }) => {
+  const beachRef = useRef<THREE.Group>(null);
+  const secondaryRef = useRef<THREE.Group>(null);
+  const treesRef = useRef<THREE.Group>(null);
   const detailRef = useRef<THREE.Group>(null);
-  const frameCount = useRef(Math.floor(Math.random() * 6));
 
   // Procedural terrain geometry (unique per island)
   const terrainGeo = useMemo(() => createIslandTerrainGeometry(island), [island]);
   const beachGeo = useMemo(() => createBeachGeometry(island), [island]);
 
-  // Islands emerge smoothly out of atmospheric fog (zero pop-in)
+  // AAA Staged Level-of-Detail (LOD) Emergence:
+  // 1. Mountain terrain is ALWAYS visible as a distant horizon landmark through soft sea haze (ZERO pop-in).
+  // 2. Beach & shoreline emerge at 350m (desktop) / 200m (mobile).
+  // 3. Tree canopy smoothly emerges from 230m down to 140m via scale interpolation.
+  // 4. Coastal boulders & bushes smoothly emerge from 130m down to 75m via scale interpolation.
   useFrame(({ camera }) => {
-    frameCount.current++;
-    if (frameCount.current % 6 !== 0) return;
-
     const dx = camera.position.x - island.x;
     const dz = camera.position.z - island.z;
     const distSq = dx * dx + dz * dz;
+    const dist = Math.sqrt(distSq);
 
-    // Only cull fine pebble rock scatters deep in horizon fog (> 550m)
-    const showDetail = distSq <= ISLAND_LOD_DISTANCE * ISLAND_LOD_DISTANCE;
-    if (detailRef.current && detailRef.current.visible !== showDetail) {
-      detailRef.current.visible = showDetail;
+    const islandRadius = island.radius;
+
+    // 1. Beach & Shoreline Staging
+    const beachFar = (isMobile ? 200 : 350) + islandRadius * 0.5;
+    const beachNear = (isMobile ? 130 : 220) + islandRadius * 0.5;
+    const beachT = THREE.MathUtils.clamp((beachFar - dist) / (beachFar - beachNear), 0, 1);
+    if (beachRef.current) {
+      const showBeach = beachT > 0.005;
+      if (beachRef.current.visible !== showBeach) beachRef.current.visible = showBeach;
+      if (showBeach) beachRef.current.scale.set(1, beachT, 1);
+    }
+
+    // 2. Secondary Peaks & Sea-Stack Cones Staging
+    const secFar = (isMobile ? 180 : 280) + islandRadius * 0.4;
+    const secNear = (isMobile ? 110 : 170) + islandRadius * 0.4;
+    const secT = THREE.MathUtils.clamp((secFar - dist) / (secFar - secNear), 0, 1);
+    if (secondaryRef.current) {
+      const showSec = secT > 0.005;
+      if (secondaryRef.current.visible !== showSec) secondaryRef.current.visible = showSec;
+      if (showSec) secondaryRef.current.scale.set(secT, secT, secT);
+    }
+
+    // 3. Tree Canopy Foliage Staging (Smoothly scales up from canopy - ZERO pop-in)
+    const treeFar = (isMobile ? 140 : 230) + islandRadius * 0.4;
+    const treeNear = (isMobile ? 80 : 140) + islandRadius * 0.4;
+    const treeT = THREE.MathUtils.clamp((treeFar - dist) / (treeFar - treeNear), 0, 1);
+    if (treesRef.current) {
+      const showTrees = treeT > 0.005;
+      if (treesRef.current.visible !== showTrees) treesRef.current.visible = showTrees;
+      if (showTrees) treesRef.current.scale.set(treeT, treeT, treeT);
+    }
+
+    // 4. Coastal Boulders, Rocks & Undergrowth Bushes Staging (Smoothly scales up - ZERO pop-in)
+    const detailFar = (isMobile ? 75 : 130) + islandRadius * 0.3;
+    const detailNear = (isMobile ? 40 : 75) + islandRadius * 0.3;
+    const detailT = THREE.MathUtils.clamp((detailFar - dist) / (detailFar - detailNear), 0, 1);
+    if (detailRef.current) {
+      const showDetail = detailT > 0.005;
+      if (detailRef.current.visible !== showDetail) detailRef.current.visible = showDetail;
+      if (showDetail) detailRef.current.scale.set(detailT, detailT, detailT);
     }
   });
 
@@ -55,18 +94,13 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
   const rotY = island.elongation?.angle ?? 0;
 
   return (
-    <group ref={groupRef} position={[island.x, 0, island.z]} rotation={[0, rotY, 0]}>
+    <group position={[island.x, 0, island.z]} rotation={[0, rotY, 0]}>
       {/* Scaled Island Mass (Terrain, Beach, Shallows) */}
       <group scale={[scaleX, 1, scaleZ]}>
-        {/* Organic Sandy Beach Shoreline */}
-        <mesh position={[0, 0.6, 0]} receiveShadow material={materials.sand} geometry={beachGeo} />
-
-        {/* Lush Tropical Vegetation Shelf */}
+        {/* Tier 1: Core Geological Mountain Mass (Always rendered as horizon landmark) */}
         <mesh position={[0, 2.0, 0]} receiveShadow material={materials.vegetation}>
           <cylinderGeometry args={[island.radius * 0.96, island.radius * 1.06, 2.2, 48]} />
         </mesh>
-
-        {/* Main Terrain Mass */}
         <mesh
           position={[0, getIslandElevation(island) + 2.0, 0]}
           castShadow
@@ -74,29 +108,35 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
           material={materials.rock}
           geometry={terrainGeo}
         />
+
+        {/* Tier 2: Organic Sandy Beach Shoreline (Staged LOD) */}
+        <group ref={beachRef}>
+          <mesh position={[0, 0.6, 0]} receiveShadow material={materials.sand} geometry={beachGeo} />
+        </group>
       </group>
 
-      {/* Secondary Rock Outcrops */}
-      {island.type === 'volcanic' && (
-        <>
-          <mesh
-            position={[island.radius * 0.3, island.height * 0.3 + 1.5, -island.radius * 0.2]}
-            castShadow
-            receiveShadow
-            material={materials.darkRock}
-          >
-            <dodecahedronGeometry args={[island.radius * 0.22, 3]} />
-          </mesh>
-          <mesh
-            position={[-island.radius * 0.35, island.height * 0.25, island.radius * 0.3]}
-            castShadow
-            receiveShadow
-            material={materials.darkRock}
-          >
-            <dodecahedronGeometry args={[island.radius * 0.18, 3]} />
-          </mesh>
-        </>
-      )}
+      {/* Tier 3: Secondary Rock Outcrops & Corals (Staged LOD) */}
+      <group ref={secondaryRef}>
+        {island.type === 'volcanic' && (
+          <>
+            <mesh
+              position={[island.radius * 0.3, island.height * 0.3 + 1.5, -island.radius * 0.2]}
+              castShadow
+              receiveShadow
+              material={materials.darkRock}
+            >
+              <dodecahedronGeometry args={[island.radius * 0.22, 3]} />
+            </mesh>
+            <mesh
+              position={[-island.radius * 0.35, island.height * 0.25, island.radius * 0.3]}
+              castShadow
+              receiveShadow
+              material={materials.darkRock}
+            >
+              <dodecahedronGeometry args={[island.radius * 0.18, 3]} />
+            </mesh>
+          </>
+        )}
 
       {island.type === 'sea-stack' && (
         <>
@@ -146,6 +186,7 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
           <cylinderGeometry args={[island.radius * 0.8, island.radius * 0.9, 1.0, 48]} />
         </mesh>
       )}
+      </group>
 
       {/* Coastal Rock Formations (High-Detail LOD) */}
       <group ref={detailRef}>
@@ -170,7 +211,7 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
       </group>
 
       {/* Scattered Coconut Palms & Jungle Canopy Trees */}
-      <group>
+      <group ref={treesRef}>
         {island.palms.map(([px, pz, pScale], pIdx) => (
           <PalmTree
             key={`palm-${pIdx}`}

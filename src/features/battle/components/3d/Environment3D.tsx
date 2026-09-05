@@ -3,12 +3,49 @@ import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
 
-export const FOG_COLOR = '#4fa2e8';
-export const FOG_NEAR = 140;
-export const FOG_FAR = 780;
-export const MAX_VIEW_DISTANCE = 850;
-export const ISLAND_LOD_DISTANCE = 550;
-export const NAMEPLATE_CULL_DISTANCE = 140;
+export const FOG_COLOR = '#2b7ab8';
+export const NIGHT_FOG_COLOR = '#060e1d';
+
+// Exponential Atmospheric Haze Densities (Beer-Lambert Atmospheric Scattering)
+export const FOG_DENSITY_DESKTOP = 0.0020;
+export const FOG_DENSITY_DESKTOP_NIGHT = 0.0024;
+export const FOG_DENSITY_MOBILE = 0.0032;
+export const FOG_DENSITY_MOBILE_NIGHT = 0.0038;
+
+// Desktop Render Distance & View Limits
+export const FOG_NEAR_DESKTOP = 120;
+export const FOG_FAR_DESKTOP = 450;
+export const MAX_VIEW_DISTANCE_DESKTOP = 550;
+export const ISLAND_DETAIL_DISTANCE_DESKTOP = 140;
+
+// Mobile Render Distance & View Limits
+export const FOG_NEAR_MOBILE = 60;
+export const FOG_FAR_MOBILE = 260;
+export const MAX_VIEW_DISTANCE_MOBILE = 350;
+export const ISLAND_DETAIL_DISTANCE_MOBILE = 80;
+
+// Nameplate cull distances
+export const NAMEPLATE_CULL_DISTANCE = 110;
+export const NAMEPLATE_CULL_DISTANCE_MOBILE = 55;
+
+// Backward-compatible aliases
+export const FOG_NEAR = FOG_NEAR_DESKTOP;
+export const FOG_FAR = FOG_FAR_DESKTOP;
+export const MAX_VIEW_DISTANCE = MAX_VIEW_DISTANCE_DESKTOP;
+export const ISLAND_LOD_DISTANCE = ISLAND_DETAIL_DISTANCE_DESKTOP;
+
+export function getFogConfig(isMobile: boolean, isNight: boolean) {
+  return {
+    color: isNight ? NIGHT_FOG_COLOR : FOG_COLOR,
+    density: isMobile
+      ? (isNight ? FOG_DENSITY_MOBILE_NIGHT : FOG_DENSITY_MOBILE)
+      : (isNight ? FOG_DENSITY_DESKTOP_NIGHT : FOG_DENSITY_DESKTOP),
+    near: isMobile ? (isNight ? 45 : FOG_NEAR_MOBILE) : (isNight ? 85 : FOG_NEAR_DESKTOP),
+    far: isMobile ? (isNight ? 240 : FOG_FAR_MOBILE) : (isNight ? 420 : FOG_FAR_DESKTOP),
+    viewDistance: isMobile ? MAX_VIEW_DISTANCE_MOBILE : MAX_VIEW_DISTANCE_DESKTOP,
+    islandDetailDistance: isMobile ? ISLAND_DETAIL_DISTANCE_MOBILE : ISLAND_DETAIL_DISTANCE_DESKTOP,
+  };
+}
 
 /**
  * Procedural High-Definition Billowy Cumulus Cloud Texture
@@ -236,8 +273,6 @@ const CaribbeanClouds2D: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({
   );
 };
 
-export const NIGHT_FOG_COLOR = '#091326';
-
 /**
  * Ultra-Vivid Celestial Sky Dome
  * Day: Brilliant Rayleigh Atmospheric Scattering, Solar Corona, & Crepuscular Godrays
@@ -250,8 +285,8 @@ const CaribbeanSkyDome: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({ 
     const mat = new THREE.ShaderMaterial({
       uniforms: {
         uIsNight: { value: isNight ? 1.0 : 0.0 },
-        uTopColor: { value: new THREE.Color(isNight ? '#030712' : '#0165b3') },
-        uMidColor: { value: new THREE.Color(isNight ? '#0a1226' : '#22a6f2') },
+        uTopColor: { value: new THREE.Color(isNight ? '#030712' : '#0284c7') },
+        uMidColor: { value: new THREE.Color(isNight ? '#0a1226' : '#38bdf8') },
         uHorizonColor: { value: new THREE.Color(isNight ? NIGHT_FOG_COLOR : FOG_COLOR) },
         uCelestialPos: { value: new THREE.Vector3(70, 140, -50).normalize() },
       },
@@ -322,8 +357,8 @@ const CaribbeanSkyDome: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({ 
             // 2. Warm golden inner corona bloom
             float innerCorona = pow(celestialDot, 42.0) * 1.6;
             
-            // 3. Wide atmospheric sunlight sheen
-            float broadGlow = pow(celestialDot, 5.5) * 0.5;
+            // 3. Focused atmospheric sunlight sheen (attenuated near horizon to prevent washing out the center sea)
+            float broadGlow = pow(celestialDot, 16.0) * 0.25 * smoothstep(0.04, 0.20, h);
             
             // 4. Subtle crepuscular godrays radiating from the tropical sun
             vec3 sunToDir = dir - uCelestialPos;
@@ -363,7 +398,7 @@ const CaribbeanSkyDome: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({ 
 
   return (
     <mesh ref={meshRef} material={shaderMaterial}>
-      <sphereGeometry args={[800, isMobile ? 16 : 28, isMobile ? 8 : 14]} />
+      <sphereGeometry args={[1200, isMobile ? 16 : 28, isMobile ? 8 : 14]} />
     </mesh>
   );
 };
@@ -374,17 +409,15 @@ export const Environment3D: React.FC<{ isMobile?: boolean }> = React.memo(({ isM
 
   const lightPos: [number, number, number] = [70, 140, -50];
 
-  const fogColor = isNight ? NIGHT_FOG_COLOR : FOG_COLOR;
-  const fogNear = isNight ? 110 : FOG_NEAR;
-  const fogFar = isNight ? 740 : FOG_FAR;
+  const fogCfg = getFogConfig(isMobile, isNight);
 
   return (
     <>
       {/* Dynamic Celestial Sky Dome (Day Azure or Night Obsidian with Stars & Moon) */}
       <CaribbeanSkyDome isNight={isNight} isMobile={isMobile} />
 
-      {/* Atmospheric Sea Fog */}
-      <fog attach="fog" args={[fogColor, fogNear, fogFar]} />
+      {/* Atmospheric Exponential Maritime Sea Fog (Beer-Lambert Atmospheric Scattering) */}
+      <fogExp2 attach="fog" args={[fogCfg.color, fogCfg.density]} />
 
       {/* Celestial Directional Light (Brilliant Sun vs Silver Moon) */}
       <directionalLight

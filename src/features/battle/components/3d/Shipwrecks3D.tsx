@@ -1,6 +1,7 @@
 import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
+import { FOG_FAR_DESKTOP } from './Environment3D';
 
 export interface ShipwreckDefinition {
   id: string;
@@ -105,8 +106,10 @@ const tatteredSailMat = new THREE.MeshStandardMaterial({
  * and drifting flotsam (cargo barrels & crates) bobbing in the waves.
  */
 const ShipwreckEntity: React.FC<{ wreck: ShipwreckDefinition }> = React.memo(({ wreck }) => {
+  const rootRef = useRef<THREE.Group>(null);
   const groupRef = useRef<THREE.Group>(null);
   const flotsamRef = useRef<THREE.Group>(null);
+  const frameCount = useRef(Math.floor(Math.random() * 6));
 
   // Rib beams array for exposed skeletal hull
   const ribs = useMemo(() => {
@@ -133,7 +136,23 @@ const ShipwreckEntity: React.FC<{ wreck: ShipwreckDefinition }> = React.memo(({ 
   }, []);
 
   useFrame((state) => {
-    if (!groupRef.current) return;
+    if (!rootRef.current) return;
+
+    // Distance culling check: when wreck is fully veiled in 100% fog (> 400m), skip rendering
+    frameCount.current++;
+    if (frameCount.current % 6 === 0) {
+      const dx = state.camera.position.x - wreck.x;
+      const dz = state.camera.position.z - wreck.z;
+      const distSq = dx * dx + dz * dz;
+      const cullDist = FOG_FAR_DESKTOP + 20;
+      const inView = distSq <= cullDist * cullDist;
+      if (rootRef.current.visible !== inView) {
+        rootRef.current.visible = inView;
+      }
+    }
+
+    if (!rootRef.current.visible || !groupRef.current) return;
+
     const t = state.clock.getElapsedTime();
 
     // Gentle ocean swell buoyancy bobbing
@@ -153,7 +172,7 @@ const ShipwreckEntity: React.FC<{ wreck: ShipwreckDefinition }> = React.memo(({ 
   });
 
   return (
-    <group position={[wreck.x, -0.8, wreck.z]} rotation={[0, wreck.heading, 0]}>
+    <group ref={rootRef} position={[wreck.x, -0.8, wreck.z]} rotation={[0, wreck.heading, 0]}>
       {/* Main Shattered Hull and Skeletal Keel */}
       <group ref={groupRef}>
         {/* Submerged shattered lower hull */}
@@ -229,7 +248,7 @@ const ShipwreckEntity: React.FC<{ wreck: ShipwreckDefinition }> = React.memo(({ 
  * Shipwrecks3D Component: Renders the Caribbean floating shipwrecks and flotsam
  * with collision matching server physics.
  */
-export const Shipwrecks3D: React.FC = React.memo(() => {
+export const Shipwrecks3D: React.FC<{ isMobile?: boolean }> = React.memo((_props) => {
   return (
     <group>
       {ARENA_SHIPWRECKS.map((wreck) => (

@@ -1,6 +1,10 @@
 import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
+import {
+  FOG_DENSITY_DESKTOP,
+  FOG_DENSITY_MOBILE,
+} from './Environment3D';
 
 export const ARENA_RADIUS = 500;
 
@@ -9,12 +13,15 @@ export const ARENA_RADIUS = 500;
  * An ethereal oceanic energy barrier and floating beacon buoys at R = 500m.
  */
 export const MapBoundary3D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobile = false }) => {
+  const fogDensity = isMobile ? FOG_DENSITY_MOBILE : FOG_DENSITY_DESKTOP;
+
   const boundaryShader = useMemo(() => {
     return new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
         uColor: { value: new THREE.Color('#38bdf8') },
         uWarningColor: { value: new THREE.Color('#f59e0b') },
+        uFogDensity: { value: fogDensity },
       },
       vertexShader: `
         varying vec3 vWorldPosition;
@@ -30,10 +37,16 @@ export const MapBoundary3D: React.FC<{ isMobile?: boolean }> = React.memo(({ isM
         uniform float uTime;
         uniform vec3 uColor;
         uniform vec3 uWarningColor;
+        uniform float uFogDensity;
         varying vec3 vWorldPosition;
         varying vec2 vUv;
 
         void main() {
+          // Distance fog fade: barrier dissolves seamlessly into horizon mist
+          float camDist = length(cameraPosition - vWorldPosition);
+          float fogAlpha = exp(-pow(camDist * uFogDensity, 2.0));
+          if (fogAlpha <= 0.01) discard;
+
           // Vertical fade: dense at water line, fading gently as it rises up
           float heightAlpha = smoothstep(0.0, 0.15, vUv.y) * smoothstep(1.0, 0.4, vUv.y);
 
@@ -47,14 +60,14 @@ export const MapBoundary3D: React.FC<{ isMobile?: boolean }> = React.memo(({ isM
           float baseAlpha = 0.15 + 0.35 * grid;
           vec3 finalColor = mix(uColor, uWarningColor, grid * 0.4);
 
-          gl_FragColor = vec4(finalColor, baseAlpha * heightAlpha * 0.75);
+          gl_FragColor = vec4(finalColor, baseAlpha * heightAlpha * 0.75 * fogAlpha);
         }
       `,
       transparent: true,
       side: THREE.DoubleSide,
       depthWrite: false,
     });
-  }, []);
+  }, [fogDensity]);
 
   // Floating Perimeter Navigation Buoy Markers with Blinking Lanterns
   const buoys = useMemo(() => {
@@ -82,6 +95,16 @@ export const MapBoundary3D: React.FC<{ isMobile?: boolean }> = React.memo(({ isM
     if (buoyGroupRef.current) {
       // Gentle ocean swell bobbing
       buoyGroupRef.current.position.y = Math.sin(t * 1.8) * 0.4;
+
+      // Distance culling: hide buoys if player is deep in arena center (veiled by fog)
+      const camX = state.camera.position.x;
+      const camZ = state.camera.position.z;
+      const distToCenter = Math.sqrt(camX * camX + camZ * camZ);
+      const maxDist = isMobile ? 260 : 420;
+      const shouldShowBuoys = distToCenter + maxDist >= ARENA_RADIUS - 10;
+      if (buoyGroupRef.current.visible !== shouldShowBuoys) {
+        buoyGroupRef.current.visible = shouldShowBuoys;
+      }
     }
   });
 
