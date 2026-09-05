@@ -31,6 +31,16 @@ const DeathmatchObjectiveBar: React.FC<{ onOpenScoreboard: () => void }> = React
   const leader = [...players].sort((a, b) => (b.kills || 0) - (a.kills || 0))[0];
   const selfPlayer = players.find((p) => p.id === selfId);
 
+  const isTeamMode = currentRoom?.gameMode === 'TEAM';
+  let redKills = 0;
+  let blueKills = 0;
+  if (isTeamMode) {
+    for (const p of players) {
+      if (p.team === 'red') redKills += p.kills || 0;
+      else if (p.team === 'blue') blueKills += p.kills || 0;
+    }
+  }
+
   return (
     <div
       onClick={onOpenScoreboard}
@@ -46,26 +56,52 @@ const DeathmatchObjectiveBar: React.FC<{ onOpenScoreboard: () => void }> = React
 
       <div className="w-[1px] h-3 bg-amber-500/30 shrink-0" />
 
-      {/* Leader Standing */}
-      <div className="flex items-center gap-1 text-amber-100 font-cinzel">
-        <span className="text-[9px] text-amber-300/80 uppercase hidden md:inline">Leader:</span>
-        <span className="font-bold text-amber-200 truncate max-w-[50px] sm:max-w-[85px]">
-          {leader ? leader.name : 'None'}
-        </span>
-        <span className="font-mono font-bold text-emerald-300 text-[10px] sm:text-xs">
-          ({leader?.kills || 0}/{targetKills})
-        </span>
-      </div>
+      {isTeamMode ? (
+        /* Team Mode Standing */
+        <div className="flex items-center gap-2 font-cinzel text-[10px] sm:text-xs">
+          <div className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.6)]" />
+            <span className="text-rose-300 font-bold hidden sm:inline">Red:</span>
+            <span className="font-mono font-bold text-rose-200">{redKills}</span>
+          </div>
+          <span className="text-amber-500/50">vs</span>
+          <div className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_6px_rgba(6,182,212,0.6)]" />
+            <span className="text-cyan-300 font-bold hidden sm:inline">Blue:</span>
+            <span className="font-mono font-bold text-cyan-200">{blueKills}</span>
+          </div>
+          <div className="w-[1px] h-3 bg-amber-500/30 shrink-0" />
+          <span className="text-[9px] uppercase tracking-wider text-amber-300/80 hidden xs:inline">
+            You:{' '}
+            <strong className={selfPlayer?.team === 'red' ? 'text-rose-400' : 'text-cyan-400'}>
+              {selfPlayer?.team === 'red' ? 'Red Fleet' : 'Blue Fleet'}
+            </strong>
+          </span>
+        </div>
+      ) : (
+        /* Free For All Standing */
+        <>
+          <div className="flex items-center gap-1 text-amber-100 font-cinzel">
+            <span className="text-[9px] text-amber-300/80 uppercase hidden md:inline">Leader:</span>
+            <span className="font-bold text-amber-200 truncate max-w-[50px] sm:max-w-[85px]">
+              {leader ? leader.name : 'None'}
+            </span>
+            <span className="font-mono font-bold text-emerald-300 text-[10px] sm:text-xs">
+              ({leader?.kills || 0}/{targetKills})
+            </span>
+          </div>
 
-      <div className="w-[1px] h-3 bg-amber-500/30 shrink-0" />
+          <div className="w-[1px] h-3 bg-amber-500/30 shrink-0" />
 
-      {/* Self Progress */}
-      <div className="flex items-center gap-1 font-cinzel">
-        <span className="text-[9px] text-amber-300/80 uppercase">You:</span>
-        <span className="font-mono font-black text-amber-300 text-[10px] sm:text-xs">
-          {selfPlayer?.kills || 0}/{targetKills}
-        </span>
-      </div>
+          {/* Self Progress */}
+          <div className="flex items-center gap-1 font-cinzel">
+            <span className="text-[9px] text-amber-300/80 uppercase">You:</span>
+            <span className="font-mono font-black text-amber-300 text-[10px] sm:text-xs">
+              {selfPlayer?.kills || 0}/{targetKills}
+            </span>
+          </div>
+        </>
+      )}
 
       {/* Scoreboard Hint */}
       <div className="hidden lg:flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-950/80 border border-amber-500/40 text-amber-300 shadow-sm">
@@ -122,22 +158,22 @@ const SpeedRudderContainer: React.FC = React.memo(() => {
 
 const BroadsideGaugesContainer: React.FC = React.memo(() => {
   const { fireBattery } = useShipActions();
-  const portProgress = useGameStore((s) => s.portReloadProgress);
-  const stbdProgress = useGameStore((s) => s.starboardReloadProgress);
+  const leftProgress = useGameStore((s) => s.leftReloadProgress);
+  const rightProgress = useGameStore((s) => s.rightReloadProgress);
   const aimDirection = useGameStore((s) => s.aimDirection);
 
   const handleFire = useCallback(() => {
-    if (aimDirection === 'port' || aimDirection === 'starboard') {
+    if (aimDirection === 'left' || aimDirection === 'right') {
       fireBattery(aimDirection);
     } else {
-      fireBattery(stbdProgress >= 1.0 ? 'starboard' : 'port');
+      fireBattery(leftProgress >= 1.0 ? 'left' : 'right');
     }
-  }, [aimDirection, fireBattery, stbdProgress]);
+  }, [aimDirection, fireBattery, leftProgress]);
 
   return (
     <BroadsideGauges
-      portProgress={portProgress}
-      stbdProgress={stbdProgress}
+      leftProgress={leftProgress}
+      rightProgress={rightProgress}
       aimDirection={aimDirection}
       onFireBattery={handleFire}
     />

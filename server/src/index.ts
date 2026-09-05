@@ -136,6 +136,16 @@ app.ws<SocketUserData>('/ws', {
         }
       }
 
+      // Unsubscribe room topic immediately if client is explicitly leaving
+      if (msg.type === 'LEAVE_ROOM' && data.subscribedRoom) {
+        try {
+          ws.unsubscribe(`room:${data.subscribedRoom}`);
+        } catch {
+          // Safe ignore
+        }
+        data.subscribedRoom = undefined;
+      }
+
       const res = roomManager.handleClientMessage(data.id, msg);
 
       // Subscribe socket to room topic for CREATE_ROOM, JOIN_ROOM, and RECONNECT!
@@ -146,15 +156,6 @@ app.ws<SocketUserData>('/ws', {
         } catch {
           // Safe ignore
         }
-      }
-
-      if (msg.type === 'LEAVE_ROOM' && data.subscribedRoom) {
-        try {
-          ws.unsubscribe(`room:${data.subscribedRoom}`);
-        } catch {
-          // Safe ignore
-        }
-        data.subscribedRoom = undefined;
       }
     } catch (err) {
       console.error('🛡️ [WSMessage] Error handling websocket message:', err);

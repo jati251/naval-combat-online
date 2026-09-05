@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Swords, Sun, Moon, Dices, X, Trophy } from 'lucide-react';
+import { Swords, Sun, Moon, Dices, X, Trophy, Users, Shield } from 'lucide-react';
 
 interface CreateRoomModalProps {
   isOpen: boolean;
@@ -8,7 +8,8 @@ interface CreateRoomModalProps {
     roomName: string,
     maxPlayers: number,
     timeOfDay: 'DAY' | 'NIGHT' | 'RANDOM',
-    targetKills: number
+    targetKills: number,
+    gameMode: 'FFA' | 'TEAM'
   ) => boolean;
 }
 
@@ -21,12 +22,13 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [targetKills, setTargetKills] = useState(5);
   const [timeOfDay, setTimeOfDay] = useState<'DAY' | 'NIGHT' | 'RANDOM'>('DAY');
+  const [gameMode, setGameMode] = useState<'FFA' | 'TEAM'>('FFA');
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const success = onCreate(roomName, maxPlayers, timeOfDay, targetKills);
+    const success = onCreate(roomName, maxPlayers, timeOfDay, targetKills, gameMode);
     if (success) {
       setRoomName('');
     }
@@ -77,6 +79,46 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
               maxLength={24}
               autoFocus
             />
+          </div>
+
+          {/* Battle Engagement Mode */}
+          <div>
+            <label className="block text-[10px] font-cinzel font-bold text-amber-300 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-amber-400" />
+              <span>Engagement Protocol</span>
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setGameMode('FFA')}
+                className={`py-2 px-2.5 rounded-md text-xs font-cinzel font-bold border transition flex flex-col items-center justify-center cursor-pointer ${
+                  gameMode === 'FFA'
+                    ? 'bg-gradient-to-b from-amber-600/35 to-amber-950/80 border-2 border-amber-400 text-white shadow-[0_0_10px_rgba(245,158,11,0.3)] ring-1 ring-amber-300'
+                    : 'bg-[#142338]/85 border border-amber-500/30 text-amber-100 hover:text-white'
+                }`}
+              >
+                <span className="flex items-center gap-1.5">
+                  <Swords className="w-3.5 h-3.5 text-amber-300" />
+                  <span>Free For All</span>
+                </span>
+                <span className="text-[9px] font-fell italic text-amber-200/70 mt-0.5">Every Captain for Himself</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setGameMode('TEAM')}
+                className={`py-2 px-2.5 rounded-md text-xs font-cinzel font-bold border transition flex flex-col items-center justify-center cursor-pointer ${
+                  gameMode === 'TEAM'
+                    ? 'bg-gradient-to-b from-cyan-800/40 to-blue-950/85 border-2 border-cyan-400 text-white shadow-[0_0_10px_rgba(6,182,212,0.3)] ring-1 ring-cyan-300'
+                    : 'bg-[#142338]/85 border border-amber-500/30 text-amber-100 hover:text-white'
+                }`}
+              >
+                <span className="flex items-center gap-1.5">
+                  <Shield className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Armada Clash</span>
+                </span>
+                <span className="text-[9px] font-fell italic text-cyan-200/70 mt-0.5">Red vs Blue Fleets</span>
+              </button>
+            </div>
           </div>
 
           {/* Deathmatch Victory Goal */}

@@ -66,6 +66,13 @@ export class BotAI {
   public static update(bot: ShipSimulationState, room: GameRoom): void {
     if (bot.isSunk || room.status !== 'IN_GAME') return;
 
+    // Grace period at battle start (4.0s) so players finish loading assets before bots engage
+    const matchTime = (Date.now() - room.getStartTime()) / 1000;
+    if (matchTime < 4.0) {
+      room.handleInput(bot.id, 0, 'ANCHOR');
+      return;
+    }
+
     const heading = bot.rotationY;
     const speedKnots = Math.max(0, bot.speed);
 
@@ -120,8 +127,18 @@ export class BotAI {
     let nearestEnemy: ShipSimulationState | null = null;
     let minEnemyDist = 99999;
 
+    const botPlayer = room.players.get(bot.id);
     for (const ship of room.ships.values()) {
       if (ship.id === bot.id || ship.isSunk) continue;
+
+      // In TEAM mode, do not target teammates
+      if (room.gameMode === 'TEAM') {
+        const targetPlayer = room.players.get(ship.id);
+        if (targetPlayer?.team && botPlayer?.team && targetPlayer.team === botPlayer.team) {
+          continue;
+        }
+      }
+
       const d = Math.hypot(ship.x - bot.x, ship.z - bot.z);
       if (d < minEnemyDist) {
         minEnemyDist = d;
@@ -154,11 +171,11 @@ export class BotAI {
       targetSail = 'FULL_SAIL';
     } else if (dist >= 45) {
       // In broadside combat range (45m - 150m):
-      // Turn ship broadside to enemy (enemy at ~90° on port or starboard)
-      const fireSide: 'port' | 'starboard' = relBearing >= 0 ? 'starboard' : 'port';
+      // Turn ship broadside to enemy (enemy at ~90° on left or right)
+      const fireSide: 'left' | 'right' = relBearing >= 0 ? 'left' : 'right';
 
       // Desired heading aligns broadside with target
-      const broadsideOffset = fireSide === 'starboard' ? -Math.PI * 0.5 : Math.PI * 0.5;
+      const broadsideOffset = fireSide === 'left' ? -Math.PI * 0.5 : Math.PI * 0.5;
       const desiredHeading = angleToTarget + broadsideOffset;
       const headingDiff = this.normalizeAngle(desiredHeading - heading);
 

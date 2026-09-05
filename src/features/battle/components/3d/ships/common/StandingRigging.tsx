@@ -13,7 +13,7 @@ interface StandingRiggingProps {
 
 /**
  * Creates authentic tall-ship Standing Rigging (Shrouds, Ratlines, Deadeyes)
- * connecting the mast tops to the port and starboard hull chainplates.
+ * connecting the mast tops to the left and right hull chainplates.
  */
 export const StandingRigging: React.FC<StandingRiggingProps> = React.memo(({
   mastPosition,
@@ -101,7 +101,7 @@ export const StandingRigging: React.FC<StandingRiggingProps> = React.memo(({
         </mesh>
       ))}
 
-      {/* Wooden Deadeyes at Chainplates (Port & Starboard) */}
+      {/* Wooden Deadeyes at Chainplates (Left & Right) */}
       {[-chainX, chainX].map((dx, sideIdx) => (
         <group key={`deadeyes-${sideIdx}`} position={[dx, baseChainY, mZ]}>
           {[-shroudSpread * 0.5, 0, shroudSpread * 0.5].map((dz, dIdx) => (

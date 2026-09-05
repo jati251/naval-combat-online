@@ -17,7 +17,7 @@ export interface CannonballSnapshot {
   vz: number;
 }
 
-export type AimDirection = 'none' | 'port' | 'starboard';
+export type AimDirection = 'none' | 'left' | 'right';
 
 export interface CombatLog {
   id: string;

@@ -1,10 +1,10 @@
 export const BATTLE_KEY_BINDINGS = {
-  STEER_PORT: ['KeyA', 'ArrowLeft'],
-  STEER_STARBOARD: ['KeyD', 'ArrowRight'],
+  STEER_LEFT: ['KeyA', 'ArrowLeft'],
+  STEER_RIGHT: ['KeyD', 'ArrowRight'],
   SAIL_INCREASE: ['KeyW', 'ArrowUp'],
   SAIL_DECREASE: ['KeyS', 'ArrowDown'],
-  AIM_PORT: ['KeyQ'],
-  AIM_STARBOARD: ['KeyE'],
+  AIM_LEFT: ['KeyQ'],
+  AIM_RIGHT: ['KeyE'],
   FIRE_SALVO: ['Space'],
 } as const;
 

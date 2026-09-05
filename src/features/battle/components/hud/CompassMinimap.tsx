@@ -200,10 +200,17 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(() => {
         }
       }
 
-      // 5. Enemy Warships (Red Privateer Galleons with Heading)
+      // 5. Warships (Teammates vs Enemies)
+      const curRoom = useGameStore.getState().currentRoom;
+      const selfPlayer = curRoom?.players.find((p) => p.id === curId);
+      const isTeamMode = curRoom?.gameMode === 'TEAM';
+
       for (let i = 0; i < curShips.length; i++) {
         const s = curShips[i];
         if (s.id === curId || s.isSunk) continue;
+
+        const otherPlayer = curRoom?.players.find((p) => p.id === s.id);
+        const isTeammate = isTeamMode && Boolean(selfPlayer?.team && otherPlayer?.team && selfPlayer.team === otherPlayer.team);
 
         const dx = s.x - curSelf.x;
         const dz = s.z - curSelf.z;
@@ -231,9 +238,9 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(() => {
         ctx.lineTo(0, 2.5);
         ctx.lineTo(-4.5, 5);
         ctx.closePath();
-        ctx.fillStyle = '#dc2626';
+        ctx.fillStyle = isTeammate ? '#38bdf8' : '#dc2626';
         ctx.fill();
-        ctx.strokeStyle = '#fee2e2';
+        ctx.strokeStyle = isTeammate ? '#e0f2fe' : '#fee2e2';
         ctx.lineWidth = 1;
         ctx.stroke();
         ctx.restore();

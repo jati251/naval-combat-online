@@ -5,8 +5,8 @@ import { navalAudio } from '@/features/battle/services/navalAudio';
 export interface ControlsSlice {
   localRudder: number;
   localSail: SailState;
-  portReloadProgress: number; // 0 to 1
-  starboardReloadProgress: number;
+  leftReloadProgress: number; // 0 to 1
+  rightReloadProgress: number;
   aimDirection: AimDirection;
   isAiming: boolean;
 
@@ -14,12 +14,12 @@ export interface ControlsSlice {
   setLocalSail: (sail: SailState) => void;
   cycleSailState: (dir: 'up' | 'down') => void;
   setAimDirection: (aimDirection: AimDirection, isAiming: boolean) => void;
-  triggerFireCooldown: (side: 'port' | 'starboard', durationSec: number) => void;
+  triggerFireCooldown: (side: 'left' | 'right', durationSec: number) => void;
   resetControls: () => void;
 }
 
-let activePortTimer: ReturnType<typeof setInterval> | null = null;
-let activeStarboardTimer: ReturnType<typeof setInterval> | null = null;
+let activeLeftTimer: ReturnType<typeof setInterval> | null = null;
+let activeRightTimer: ReturnType<typeof setInterval> | null = null;
 
 export const createControlsSlice: StateCreator<
   ControlsSlice,
@@ -29,8 +29,8 @@ export const createControlsSlice: StateCreator<
 > = (set, get) => ({
   localRudder: 0,
   localSail: 'ANCHOR',
-  portReloadProgress: 1,
-  starboardReloadProgress: 1,
+  leftReloadProgress: 1,
+  rightReloadProgress: 1,
   aimDirection: 'none',
   isAiming: false,
 
@@ -57,60 +57,60 @@ export const createControlsSlice: StateCreator<
 
   triggerFireCooldown: (side, durationSec) => {
     // Clear any existing running timer for this side
-    if (side === 'port' && activePortTimer) {
-      clearInterval(activePortTimer);
-      activePortTimer = null;
-    } else if (side === 'starboard' && activeStarboardTimer) {
-      clearInterval(activeStarboardTimer);
-      activeStarboardTimer = null;
+    if (side === 'left' && activeLeftTimer) {
+      clearInterval(activeLeftTimer);
+      activeLeftTimer = null;
+    } else if (side === 'right' && activeRightTimer) {
+      clearInterval(activeRightTimer);
+      activeRightTimer = null;
     }
 
     const startTime = performance.now();
     const intervalMs = 50;
 
     // Immediately reset progress to 0
-    if (side === 'port') {
-      set({ portReloadProgress: 0 });
+    if (side === 'left') {
+      set({ leftReloadProgress: 0 });
     } else {
-      set({ starboardReloadProgress: 0 });
+      set({ rightReloadProgress: 0 });
     }
 
     const timer = setInterval(() => {
       const elapsed = (performance.now() - startTime) / 1000;
       const progress = Math.min(1.0, elapsed / durationSec);
 
-      if (side === 'port') {
-        set({ portReloadProgress: progress });
+      if (side === 'left') {
+        set({ leftReloadProgress: progress });
       } else {
-        set({ starboardReloadProgress: progress });
+        set({ rightReloadProgress: progress });
       }
 
       if (progress >= 1.0) {
         clearInterval(timer);
-        if (side === 'port') activePortTimer = null;
-        else activeStarboardTimer = null;
+        if (side === 'left') activeLeftTimer = null;
+        else activeRightTimer = null;
       }
     }, intervalMs);
 
-    if (side === 'port') activePortTimer = timer;
-    else activeStarboardTimer = timer;
+    if (side === 'left') activeLeftTimer = timer;
+    else activeRightTimer = timer;
   },
 
   resetControls: () => {
-    if (activePortTimer) {
-      clearInterval(activePortTimer);
-      activePortTimer = null;
+    if (activeLeftTimer) {
+      clearInterval(activeLeftTimer);
+      activeLeftTimer = null;
     }
-    if (activeStarboardTimer) {
-      clearInterval(activeStarboardTimer);
-      activeStarboardTimer = null;
+    if (activeRightTimer) {
+      clearInterval(activeRightTimer);
+      activeRightTimer = null;
     }
 
     set({
       localRudder: 0,
       localSail: 'ANCHOR',
-      portReloadProgress: 1,
-      starboardReloadProgress: 1,
+      leftReloadProgress: 1,
+      rightReloadProgress: 1,
       aimDirection: 'none',
       isAiming: false,
     });

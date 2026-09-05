@@ -59,9 +59,16 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
 
   const knownBallIds = useRef<Map<string, { x: number; y: number; z: number }>>(new Map());
   const processedFireEvents = useRef<Set<string>>(new Set());
+  const lastShipBurstTime = useRef<Map<string, number>>(new Map());
 
   // Helper: Trigger dense volumetric muzzle smoke and flash along the ship's active battery
-  const spawnBroadsideBurst = (shipId: string, side: 'port' | 'starboard') => {
+  const spawnBroadsideBurst = (shipId: string, side: 'left' | 'right') => {
+    const now = performance.now();
+    const lastBurst = lastShipBurstTime.current.get(shipId) || 0;
+    // Debounce duplicate fire events within 350ms for the same ship to avoid particle storms
+    if (now - lastBurst < 350) return;
+    lastShipBurstTime.current.set(shipId, now);
+
     const { ships } = useGameStore.getState();
     const firingShip = ships.find((s) => s.id === shipId);
     if (!firingShip) return;
@@ -69,36 +76,34 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
     const shipCfg = SHIP_PRESETS[firingShip.shipClass] || SHIP_PRESETS.brig;
     const gunDeckY = firingShip.y + 1.8;
 
-    // Mobile: cap at 6 guns to prevent frame hang from particle storm
+    // Cap gun emitters to 3-6 strategic points along the active broadside battery
     const numGuns = isMobile
-      ? Math.min(6, Math.max(2, Math.floor(shipCfg.length / 3.0)))
-      : Math.min(16, Math.max(3, Math.floor(shipCfg.length / 2.0)));
+      ? Math.min(4, Math.max(2, Math.floor(shipCfg.length / 3.0)))
+      : Math.min(8, Math.max(3, Math.floor(shipCfg.length / 2.2)));
     for (let g = 0; g < numGuns; g++) {
       const relZ = (g - (numGuns - 1) * 0.5) * ((shipCfg.length * 0.6) / numGuns);
       const transform = getBroadsideTransform(firingShip.x, firingShip.z, firingShip.rotationY, side, shipCfg.width, relZ);
       const gx = transform.spawnX;
-      const gy = gunDeckY + (Math.random() - 0.5) * 0.3;
+      const gy = gunDeckY + (Math.random() - 0.5) * 0.2;
       const gz = transform.spawnZ;
 
       const normX = transform.lateralX;
       const normZ = transform.lateralZ;
 
       // Bright muzzle explosion burst
-      spawnFlash(flashPool.current, gx, gy, gz, 5.0 + Math.random() * 2.5);
-      // Skip sparks on mobile — barely visible and each gun spawns 14-24 sparks
-      // which causes O(n*m) pool scanning that hangs the frame
+      spawnFlash(flashPool.current, gx, gy, gz, 4.8 + Math.random() * 2.0);
       if (!isMobile) {
         spawnSparks(sparkPool.current, gx, gy, gz, normX, normZ);
       }
 
-      // Thick billowing gunpowder smoke cloud (reduced on mobile)
-      const smokeCount = isMobile ? (3 + Math.floor(Math.random() * 2)) : (6 + Math.floor(Math.random() * 4));
+      // 2-3 billowy smoke clouds per gun emitter (crisp and volumetric without choking particle pool)
+      const smokeCount = isMobile ? 2 : (2 + Math.floor(Math.random() * 2));
       for (let sm = 0; sm < smokeCount; sm++) {
-        const outSpeed = 6.0 + Math.random() * 12.0;
-        const svx = normX * outSpeed + (Math.random() - 0.5) * 4.5;
-        const svy = 1.2 + Math.random() * 3.2;
-        const svz = normZ * outSpeed + (Math.random() - 0.5) * 4.5;
-        spawnSmoke(smokePool.current, gx, gy, gz, svx, svy, svz, 4.0 + Math.random() * 2.8);
+        const outSpeed = 5.0 + Math.random() * 10.0;
+        const svx = normX * outSpeed + (Math.random() - 0.5) * 3.5;
+        const svy = 1.0 + Math.random() * 2.5;
+        const svz = normZ * outSpeed + (Math.random() - 0.5) * 3.5;
+        spawnSmoke(smokePool.current, gx, gy, gz, svx, svy, svz, 3.8 + Math.random() * 2.2);
       }
     }
   };
@@ -131,7 +136,7 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
 
     // 2. Track Ball Flight Smoke Trails & Detect Impacts (Zero-Allocation Loop)
     currentBallIds.current.clear();
-    const shouldSpawnBallSmoke = !isMobile || (frameCounter.current % 2 === 0);
+    const shouldSpawnBallSmoke = frameCounter.current % (isMobile ? 4 : 2) === 0;
 
     for (const b of cannonballs) {
       currentBallIds.current.add(b.id);
@@ -145,7 +150,7 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
         ballPos.z = b.z;
       }
 
-      // Persistent smoke ribbon following each flying cannonball (throttled on mobile)
+      // Persistent smoke ribbon following each flying cannonball (throttled for high FPS)
       if (shouldSpawnBallSmoke) {
         spawnSmoke(
           smokePool.current,
@@ -161,23 +166,27 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
     }
 
     // Check vanished balls (impact with water or hit target)
+    let plumesSpawnedThisFrame = 0;
     for (const [id, lastPos] of knownBallIds.current.entries()) {
       if (!currentBallIds.current.has(id)) {
         if (lastPos.y <= 1.8) {
-          spawnWaterImpact(plumePool.current, smokePool.current, lastPos.x, lastPos.z);
+          if (plumesSpawnedThisFrame < 3) {
+            spawnWaterImpact(plumePool.current, smokePool.current, lastPos.x, lastPos.z);
+            plumesSpawnedThisFrame++;
+          }
         } else {
-          spawnFlash(flashPool.current, lastPos.x, lastPos.y, lastPos.z, 5.0);
-          const hitSmokeCount = isMobile ? 4 : 12;
+          spawnFlash(flashPool.current, lastPos.x, lastPos.y, lastPos.z, 4.5);
+          const hitSmokeCount = isMobile ? 2 : 4;
           for (let sp = 0; sp < hitSmokeCount; sp++) {
             spawnSmoke(
               smokePool.current,
               lastPos.x,
               lastPos.y,
               lastPos.z,
-              (Math.random() - 0.5) * 8.0,
-              2.0 + Math.random() * 5.0,
-              (Math.random() - 0.5) * 8.0,
-              2.2
+              (Math.random() - 0.5) * 6.0,
+              1.5 + Math.random() * 3.0,
+              (Math.random() - 0.5) * 6.0,
+              1.8
             );
           }
         }

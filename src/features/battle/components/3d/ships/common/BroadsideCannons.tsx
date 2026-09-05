@@ -27,12 +27,12 @@ const carriageMat = new THREE.MeshStandardMaterial({ color: '#831843', roughness
 const wheelMat = new THREE.MeshStandardMaterial({ color: '#381a08', roughness: 0.8 });
 
 const SingleCannonUnit: React.FC<{
-  isPort: boolean;
+  isLeft: boolean;
   color: string;
   barrelScale?: number;
   isEnemy?: boolean;
-}> = React.memo(({ isPort, color, barrelScale = 1.0, isEnemy = false }) => {
-  const dir = isPort ? 1 : -1;
+}> = React.memo(({ isLeft, color, barrelScale = 1.0, isEnemy = false }) => {
+  const dir = isLeft ? 1 : -1;
   const barrelMat = color === '#09090b' ? gunMetalDarkMat : gunMetalMat;
 
   // Opponent ships at distance only need the protruding barrel cylinder (saves 90% meshes)
@@ -57,14 +57,14 @@ const SingleCannonUnit: React.FC<{
         <mesh position={[0, 0.05, 0]} rotation={[Math.PI / 2, 0, 0]} geometry={trunnionGeo} material={barrelMat} />
       </group>
 
-      {/* Wheeled Naval Truck Carriage (Inboard behind gun breech) */}
-      <group position={[dir * 0.28, -0.16, 0]}>
-        <mesh castShadow position={[0, 0.06, 0]} geometry={carriageGeo} material={carriageMat} />
-        <mesh position={[-0.14, -0.06, -0.18]} rotation={[0, 0, Math.PI / 2]} geometry={wheelGeo} material={wheelMat} />
-        <mesh position={[-0.14, -0.06, 0.18]} rotation={[0, 0, Math.PI / 2]} geometry={wheelGeo} material={wheelMat} />
-        <mesh position={[0.14, -0.06, -0.18]} rotation={[0, 0, Math.PI / 2]} geometry={wheelGeo} material={wheelMat} />
-        <mesh position={[0.14, -0.06, 0.18]} rotation={[0, 0, Math.PI / 2]} geometry={wheelGeo} material={wheelMat} />
-      </group>
+      {/* Heavy Wood Naval Truck Carriage */}
+      <mesh position={[0, -0.16, 0]} geometry={carriageGeo} material={carriageMat} />
+
+      {/* 4 Wooden Wheels */}
+      <mesh position={[-0.19, -0.22, 0.16]} rotation={[0, 0, Math.PI / 2]} geometry={wheelGeo} material={wheelMat} />
+      <mesh position={[0.19, -0.22, 0.16]} rotation={[0, 0, Math.PI / 2]} geometry={wheelGeo} material={wheelMat} />
+      <mesh position={[-0.19, -0.22, -0.16]} rotation={[0, 0, Math.PI / 2]} geometry={wheelGeo} material={wheelMat} />
+      <mesh position={[0.19, -0.22, -0.16]} rotation={[0, 0, Math.PI / 2]} geometry={wheelGeo} material={wheelMat} />
     </group>
   );
 });
@@ -82,24 +82,24 @@ export const BroadsideCannons: React.FC<BroadsideCannonsProps> = React.memo(({
     <>
       {positions.map((posZ, idx) => (
         <group key={`gun-${idx}`} position={[0, y, posZ]} scale={[scale, scale, scale]}>
-          {/* Port Gun */}
+          {/* Left Gun */}
           <group position={[-width * 0.5 - 0.22, 0, 0]}>
-            <SingleCannonUnit isPort={true} color={color} isEnemy={isEnemy} />
+            <SingleCannonUnit isLeft={true} color={color} isEnemy={isEnemy} />
           </group>
 
-          {/* Starboard Gun */}
+          {/* Right Gun */}
           <group position={[width * 0.5 + 0.22, 0, 0]}>
-            <SingleCannonUnit isPort={false} color={color} isEnemy={isEnemy} />
+            <SingleCannonUnit isLeft={false} color={color} isEnemy={isEnemy} />
           </group>
 
           {/* Lower Gun Deck Ports (Man-o'-War double decker) */}
           {isDoubleDecker && (
             <>
               <group position={[-width * 0.5 - 0.25, -1.0, 0]}>
-                <SingleCannonUnit isPort={true} color="#09090b" barrelScale={1.1} isEnemy={isEnemy} />
+                <SingleCannonUnit isLeft={true} color="#09090b" barrelScale={1.1} isEnemy={isEnemy} />
               </group>
               <group position={[width * 0.5 + 0.25, -1.0, 0]}>
-                <SingleCannonUnit isPort={false} color="#09090b" barrelScale={1.1} isEnemy={isEnemy} />
+                <SingleCannonUnit isLeft={false} color="#09090b" barrelScale={1.1} isEnemy={isEnemy} />
               </group>
             </>
           )}

@@ -10,7 +10,7 @@ import { useShipActions } from "./useShipActions";
  * Mount ONCE at the top-level Battle component.
  * - Smooth rudder steering (A / D, Left / Right) with continuous lerp
  * - Rigging speed control (W / S, Up / Down) with audio whoosh
- * - Broadside battery aiming (Hold Q: Port, Hold E: Starboard)
+ * - Broadside battery aiming (Hold Q: Left, Hold E: Right)
  * - Salvo fire (Space bar or Left Mouse Click) with instant cannon thunder
  */
 export function useShipControls() {
@@ -57,7 +57,7 @@ export function useShipControls() {
           }
           lastSentRudder.current = currentRudder.current;
           setLocalRudder(currentRudder.current);
-          // Inverted sign sent to server physics to correctly turn Port on A and Starboard on D
+          // Inverted sign sent to server physics to correctly turn Left on A and Right on D
           networkClient.sendInput(
             -currentRudder.current,
             useGameStore.getState().localSail,
@@ -95,9 +95,9 @@ export function useShipControls() {
 
       // Broadside Battery Aiming (Hold Q for Left, Hold E for Right)
       if (key === "q") {
-        actions.setAim("starboard", true);
+        actions.setAim("left", true);
       } else if (key === "e") {
-        actions.setAim("port", true);
+        actions.setAim("right", true);
       }
 
       // Salvo Fire (Space Bar)
@@ -105,7 +105,11 @@ export function useShipControls() {
         e.preventDefault();
         const store = useGameStore.getState();
         const sideToFire =
-          store.aimDirection !== "none" ? store.aimDirection : "starboard";
+          store.aimDirection !== "none"
+            ? store.aimDirection
+            : store.leftReloadProgress >= 1.0
+              ? "left"
+              : "right";
         actions.fireBattery(sideToFire);
       }
     };
@@ -114,22 +118,8 @@ export function useShipControls() {
       const key = e.key.toLowerCase();
       keys.current[key] = false;
 
-      // Disengage aim on Q or E release
-      if (key === "q") {
-        const pressDuration =
-          performance.now() - (keyPressTimers.current["q"] || 0);
-        // Quick tap (< 220ms) fires immediately (Left battery)
-        if (pressDuration < 220) {
-          actions.fireBattery("starboard");
-        }
-        actions.setAim("none", false);
-      } else if (key === "e") {
-        const pressDuration =
-          performance.now() - (keyPressTimers.current["e"] || 0);
-        // Quick tap (< 220ms) fires immediately (Right battery)
-        if (pressDuration < 220) {
-          actions.fireBattery("port");
-        }
+      // Disengage aim on Q or E release (aiming only; never fires)
+      if (key === "q" || key === "e") {
         actions.setAim("none", false);
       }
     };
@@ -158,7 +148,11 @@ export function useShipControls() {
         navalAudio.init();
         const store = useGameStore.getState();
         const sideToFire =
-          store.aimDirection !== "none" ? store.aimDirection : "port";
+          store.aimDirection !== "none"
+            ? store.aimDirection
+            : store.leftReloadProgress >= 1.0
+              ? "left"
+              : "right";
         actions.fireBattery(sideToFire);
       }
     };

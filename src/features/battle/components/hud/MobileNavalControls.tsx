@@ -8,8 +8,8 @@ export const MobileNavalControls: React.FC = () => {
 
   const localSail = useGameStore((s) => s.localSail);
   const localRudder = useGameStore((s) => s.localRudder);
-  const portProgress = useGameStore((s) => s.portReloadProgress);
-  const stbdProgress = useGameStore((s) => s.starboardReloadProgress);
+  const leftProgress = useGameStore((s) => s.leftReloadProgress);
+  const rightProgress = useGameStore((s) => s.rightReloadProgress);
 
   const joystickRef = useRef<HTMLDivElement | null>(null);
   const [isDraggingWheel, setIsDraggingWheel] = useState(false);
@@ -17,8 +17,8 @@ export const MobileNavalControls: React.FC = () => {
   const lastNetworkSync = useRef(0);
   const currentTouchRudder = useRef(0);
 
-  const isPortReady = portProgress >= 1.0;
-  const isStbdReady = stbdProgress >= 1.0;
+  const isLeftReady = leftProgress >= 1.0;
+  const isRightReady = rightProgress >= 1.0;
 
   // --- Left Thumb: Virtual Helm Steering Touch Handlers ---
   const handleTouchStartWheel = useCallback(
@@ -73,49 +73,59 @@ export const MobileNavalControls: React.FC = () => {
     [setRudder],
   );
 
-  // Anti-double-tap timestamp debounces for independent broadsides
-  const lastPortFireTimestamp = useRef<number>(0);
-  const lastStbdFireTimestamp = useRef<number>(0);
+  // Track last touch timestamp to filter out synthetic ghost clicks dispatched 300ms after touchstart
+  const lastTouchHandledTime = useRef<number>(0);
 
-  // Direct Left Broadside Fire (Triggers Starboard Battery on Left Button)
-  const handleFireLeft = useCallback(
-    (e?: React.TouchEvent | React.MouseEvent) => {
-      if (e) {
-        e.stopPropagation();
-        if ("preventDefault" in e && e.cancelable) e.preventDefault();
-      }
-      const now = performance.now();
-      if (now - lastPortFireTimestamp.current < 250) return;
-      lastPortFireTimestamp.current = now;
-
-      if (isStbdReady) {
-        fireBattery("starboard");
-      }
+  const handleTouchButton = useCallback(
+    (callback: () => void) => (e: React.TouchEvent) => {
+      e.stopPropagation();
+      lastTouchHandledTime.current = performance.now();
+      callback();
     },
-    [fireBattery, isStbdReady],
+    [],
   );
 
-  // Direct Right Broadside Fire (Triggers Port Battery on Right Button)
-  const handleFireRight = useCallback(
-    (e?: React.TouchEvent | React.MouseEvent) => {
-      if (e) {
-        e.stopPropagation();
-        if ("preventDefault" in e && e.cancelable) e.preventDefault();
+  const handleClickButton = useCallback(
+    (callback: () => void) => (e: React.MouseEvent) => {
+      e.stopPropagation();
+      // Filter out synthetic ghost click dispatched by mobile browser after touchstart
+      if (performance.now() - lastTouchHandledTime.current < 500) {
+        return;
       }
-      const now = performance.now();
-      if (now - lastStbdFireTimestamp.current < 250) return;
-      lastStbdFireTimestamp.current = now;
-
-      if (isPortReady) {
-        fireBattery("port");
-      }
+      callback();
     },
-    [fireBattery, isPortReady],
+    [],
   );
+
+  // Anti-double-tap and anti-spam debounces for independent broadsides
+  const lastLeftFireTimestamp = useRef<number>(0);
+  const lastRightFireTimestamp = useRef<number>(0);
+
+  // Direct Left Broadside Fire (Discharges Left Battery)
+  const handleFireLeft = useCallback(() => {
+    const now = performance.now();
+    if (now - lastLeftFireTimestamp.current < 300) return;
+    lastLeftFireTimestamp.current = now;
+
+    if (isLeftReady) {
+      fireBattery("left");
+    }
+  }, [fireBattery, isLeftReady]);
+
+  // Direct Right Broadside Fire (Discharges Right Battery)
+  const handleFireRight = useCallback(() => {
+    const now = performance.now();
+    if (now - lastRightFireTimestamp.current < 300) return;
+    lastRightFireTimestamp.current = now;
+
+    if (isRightReady) {
+      fireBattery("right");
+    }
+  }, [fireBattery, isRightReady]);
 
   // Progress for radial cooldown rings (0 to 188)
-  const portDashOffset = 188 - 188 * Math.min(1, portProgress);
-  const stbdDashOffset = 188 - 188 * Math.min(1, stbdProgress);
+  const leftDashOffset = 188 - 188 * Math.min(1, leftProgress);
+  const rightDashOffset = 188 - 188 * Math.min(1, rightProgress);
 
   return (
     <div className="fixed inset-x-0 bottom-0 pointer-events-none z-30 flex items-end justify-between p-2.5 sm:p-4 select-none touch-none">
@@ -201,11 +211,8 @@ export const MobileNavalControls: React.FC = () => {
         {/* Tactical Sail Gear Lever Buttons (Asphalt Shift Style) */}
         <div className="flex flex-col gap-1 pirate-parchment p-1 rounded-md border border-amber-500/50 shadow-xl">
           <button
-            onTouchStart={(e) => {
-              e.stopPropagation();
-              changeSail("FULL_SAIL");
-            }}
-            onClick={() => changeSail("FULL_SAIL")}
+            onTouchStart={handleTouchButton(() => changeSail("FULL_SAIL"))}
+            onClick={handleClickButton(() => changeSail("FULL_SAIL"))}
             className={`px-2 py-1 rounded text-[8px] sm:text-[9px] font-cinzel font-bold uppercase tracking-wider transition-all touch-none active:scale-95 ${
               localSail === "FULL_SAIL"
                 ? "bg-gradient-to-r from-emerald-600 to-emerald-800 text-emerald-100 border border-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
@@ -215,11 +222,8 @@ export const MobileNavalControls: React.FC = () => {
             ▲ FULL
           </button>
           <button
-            onTouchStart={(e) => {
-              e.stopPropagation();
-              changeSail("HALF_SAIL");
-            }}
-            onClick={() => changeSail("HALF_SAIL")}
+            onTouchStart={handleTouchButton(() => changeSail("HALF_SAIL"))}
+            onClick={handleClickButton(() => changeSail("HALF_SAIL"))}
             className={`px-2 py-1 rounded text-[8px] sm:text-[9px] font-cinzel font-bold uppercase tracking-wider transition-all touch-none active:scale-95 ${
               localSail === "HALF_SAIL"
                 ? "bg-gradient-to-r from-amber-600 to-amber-800 text-amber-100 border border-amber-400 shadow-[0_0_8px_rgba(212,175,55,0.5)]"
@@ -229,11 +233,8 @@ export const MobileNavalControls: React.FC = () => {
             ● BATTLE
           </button>
           <button
-            onTouchStart={(e) => {
-              e.stopPropagation();
-              changeSail("ANCHOR");
-            }}
-            onClick={() => changeSail("ANCHOR")}
+            onTouchStart={handleTouchButton(() => changeSail("ANCHOR"))}
+            onClick={handleClickButton(() => changeSail("ANCHOR"))}
             className={`px-2 py-1 rounded text-[8px] sm:text-[9px] font-cinzel font-bold uppercase tracking-wider transition-all touch-none active:scale-95 flex items-center justify-center gap-1 ${
               localSail === "ANCHOR"
                 ? "bg-gradient-to-r from-rose-700 to-rose-900 text-rose-100 border border-rose-400 shadow-[0_0_8px_rgba(225,29,72,0.5)]"
@@ -250,7 +251,7 @@ export const MobileNavalControls: React.FC = () => {
           RIGHT THUMB: DIRECT BROADSIDE SHOOTING (LEFT & RIGHT FIRE BUTTONS)
           ========================================================================= */}
       <div className="flex items-end gap-3 sm:gap-4 pointer-events-auto select-none touch-none">
-        {/* DIRECT SHOOT LEFT BUTTON (DISCHARGES STARBOARD) */}
+        {/* DIRECT SHOOT LEFT BUTTON (DISCHARGES LEFT BATTERY) */}
         <div className="relative flex items-center justify-center">
           {/* Radial Reload Ring SVG */}
           <svg className="absolute w-18 h-18 sm:w-22 sm:h-22 -rotate-90 pointer-events-none">
@@ -267,40 +268,40 @@ export const MobileNavalControls: React.FC = () => {
               cy="50%"
               r="30"
               fill="none"
-              stroke={isStbdReady ? "#fbbf24" : "#ef4444"}
+              stroke={isLeftReady ? "#fbbf24" : "#ef4444"}
               strokeWidth="3.5"
               strokeDasharray="188"
-              strokeDashoffset={stbdDashOffset}
+              strokeDashoffset={leftDashOffset}
               strokeLinecap="round"
               className="transition-all duration-75"
             />
           </svg>
 
           <button
-            onTouchStart={handleFireLeft}
-            onClick={handleFireLeft}
-            disabled={!isStbdReady}
+            onTouchStart={handleTouchButton(handleFireLeft)}
+            onClick={handleClickButton(handleFireLeft)}
+            disabled={!isLeftReady}
             className={`w-15 h-15 sm:w-18 sm:h-18 rounded-full border-2 transition-all flex flex-col items-center justify-center shadow-2xl touch-none active:scale-90 cursor-pointer ${
-              isStbdReady
+              isLeftReady
                 ? "bg-gradient-to-b from-rose-600 via-red-700 to-stone-950 border-amber-400 text-amber-100 shadow-[0_0_15px_rgba(239,68,68,0.6)] animate-pulse"
                 : "pirate-panel border-stone-800 text-stone-500 opacity-80 cursor-not-allowed"
             }`}
-            title="Shoot Left Broadside"
-            aria-label="Shoot Left Battery"
+            title="Fire Left Battery"
+            aria-label="Fire Left Battery"
           >
             <Flame
-              className={`w-4 h-4 sm:w-5 sm:h-5 ${isStbdReady ? "text-amber-300" : "text-stone-500"}`}
+              className={`w-4 h-4 sm:w-5 sm:h-5 ${isLeftReady ? "text-amber-300" : "text-stone-500"}`}
             />
             <span className="text-[7.5px] sm:text-[9px] font-cinzel font-black uppercase tracking-wider mt-0.5 gold-emboss">
               ◄ Left
             </span>
             <span className="text-[6px] sm:text-[7px] font-mono font-bold opacity-90">
-              {isStbdReady ? "READY" : `${Math.round(stbdProgress * 100)}%`}
+              {isLeftReady ? "READY" : `${Math.round(leftProgress * 100)}%`}
             </span>
           </button>
         </div>
 
-        {/* DIRECT SHOOT RIGHT BUTTON (DISCHARGES PORT) */}
+        {/* DIRECT SHOOT RIGHT BUTTON (DISCHARGES RIGHT BATTERY) */}
         <div className="relative flex items-center justify-center">
           {/* Radial Reload Ring SVG */}
           <svg className="absolute w-18 h-18 sm:w-22 sm:h-22 -rotate-90 pointer-events-none">
@@ -317,35 +318,35 @@ export const MobileNavalControls: React.FC = () => {
               cy="50%"
               r="30"
               fill="none"
-              stroke={isPortReady ? "#fbbf24" : "#ef4444"}
+              stroke={isRightReady ? "#fbbf24" : "#ef4444"}
               strokeWidth="3.5"
               strokeDasharray="188"
-              strokeDashoffset={portDashOffset}
+              strokeDashoffset={rightDashOffset}
               strokeLinecap="round"
               className="transition-all duration-75"
             />
           </svg>
 
           <button
-            onTouchStart={handleFireRight}
-            onClick={handleFireRight}
-            disabled={!isPortReady}
+            onTouchStart={handleTouchButton(handleFireRight)}
+            onClick={handleClickButton(handleFireRight)}
+            disabled={!isRightReady}
             className={`w-15 h-15 sm:w-18 sm:h-18 rounded-full border-2 transition-all flex flex-col items-center justify-center shadow-2xl touch-none active:scale-90 cursor-pointer ${
-              isPortReady
+              isRightReady
                 ? "bg-gradient-to-b from-rose-600 via-red-700 to-stone-950 border-amber-400 text-amber-100 shadow-[0_0_15px_rgba(239,68,68,0.6)] animate-pulse"
                 : "pirate-panel border-stone-800 text-stone-500 opacity-80 cursor-not-allowed"
             }`}
-            title="Shoot Right Broadside"
-            aria-label="Shoot Right Battery"
+            title="Fire Right Battery"
+            aria-label="Fire Right Battery"
           >
             <Flame
-              className={`w-4 h-4 sm:w-5 sm:h-5 ${isPortReady ? "text-amber-300" : "text-stone-500"}`}
+              className={`w-4 h-4 sm:w-5 sm:h-5 ${isRightReady ? "text-amber-300" : "text-stone-500"}`}
             />
             <span className="text-[7.5px] sm:text-[9px] font-cinzel font-black uppercase tracking-wider mt-0.5 gold-emboss">
               Right ►
             </span>
             <span className="text-[6px] sm:text-[7px] font-mono font-bold opacity-90">
-              {isPortReady ? "READY" : `${Math.round(portProgress * 100)}%`}
+              {isRightReady ? "READY" : `${Math.round(rightProgress * 100)}%`}
             </span>
           </button>
         </div>

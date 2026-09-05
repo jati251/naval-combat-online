@@ -156,7 +156,7 @@ export const GalleonModel: React.FC<SubModelProps> = React.memo(({
           </group>
         ))}
 
-        {/* Side Quarter Galleries (Port & Starboard protruding balconies) */}
+        {/* Side Quarter Galleries (Left & Right protruding balconies) */}
         {[-width * 0.46, width * 0.46].map((qx, qIdx) => (
           <mesh key={`qg-${qIdx}`} position={[qx, 0.2, 0]} castShadow>
             <boxGeometry args={[0.35, 1.2, length * 0.18]} />

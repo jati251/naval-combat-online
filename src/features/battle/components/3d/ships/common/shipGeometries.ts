@@ -220,7 +220,7 @@ export function createCurvedHullGeometry(options: CurvedHullOptions): THREE.Buff
     const heightSpan = Math.max(0.2, sheerY - keelY);
 
     for (let j = 0; j <= numG; j++) {
-      const s = (j / numG) * 2 - 1; // -1 (port gunwale) .. 0 (keel) .. +1 (starboard gunwale)
+      const s = (j / numG) * 2 - 1; // -1 (left gunwale) .. 0 (keel) .. +1 (right gunwale)
       const absS = Math.abs(s);
       const sign = s >= 0 ? 1 : -1;
 
@@ -296,10 +296,10 @@ export function createCurvedHullGeometry(options: CurvedHullOptions): THREE.Buff
     // Face pointing aft (-Z)
     indices.push(centerTransomIdx, tB, tA);
   }
-  // Close the upper transom arch between port rail (j=0) and starboard rail (j=numG)
-  const tPortRail = transomBaseIdx + 1;
-  const tStbdRail = transomBaseIdx + 1 + numG;
-  indices.push(centerTransomIdx, tPortRail, tStbdRail);
+  // Close the upper transom arch between left rail (j=0) and right rail (j=numG)
+  const tLeftRail = transomBaseIdx + 1;
+  const tRightRail = transomBaseIdx + 1 + numG;
+  indices.push(centerTransomIdx, tLeftRail, tRightRail);
 
   // Bow Cutwater Cap (narrow forward stem closure at i = numZ)
   const bowBaseIdx = vertices.length / 3;
@@ -325,10 +325,10 @@ export function createCurvedHullGeometry(options: CurvedHullOptions): THREE.Buff
     // Face pointing forward (+Z)
     indices.push(centerBowIdx, bA, bB);
   }
-  // Close upper cutwater cap between starboard rail and port rail
-  const bPortRail = bowBaseIdx + 1;
-  const bStbdRail = bowBaseIdx + 1 + numG;
-  indices.push(centerBowIdx, bStbdRail, bPortRail);
+  // Close upper cutwater cap between right rail and left rail
+  const bLeftRail = bowBaseIdx + 1;
+  const bRightRail = bowBaseIdx + 1 + numG;
+  indices.push(centerBowIdx, bRightRail, bLeftRail);
 
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
@@ -436,13 +436,13 @@ export function createCurvedDeckGeometry(options: CurvedHullOptions, inset = -0.
 
 /**
  * Creates continuous curved wooden gunwale sheer rails and waterway strakes
- * that trace the graceful sheer curve on port and starboard sides.
+ * that trace the graceful sheer curve on left and right sides.
  */
 export function createSheerRailGeometry(
   options: CurvedHullOptions,
   railWidth = 0.22,
   railHeight = 0.28,
-  side: 'port' | 'starboard' | 'both' = 'both'
+  side: 'left' | 'right' | 'both' = 'both'
 ): THREE.BufferGeometry {
   const {
     length,
@@ -556,8 +556,8 @@ export function createSheerRailGeometry(
     }
   };
 
-  if (side === 'starboard' || side === 'both') addRail(1);
-  if (side === 'port' || side === 'both') addRail(-1);
+  if (side === 'right' || side === 'both') addRail(1);
+  if (side === 'left' || side === 'both') addRail(-1);
 
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));

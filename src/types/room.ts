@@ -2,6 +2,8 @@ import type { ShipClass } from './ship';
 
 export type GameStage = 'LOBBY' | 'BATTLE' | 'DEBRIEF';
 export type TimeOfDay = 'DAY' | 'NIGHT';
+export type GameMode = 'FFA' | 'TEAM';
+export type Team = 'red' | 'blue';
 
 export interface RoomPlayer {
   id: string;
@@ -12,6 +14,7 @@ export interface RoomPlayer {
   score: number;
   kills: number;
   deaths: number;
+  team?: Team;
   respawnCountdown?: number;
   sessionToken?: string;
   isDisconnected?: boolean;
@@ -25,6 +28,7 @@ export interface RoomInfo {
   players: RoomPlayer[];
   maxPlayers: number;
   targetKills: number;
+  gameMode: GameMode;
   windAngle: number;
   windSpeed: number;
   timeOfDay: TimeOfDay;

@@ -253,11 +253,11 @@ export class PhysicsEngine {
     const config = SERVER_SHIP_CONFIGS[ship.shipClass];
 
     // Reload timers countdown
-    if (ship.reloadTimerPort > 0) {
-      ship.reloadTimerPort = Math.max(0, ship.reloadTimerPort - dt);
+    if (ship.reloadTimerLeft > 0) {
+      ship.reloadTimerLeft = Math.max(0, ship.reloadTimerLeft - dt);
     }
-    if (ship.reloadTimerStarboard > 0) {
-      ship.reloadTimerStarboard = Math.max(0, ship.reloadTimerStarboard - dt);
+    if (ship.reloadTimerRight > 0) {
+      ship.reloadTimerRight = Math.max(0, ship.reloadTimerRight - dt);
     }
 
     // Determine target speed based on sail state
@@ -406,23 +406,23 @@ export class PhysicsEngine {
     const bowWaterY = getWaveHeight(bowX, bowZ, serverTime);
     const sternWaterY = getWaveHeight(sternX, sternZ, serverTime);
 
-    // Port & Starboard probe coordinates (lateral)
-    const portX = ship.x + Math.cos(ship.rotationY) * halfWid;
-    const portZ = ship.z - Math.sin(ship.rotationY) * halfWid;
-    const stbdX = ship.x - Math.cos(ship.rotationY) * halfWid;
-    const stbdZ = ship.z + Math.sin(ship.rotationY) * halfWid;
+    // Left & Right probe coordinates (lateral)
+    const leftX = ship.x - Math.cos(ship.rotationY) * halfWid;
+    const leftZ = ship.z + Math.sin(ship.rotationY) * halfWid;
+    const rightX = ship.x + Math.cos(ship.rotationY) * halfWid;
+    const rightZ = ship.z - Math.sin(ship.rotationY) * halfWid;
 
-    const portWaterY = getWaveHeight(portX, portZ, serverTime);
-    const stbdWaterY = getWaveHeight(stbdX, stbdZ, serverTime);
+    const leftWaterY = getWaveHeight(leftX, leftZ, serverTime);
+    const rightWaterY = getWaveHeight(rightX, rightZ, serverTime);
 
     // Target water height at center of mass
-    const centerWaterY = (bowWaterY + sternWaterY + portWaterY + stbdWaterY) * 0.25;
+    const centerWaterY = (bowWaterY + sternWaterY + leftWaterY + rightWaterY) * 0.25;
     // Dampen height transition
     ship.y += (centerWaterY - ship.y) * Math.min(1.0, 10 * dt);
 
     // Calculate pitch (tilt along length) and roll (tilt along width)
     const targetPitch = Math.atan2(bowWaterY - sternWaterY, config.length);
-    const targetRoll = Math.atan2(portWaterY - stbdWaterY, config.width) + (ship.rudder * 0.08); // slight roll into turns
+    const targetRoll = Math.atan2(leftWaterY - rightWaterY, config.width) + (ship.rudder * 0.08); // slight roll into turns
 
     ship.pitch += (targetPitch - ship.pitch) * Math.min(1.0, 8 * dt);
     ship.roll += (targetRoll - ship.roll) * Math.min(1.0, 8 * dt);
@@ -436,7 +436,8 @@ export class PhysicsEngine {
     ships: Map<string, ShipSimulationState>,
     dt: number,
     serverTime: number,
-    onHit: (ball: CannonballSimulationState, hitShip: ShipSimulationState) => void
+    onHit: (ball: CannonballSimulationState, hitShip: ShipSimulationState) => void,
+    isFriendly?: (ownerId: string, targetId: string) => boolean
   ): CannonballSimulationState[] {
     const activeBalls: CannonballSimulationState[] = [];
     const gravity = -9.81;
@@ -511,10 +512,11 @@ export class PhysicsEngine {
         continue;
       }
 
-      // Check collision against other ships (excluding shooter)
+      // Check collision against other ships (excluding shooter and friendly ships)
       let hit = false;
       for (const [shipId, ship] of ships.entries()) {
         if (shipId === ball.ownerId || ship.isSunk) continue;
+        if (isFriendly && isFriendly(ball.ownerId, shipId)) continue;
 
         // Fast distance early rejection: skip if further than maximum ship radius (18m)
         const dx = ball.x - ship.x;

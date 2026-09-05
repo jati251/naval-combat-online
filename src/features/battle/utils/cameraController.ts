@@ -12,9 +12,9 @@ export interface CameraUpdateParams {
   shipZ: number;
   shipHeading: number;
   shipSpeed: number;
-  aimDirection: 'none' | 'port' | 'starboard';
+  aimDirection: 'none' | 'left' | 'right';
   cameraState: CameraState;
-  shakeEvent?: { intensity: number; direction?: 'port' | 'starboard' | 'hit'; timestamp: number } | null;
+  shakeEvent?: { intensity: number; direction?: 'left' | 'right' | 'hit'; timestamp: number } | null;
 }
 
 export function createInitialCameraState(): CameraState {
@@ -30,33 +30,31 @@ export function createInitialCameraState(): CameraState {
 }
 
 /**
- * High-performance, butter-smooth naval chase camera update.
- * - Dynamic speed sensation & ocean swell breathing.
- * - Salvo recoil impulse & hit trauma vibration.
- * - Precision broadside gunnery sight: camera pans toward aimed broadside (Port = Left, Starboard = Right).
- * - Lazy projection matrix updates to prevent GPU stalls.
+ * High-performance 3D chase camera math for Black Flag naval gameplay.
+ * Mutates camera.position and camera.lookAt in-place with zero heap allocation.
  */
-export function updateChaseCamera({
-  camera,
-  delta,
-  elapsedTime,
-  shipX,
-  shipY,
-  shipZ,
-  shipHeading,
-  shipSpeed,
-  aimDirection,
-  cameraState,
-  shakeEvent,
-}: CameraUpdateParams): void {
-  // 1. Process incoming camera trauma (salvo firing recoil or hull damage impact)
+export function updateChaseCamera(params: CameraUpdateParams): void {
+  const {
+    camera,
+    delta,
+    elapsedTime,
+    shipX,
+    shipY,
+    shipZ,
+    shipHeading,
+    shipSpeed,
+    aimDirection,
+    cameraState,
+    shakeEvent,
+  } = params;
+
+  // 1. Process Camera Shake & Cannon Recoil Impulse
   if (shakeEvent && shakeEvent.timestamp !== cameraState.lastShakeTime) {
     cameraState.lastShakeTime = shakeEvent.timestamp;
-    cameraState.trauma = Math.min(1.0, cameraState.trauma + shakeEvent.intensity);
     cameraState.lastRecoilDir = shakeEvent.direction;
+    cameraState.trauma = Math.min(1.0, cameraState.trauma + shakeEvent.intensity);
   }
 
-  // Exponential trauma decay
   cameraState.trauma = Math.max(0, cameraState.trauma - delta * 2.6);
   const traumaSq = cameraState.trauma * cameraState.trauma;
 
@@ -68,10 +66,10 @@ export function updateChaseCamera({
 
   // Lateral salvo recoil impulse (recoil kicks ship away from firing battery)
   let recoilOffset = 0;
-  if (cameraState.lastRecoilDir === 'port') {
-    recoilOffset = traumaSq * 1.5; // port salvo pushes camera/ship rightward
-  } else if (cameraState.lastRecoilDir === 'starboard') {
-    recoilOffset = -traumaSq * 1.5; // starboard salvo pushes camera/ship leftward
+  if (cameraState.lastRecoilDir === 'left') {
+    recoilOffset = -traumaSq * 1.5; // left salvo pushes camera/ship rightward
+  } else if (cameraState.lastRecoilDir === 'right') {
+    recoilOffset = traumaSq * 1.5; // right salvo pushes camera/ship leftward
   }
 
   // 2. Dynamic Speed Sensation & Camera Heave
@@ -93,25 +91,24 @@ export function updateChaseCamera({
   }
 
   // 3. Broadside Gunnery Aim Offsets
-  // Port = Left battery (-X lateral), Starboard = Right battery (+X lateral)
   let targetCamSide = 0;
   let targetCamFwd = 0;
   let targetLookSide = 0;
   let targetAimDistMod = 0;
   let targetAimHeightMod = 0;
 
-  if (aimDirection === 'port') {
-    // Camera shifts slightly starboard and forward to view over the port rail into the left ocean
-    targetCamSide = 7.5;
-    targetCamFwd = 2.0;
-    targetLookSide = -35.0; // Look 35m into the left/port ocean
-    targetAimDistMod = -6.0;
-    targetAimHeightMod = -3.5;
-  } else if (aimDirection === 'starboard') {
-    // Camera shifts slightly port and forward to view over the starboard rail into the right ocean
+  if (aimDirection === 'left') {
+    // Camera shifts slightly right and forward to view over the left rail into the left ocean
     targetCamSide = -7.5;
     targetCamFwd = 2.0;
-    targetLookSide = 35.0; // Look 35m into the right/starboard ocean
+    targetLookSide = 35.0; // Look 35m into the left ocean (+cosH, -sinH)
+    targetAimDistMod = -6.0;
+    targetAimHeightMod = -3.5;
+  } else if (aimDirection === 'right') {
+    // Camera shifts slightly left and forward to view over the right rail into the right ocean
+    targetCamSide = 7.5;
+    targetCamFwd = 2.0;
+    targetLookSide = -35.0; // Look 35m into the right ocean (-cosH, +sinH)
     targetAimDistMod = -6.0;
     targetAimHeightMod = -3.5;
   }

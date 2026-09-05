@@ -23,6 +23,13 @@ import { useGameStore } from '@/stores/useGameStore';
 export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf, isMobile = false }) => {
   const groupRef = useRef<THREE.Group>(null);
 
+  const currentRoom = useGameStore((s) => s.currentRoom);
+  const selfId = useGameStore((s) => s.selfId);
+  const playerInfo = currentRoom?.players.find((p) => p.id === ship.id);
+  const selfPlayer = currentRoom?.players.find((p) => p.id === selfId);
+  const isTeamMode = currentRoom?.gameMode === 'TEAM';
+  const isFriendly = isTeamMode && Boolean(selfPlayer?.team && playerInfo?.team && selfPlayer.team === playerInfo.team);
+
   // High-precision dead reckoning extrapolation buffer
   const drBuffer = useRef(
     createDeadReckoningBuffer(ship.x, ship.y + 0.85, ship.z, ship.rotationY)
@@ -202,14 +209,39 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf,
           ) : (
             <Html center distanceFactor={45}>
               <div className="flex flex-col items-center pointer-events-none select-none">
-                <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-950/85 border border-slate-700/60 shadow-md text-[10px] font-bold tracking-wide uppercase">
-                  <span className="text-amber-300">{ship.name}</span>
+                <div
+                  className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-950/85 border shadow-md text-[10px] font-bold tracking-wide uppercase ${
+                    isTeamMode
+                      ? playerInfo?.team === 'red'
+                        ? 'border-rose-500/70 text-rose-200'
+                        : 'border-cyan-500/70 text-cyan-200'
+                      : 'border-slate-700/60 text-amber-300'
+                  }`}
+                >
+                  {isTeamMode && (
+                    <span
+                      className={`text-[8px] px-1 rounded font-mono ${
+                        playerInfo?.team === 'red'
+                          ? 'bg-rose-950 text-rose-300 border border-rose-600/50'
+                          : 'bg-cyan-950 text-cyan-300 border border-cyan-600/50'
+                      }`}
+                    >
+                      {isFriendly ? 'ALLY' : 'FOE'}
+                    </span>
+                  )}
+                  <span>{ship.name}</span>
                 </div>
 
                 <div className="w-20 h-1 bg-slate-950/90 border border-slate-800 rounded-full overflow-hidden mt-0.5">
                   <div
                     className={`h-full rounded-full transition-all duration-150 ${
-                      hpPercent > 50 ? 'bg-emerald-400' : hpPercent > 25 ? 'bg-amber-400' : 'bg-rose-500'
+                      isTeamMode && isFriendly
+                        ? 'bg-cyan-400'
+                        : hpPercent > 50
+                        ? 'bg-emerald-400'
+                        : hpPercent > 25
+                        ? 'bg-amber-400'
+                        : 'bg-rose-500'
                     }`}
                     style={{ width: `${hpPercent}%` }}
                   />

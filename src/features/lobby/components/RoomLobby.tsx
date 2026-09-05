@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle, LogOut, Loader2, Hourglass, Anchor, Shield, Bot, Trash2 } from 'lucide-react';
+import { CheckCircle, LogOut, Loader2, Hourglass, Anchor, Shield, Bot, Trash2, Users } from 'lucide-react';
 import { networkClient } from '@/services/networkClient';
 import type { RoomInfo, RoomPlayer } from '@/types';
 
@@ -31,28 +31,37 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
   const canAddBot = isHost && room.players.length < room.maxPlayers;
 
   return (
-    <div className="w-full max-w-4xl flex flex-col pirate-parchment rounded-xl p-7 shadow-2xl relative border border-amber-600/40 z-10">
+    <div className="w-full max-w-4xl max-h-[calc(100dvh-130px)] flex flex-col pirate-parchment rounded-xl p-4 sm:p-6 shadow-2xl relative border border-amber-600/40 z-10 overflow-hidden">
       {/* Corner Filigree Brackets */}
-      <div className="absolute top-1.5 left-1.5 w-3 h-3 border-t-2 border-l-2 border-amber-400/80" />
-      <div className="absolute top-1.5 right-1.5 w-3 h-3 border-t-2 border-r-2 border-amber-400/80" />
-      <div className="absolute bottom-1.5 left-1.5 w-3 h-3 border-b-2 border-l-2 border-amber-400/80" />
-      <div className="absolute bottom-1.5 right-1.5 w-3 h-3 border-b-2 border-r-2 border-amber-400/80" />
+      <div className="absolute top-1.5 left-1.5 w-3 h-3 border-t-2 border-l-2 border-amber-400/80 pointer-events-none" />
+      <div className="absolute top-1.5 right-1.5 w-3 h-3 border-t-2 border-r-2 border-amber-400/80 pointer-events-none" />
+      <div className="absolute bottom-1.5 left-1.5 w-3 h-3 border-b-2 border-l-2 border-amber-400/80 pointer-events-none" />
+      <div className="absolute bottom-1.5 right-1.5 w-3 h-3 border-b-2 border-r-2 border-amber-400/80 pointer-events-none" />
 
       {/* Wardroom Header */}
-      <div className="flex items-center justify-between pb-5 border-b border-amber-600/30">
+      <div className="flex items-center justify-between pb-3 sm:pb-4 border-b border-amber-600/30 shrink-0">
         <div>
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-cinzel font-black text-amber-100 tracking-wider gold-emboss">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h2 className="text-xl sm:text-2xl font-cinzel font-black text-amber-100 tracking-wider gold-emboss">
               {room.name}
             </h2>
             <span className="text-[9px] font-cinzel font-bold px-2.5 py-0.5 rounded-full bg-amber-950/80 text-amber-300 border border-amber-500/50 shadow-sm">
               COUNCIL OF WAR
             </span>
+            <span
+              className={`text-[9px] font-cinzel font-bold px-2.5 py-0.5 rounded-full border shadow-sm ${
+                room.gameMode === 'TEAM'
+                  ? 'bg-cyan-950/80 text-cyan-300 border-cyan-500/60'
+                  : 'bg-amber-950/80 text-amber-300 border-amber-500/50'
+              }`}
+            >
+              {room.gameMode === 'TEAM' ? '🛡 ARMADA CLASH (2 TEAMS)' : '⚔ FREE FOR ALL'}
+            </span>
             <span className="text-[9px] font-cinzel font-bold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-400/50 shadow-sm">
-              ⚔ FIRST TO {room.targetKills || 5} SINKS
+              {room.gameMode === 'TEAM' ? `🚩 TEAM GOAL: ${room.targetKills || 5} SINKS` : `⚔ FIRST TO ${room.targetKills || 5} SINKS`}
             </span>
           </div>
-          <p className="text-xs font-fell italic text-amber-200/80 mt-1">
+          <p className="text-xs font-fell italic text-amber-200/80 mt-0.5">
             Captains Assembled in Wardroom:{' '}
             <strong className="text-amber-100 font-mono not-italic">{room.players.length}</strong> of{' '}
             <strong className="text-amber-100 font-mono not-italic">{room.maxPlayers}</strong> vessels
@@ -64,7 +73,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
             <button
               onClick={() => networkClient.addBot()}
               disabled={!canAddBot}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-md font-cinzel font-bold text-xs tracking-wider transition-all border shadow-md ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-md font-cinzel font-bold text-xs tracking-wider transition-all border shadow-md ${
                 canAddBot
                   ? 'bg-gradient-to-b from-cyan-700 via-cyan-800 to-blue-950 hover:from-cyan-600 hover:to-blue-900 text-cyan-100 border-cyan-400/60 shadow-[0_0_15px_rgba(6,182,212,0.3)] cursor-pointer active:scale-95'
                   : 'bg-stone-900/80 text-stone-600 border-stone-800 cursor-not-allowed'
@@ -78,7 +87,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
 
           <button
             onClick={onLeaveRoom}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-md pirate-panel border border-rose-800/60 text-rose-300 hover:text-white hover:border-rose-500 transition-all cursor-pointer text-xs font-cinzel font-bold tracking-wider shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-md pirate-panel border border-rose-800/60 text-rose-300 hover:text-white hover:border-rose-500 transition-all cursor-pointer text-xs font-cinzel font-bold tracking-wider shadow-sm"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>Abandon Fleet</span>
@@ -86,16 +95,27 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
         </div>
       </div>
 
-      {/* Captains Roster Grid */}
-      <div className="grid grid-cols-2 gap-3.5 my-6">
+      {/* Captains Roster Grid (Scrolls internally within wardroom parchment) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 my-3 sm:my-4 flex-1 min-h-0 overflow-y-auto pr-1 sm:pr-2">
         {room.players.map((p) => {
           const isMe = p.id === selfId;
+          const isRed = room.gameMode === 'TEAM' && p.team === 'red';
+          const isBlue = room.gameMode === 'TEAM' && p.team === 'blue';
+
           return (
             <div
               key={p.id}
               className={`flex items-center justify-between p-3.5 rounded-lg border transition-all ${
                 isMe
-                  ? 'pirate-panel border-amber-400 shadow-[0_0_15px_rgba(212,175,55,0.3)] ring-1 ring-amber-400/40'
+                  ? isRed
+                    ? 'bg-[#220d14]/90 border-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.35)] ring-1 ring-rose-400/50'
+                    : isBlue
+                    ? 'bg-[#0b1c2e]/90 border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.35)] ring-1 ring-cyan-400/50'
+                    : 'pirate-panel border-amber-400 shadow-[0_0_15px_rgba(212,175,55,0.3)] ring-1 ring-amber-400/40'
+                  : isRed
+                  ? 'bg-[#1a0f16]/90 border border-rose-700/50 shadow-sm'
+                  : isBlue
+                  ? 'bg-[#0a1827]/90 border border-cyan-700/50 shadow-sm'
                   : p.isBot
                   ? 'bg-[#0e2137]/90 border border-cyan-500/40 shadow-sm'
                   : 'bg-[#121e2f]/90 border border-amber-500/30 shadow-sm'
@@ -105,7 +125,11 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                 {/* Captain Monogram Crest */}
                 <div
                   className={`w-10 h-10 rounded-lg flex items-center justify-center font-cinzel font-bold text-sm border shadow-md ${
-                    p.isBot
+                    isRed
+                      ? 'bg-rose-950 text-rose-300 border-rose-500/60 shadow-[0_0_8px_rgba(244,63,94,0.3)]'
+                      : isBlue
+                      ? 'bg-cyan-950 text-cyan-300 border-cyan-500/60 shadow-[0_0_8px_rgba(6,182,212,0.3)]'
+                      : p.isBot
                       ? 'bg-cyan-950/80 text-cyan-300 border-cyan-500/60 shadow-[0_0_8px_rgba(6,182,212,0.3)]'
                       : p.isHost
                       ? 'bg-amber-950/80 text-amber-300 border-amber-500/60'
@@ -113,17 +137,28 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                   }`}
                 >
                   {p.isBot ? (
-                    <Bot className="w-5 h-5 text-cyan-300" />
+                    <Bot className={`w-5 h-5 ${isRed ? 'text-rose-300' : isBlue ? 'text-cyan-300' : 'text-cyan-300'}`} />
                   ) : (
                     p.name.charAt(0).toUpperCase()
                   )}
                 </div>
 
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="font-cinzel font-bold text-sm text-amber-100 tracking-wide">
                       {p.name}
                     </span>
+                    {room.gameMode === 'TEAM' && (
+                      <span
+                        className={`text-[8px] font-cinzel font-bold px-1.5 py-0.5 rounded border ${
+                          p.team === 'red'
+                            ? 'bg-rose-950 text-rose-300 border-rose-600/60'
+                            : 'bg-cyan-950 text-cyan-300 border-cyan-600/60'
+                        }`}
+                      >
+                        {p.team === 'red' ? 'RED' : 'BLUE'}
+                      </span>
+                    )}
                     {p.isHost && (
                       <span className="text-[8px] font-cinzel font-bold px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-600/60">
                         COMMODORE
@@ -178,8 +213,8 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
       </div>
 
       {/* Action Footer Bar */}
-      <div className="flex items-center justify-between pt-5 border-t border-amber-600/30">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between pt-3 sm:pt-4 border-t border-amber-600/30 shrink-0">
+        <div className="flex items-center gap-2.5">
           {/* Captain Ready Toggle */}
           <button
             onClick={() => networkClient.setReady(!selfPlayer?.isReady)}
@@ -193,6 +228,23 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
             <CheckCircle className={`w-4 h-4 ${selfPlayer?.isReady ? 'text-amber-400' : 'text-stone-500'}`} />
             <span>{selfPlayer?.isReady ? 'Aye, Ready for Battle' : 'Sign Articles (Ready)'}</span>
           </button>
+
+          {/* Switch Fleet in Team Mode */}
+          {room.gameMode === 'TEAM' && (
+            <button
+              onClick={() => networkClient.switchTeam()}
+              disabled={isDeploying}
+              className={`flex items-center gap-1.5 px-4 py-2.5 rounded-md font-cinzel font-bold text-xs uppercase tracking-wider transition-all cursor-pointer border shadow-md active:scale-95 ${
+                selfPlayer?.team === 'red'
+                  ? 'bg-rose-950/80 border-rose-500/60 text-rose-200 hover:bg-rose-900/80 hover:text-white'
+                  : 'bg-cyan-950/80 border-cyan-500/60 text-cyan-200 hover:bg-cyan-900/80 hover:text-white'
+              }`}
+              title="Switch between Red Armada and Blue Armada"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Switch Fleet ({selfPlayer?.team === 'red' ? 'Join Blue' : 'Join Red'})</span>
+            </button>
+          )}
         </div>
 
         {/* Host Deploy Armada Action */}

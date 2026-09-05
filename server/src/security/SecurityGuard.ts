@@ -120,10 +120,15 @@ export class SecurityGuard {
         let maxPlayers = typeof raw.maxPlayers === 'number' ? Math.floor(raw.maxPlayers) : 4;
         maxPlayers = Math.max(2, Math.min(16, maxPlayers));
 
+        let targetKills = typeof raw.targetKills === 'number' ? Math.floor(raw.targetKills) : 5;
+        targetKills = Math.max(1, Math.min(50, targetKills));
+
         let timeOfDay: 'DAY' | 'NIGHT' | 'RANDOM' = 'DAY';
         if (raw.timeOfDay === 'NIGHT' || raw.timeOfDay === 'DAY' || raw.timeOfDay === 'RANDOM') {
           timeOfDay = raw.timeOfDay;
         }
+
+        const gameMode = raw.gameMode === 'TEAM' ? 'TEAM' : 'FFA';
 
         const sessionToken = typeof raw.sessionToken === 'string' ? this.sanitizeString(raw.sessionToken, 64) : undefined;
 
@@ -133,7 +138,9 @@ export class SecurityGuard {
           playerName: playerName || 'Captain',
           shipClass,
           maxPlayers,
+          targetKills,
           timeOfDay,
+          gameMode,
           sessionToken,
         };
       }
@@ -170,6 +177,7 @@ export class SecurityGuard {
       case 'START_GAME':
       case 'GET_ROOMS':
       case 'ADD_BOT':
+      case 'SWITCH_TEAM':
         return { type: raw.type };
 
       case 'REMOVE_BOT': {
@@ -205,7 +213,7 @@ export class SecurityGuard {
       }
 
       case 'FIRE_BROADSIDE': {
-        const side = raw.side === 'port' ? 'port' : 'starboard';
+        const side = raw.side === 'left' ? 'left' : 'right';
         const angle = typeof raw.angle === 'number' && Number.isFinite(raw.angle) ? raw.angle : 0;
         return {
           type: 'FIRE_BROADSIDE',

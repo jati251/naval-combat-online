@@ -10,6 +10,8 @@ import {
   type RoomPlayer,
   type ServerMessage,
   type BroadsideFireCommand,
+  type GameMode,
+  type Team,
   SERVER_SHIP_CONFIGS,
 } from '../types/protocol.js';
 
@@ -33,6 +35,7 @@ export class GameRoom {
   public status: 'LOBBY' | 'IN_GAME' | 'FINISHED' = 'LOBBY';
   public timeOfDay: 'DAY' | 'NIGHT';
   public targetKills: number = 5;
+  public gameMode: GameMode = 'FFA';
 
   public players: Map<string, RoomPlayer> = new Map();
   public ships: Map<string, ShipSimulationState> = new Map();
@@ -62,6 +65,7 @@ export class GameRoom {
     maxPlayers: number,
     targetKills: number = 5,
     timeOfDay: 'DAY' | 'NIGHT' = 'DAY',
+    gameMode: GameMode = 'FFA',
     broadcast: (roomId: string, message: ServerMessage) => void,
     sendDirect: (clientId: string, message: ServerMessage) => void
   ) {
@@ -70,8 +74,28 @@ export class GameRoom {
     this.maxPlayers = maxPlayers;
     this.targetKills = targetKills;
     this.timeOfDay = timeOfDay;
+    this.gameMode = gameMode;
     this.broadcast = broadcast;
     this.sendDirect = sendDirect;
+  }
+
+  private getAutoAssignedTeam(): Team {
+    let redCount = 0;
+    let blueCount = 0;
+    for (const p of this.players.values()) {
+      if (p.team === 'red') redCount++;
+      else if (p.team === 'blue') blueCount++;
+    }
+    return redCount <= blueCount ? 'red' : 'blue';
+  }
+
+  public switchTeam(clientId: string): boolean {
+    if (this.gameMode !== 'TEAM' || this.status !== 'LOBBY') return false;
+    const player = this.players.get(clientId);
+    if (!player || player.isBot) return false;
+    player.team = player.team === 'red' ? 'blue' : 'red';
+    this.broadcastRoomState();
+    return true;
   }
 
   public addPlayer(id: string, name: string, shipClass: ShipClass, sessionToken?: string): boolean {
@@ -89,6 +113,7 @@ export class GameRoom {
       score: 0,
       kills: 0,
       deaths: 0,
+      team: this.gameMode === 'TEAM' ? this.getAutoAssignedTeam() : undefined,
       sessionToken,
     });
 
@@ -120,6 +145,7 @@ export class GameRoom {
       kills: 0,
       deaths: 0,
       isBot: true,
+      team: this.gameMode === 'TEAM' ? this.getAutoAssignedTeam() : undefined,
     });
 
     this.broadcastRoomState();
@@ -154,6 +180,7 @@ export class GameRoom {
       score: 0,
       kills: 0,
       deaths: 0,
+      team: this.gameMode === 'TEAM' ? this.getAutoAssignedTeam() : undefined,
       sessionToken,
     });
 
@@ -184,8 +211,8 @@ export class GameRoom {
       maxHealth: config.maxHealth,
       isSunk: false,
       score: 0,
-      reloadTimerPort: 0,
-      reloadTimerStarboard: 0,
+      reloadTimerLeft: 0,
+      reloadTimerRight: 0,
     });
 
     // Broadcast newly arrived ship to all captains so they see and hear respawn bell
@@ -234,8 +261,8 @@ export class GameRoom {
     this.broadcastRoomState();
   }
 
-  public reconnectPlayer(newClientId: string, sessionToken: string): boolean {
-    let targetOldId: string | undefined = this.playerSessions.get(sessionToken);
+  public getPlayerIdBySession(sessionToken: string): string | undefined {
+    let targetOldId = this.playerSessions.get(sessionToken);
     if (!targetOldId) {
       for (const [pid, player] of this.players.entries()) {
         if (player.sessionToken === sessionToken) {
@@ -244,6 +271,11 @@ export class GameRoom {
         }
       }
     }
+    return targetOldId;
+  }
+
+  public reconnectPlayer(newClientId: string, sessionToken: string): boolean {
+    const targetOldId = this.getPlayerIdBySession(sessionToken);
 
     if (!targetOldId || !this.players.has(targetOldId)) {
       return false;
@@ -363,20 +395,20 @@ export class GameRoom {
 
   private activeVolleyTimers: Set<NodeJS.Timeout> = new Set();
 
-  public handleFire(id: string, side: 'port' | 'starboard'): void {
+  public handleFire(id: string, side: 'left' | 'right'): void {
     const ship = this.ships.get(id);
     if (!ship || ship.isSunk || this.status !== 'IN_GAME') return;
 
     const config = SERVER_SHIP_CONFIGS[ship.shipClass];
-    const reloadTimer = side === 'port' ? ship.reloadTimerPort : ship.reloadTimerStarboard;
+    const reloadTimer = side === 'left' ? ship.reloadTimerLeft : ship.reloadTimerRight;
 
     if (reloadTimer > 0) {
       return; // Still reloading
     }
 
     // Reset reload timer
-    if (side === 'port') ship.reloadTimerPort = config.reloadTime;
-    else ship.reloadTimerStarboard = config.reloadTime;
+    if (side === 'left') ship.reloadTimerLeft = config.reloadTime;
+    else ship.reloadTimerRight = config.reloadTime;
 
     const count = config.cannonsPerSide;
     const span = config.length * 0.65;
@@ -488,8 +520,8 @@ export class GameRoom {
         maxHealth: config.maxHealth,
         isSunk: false,
         score: 0,
-        reloadTimerPort: 0,
-        reloadTimerStarboard: 0,
+        reloadTimerLeft: 0,
+        reloadTimerRight: 0,
       });
     });
 
@@ -577,8 +609,36 @@ export class GameRoom {
               killerId: ball.ownerId,
             });
 
-            // Check if killer has reached the deathmatch victory goal
-            if (killer && killer.kills >= this.targetKills) {
+            // Check victory condition
+            if (this.gameMode === 'TEAM' && killer?.team) {
+              const killerTeam = killer.team;
+              let totalTeamKills = 0;
+              for (const p of this.players.values()) {
+                if (p.team === killerTeam) {
+                  totalTeamKills += p.kills || 0;
+                }
+              }
+
+              if (totalTeamKills >= this.targetKills) {
+                this.status = 'FINISHED';
+                const winnerName = killerTeam === 'red' ? 'Red Armada' : 'Blue Armada';
+                this.broadcast(this.id, {
+                  type: 'GAME_OVER',
+                  winnerId: killerTeam,
+                  winnerName,
+                });
+
+                this.broadcastRoomState();
+
+                if (this.autoResetTimer) clearTimeout(this.autoResetTimer);
+                this.autoResetTimer = setTimeout(() => {
+                  if (this.status === 'FINISHED' && this.players.size > 0) {
+                    this.resetToLobby();
+                  }
+                }, 12000);
+                return;
+              }
+            } else if (killer && killer.kills >= this.targetKills) {
               this.status = 'FINISHED';
               this.broadcast(this.id, {
                 type: 'GAME_OVER',
@@ -601,6 +661,12 @@ export class GameRoom {
             this.broadcastRoomState();
             this.scheduleShipRespawn(hitShip.id);
           }
+        },
+        (ownerId, targetId) => {
+          if (this.gameMode !== 'TEAM') return false;
+          const p1 = this.players.get(ownerId);
+          const p2 = this.players.get(targetId);
+          return Boolean(p1?.team && p2?.team && p1.team === p2.team);
         }
       );
     }
@@ -643,8 +709,8 @@ export class GameRoom {
       ship.sail = 'HALF_SAIL';
       ship.health = config.maxHealth;
       ship.isSunk = false;
-      ship.reloadTimerPort = 0;
-      ship.reloadTimerStarboard = 0;
+      ship.reloadTimerLeft = 0;
+      ship.reloadTimerRight = 0;
 
       player.respawnCountdown = undefined;
 
@@ -670,7 +736,7 @@ export class GameRoom {
     const r3 = (n: number) => Math.round(n * 1000) / 1000;
 
     const shipsPayload = Array.from(this.ships.values()).map(
-      ({ reloadTimerPort: _p, reloadTimerStarboard: _s, ...s }) => ({
+      ({ reloadTimerLeft: _l, reloadTimerRight: _r, ...s }) => ({
         ...s,
         x: r2(s.x),
         y: r2(s.y),
@@ -772,6 +838,7 @@ export class GameRoom {
       players: Array.from(this.players.values()),
       maxPlayers: this.maxPlayers,
       targetKills: this.targetKills,
+      gameMode: this.gameMode,
       windAngle: this.windAngle,
       windSpeed: this.windSpeed,
       timeOfDay: this.timeOfDay,

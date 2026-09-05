@@ -395,7 +395,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
             vec2 rel = vWorldPosition.xz - uShipPos.xz;
             float sinH = sin(uShipHeading);
             float cosH = cos(uShipHeading);
-            // Local coordinates: X = starboard, Z = forward
+            // Local coordinates: X = right, Z = forward
             float lx = cosH * rel.x - sinH * rel.y;
             float lz = sinH * rel.x + cosH * rel.y;
 

@@ -62,7 +62,8 @@ export const useLobby = () => {
       roomName: string,
       maxPlayers: number,
       timeOfDay: 'DAY' | 'NIGHT' | 'RANDOM' = 'DAY',
-      targetKills: number = 5
+      targetKills: number = 5,
+      gameMode: 'FFA' | 'TEAM' = 'FFA'
     ) => {
       if (!roomName.trim()) {
         useToastStore
@@ -79,7 +80,7 @@ export const useLobby = () => {
           );
         return false;
       }
-      networkClient.createRoom(roomName.trim(), maxPlayers, timeOfDay, targetKills);
+      networkClient.createRoom(roomName.trim(), maxPlayers, timeOfDay, targetKills, gameMode);
       setShowCreateModal(false);
       return true;
     },

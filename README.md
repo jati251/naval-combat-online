@@ -34,8 +34,8 @@ Powered by React 19, Three.js, deterministic Gerstner ocean waves, procedural au
 - **Nautical Compass Radar**: Islands and enemy vessels are mapped in real-time onto the circular compass HUD with boundary clipping.
 
 ### 3. Black Flag Naval Combat & Ballistics
-- **Independent Broadside Batteries**: Port and Starboard batteries reload independently with distinct reload cooldown gauges.
-- **Ballistic Trajectory Arc**: Holding Port (`Q`) or Starboard (`E`) swings the camera into broadside aim and projects a glowing 3D ballistic arc showing projectile drop and landing points.
+- **Independent Broadside Batteries**: Left and Right batteries reload independently with distinct reload cooldown gauges.
+- **Ballistic Trajectory Arc**: Holding Left (`Q`) or Right (`E`) swings the camera into broadside aim and projects a glowing 3D ballistic arc showing projectile drop and landing points.
 - **Procedural Web Audio Engine**: Zero external audio asset dependencies. Synthesizes cannon thunders with lowpass gunpowder sweeps, sub-bass rumbles, ship bells, wood splinters, ocean splashes, and sail unfurling whooshes.
 
 ### 4. Authoritative Multiplayer Engine
@@ -49,12 +49,12 @@ Powered by React 19, Three.js, deterministic Gerstner ocean waves, procedural au
 
 | Action | Primary Key | Secondary / Mouse | Description |
 | :--- | :--- | :--- | :--- |
-| **Steer Port (Left)** | <kbd>A</kbd> | <kbd>←</kbd> | Turn rudder to port (left) |
-| **Steer Starboard (Right)** | <kbd>D</kbd> | <kbd>→</kbd> | Turn rudder to starboard (right) |
+| **Steer Left** | <kbd>A</kbd> | <kbd>←</kbd> | Turn rudder to the left |
+| **Steer Right** | <kbd>D</kbd> | <kbd>→</kbd> | Turn rudder to the right |
 | **Unfurl Sails (Faster)** | <kbd>W</kbd> | <kbd>↑</kbd> | Shift sails: `Anchor` $\rightarrow$ `Half Sail` $\rightarrow$ `Full Sail` |
 | **Reef Sails (Slower)** | <kbd>S</kbd> | <kbd>↓</kbd> | Shift sails: `Full Sail` $\rightarrow$ `Half Sail` $\rightarrow$ `Anchor` |
-| **Aim Port Battery** | <kbd>Q</kbd> *(Hold)* | — | Swing camera to left gunports & project trajectory |
-| **Aim Starboard Battery** | <kbd>E</kbd> *(Hold)* | — | Swing camera to right gunports & project trajectory |
+| **Aim Left Battery** | <kbd>Q</kbd> *(Hold)* | — | Swing camera to left gunports & project trajectory |
+| **Aim Right Battery** | <kbd>E</kbd> *(Hold)* | — | Swing camera to right gunports & project trajectory |
 | **Fire Broadside Salvo** | <kbd>SPACE</kbd> | **Left Mouse Click** | Unleash devastating cannon barrage from aimed battery |
 | **Toggle Audio Mute** | HUD Icon | — | Mute / unmute procedural sound engine |
 | **Abandon Battle** | HUD Icon | — | Return to harbor lobby |
@@ -135,7 +135,7 @@ naval-combat-online/
 │           │       ├── CompassMinimap.tsx # Circular nautical radar with islands
 │           │       ├── ShipStatusBar.tsx  # HP bar, captain name, fleet afloat counter
 │           │       ├── SpeedRudderControl.tsx# Sails selector & rudder steering gauge
-│           │       ├── BroadsideGauges.tsx# Port/Starboard reload bars & fire salvo
+│           │       ├── BroadsideGauges.tsx# Left/Right reload bars & fire salvo
 │           │       ├── AimCrosshair.tsx   # Battery lock crosshair overlay
 │           │       ├── CombatLogFeed.tsx  # Floating damage/sinking log feed
 │           │       └── DebriefModal.tsx   # Victory / defeat celebration modal

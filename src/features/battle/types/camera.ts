@@ -1,4 +1,4 @@
-export type CameraRecoilDirection = 'port' | 'starboard' | 'hit';
+export type CameraRecoilDirection = 'left' | 'right' | 'hit';
 
 export interface CameraShakeEvent {
   intensity: number;

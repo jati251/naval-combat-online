@@ -1,6 +1,7 @@
 import { useGameStore } from '@/stores/useGameStore';
 import { useToastStore } from '@/stores/useToastStore';
 import { type ShipClass, type SailState, SHIP_PRESETS } from '@/types/game';
+import type { GameMode } from '@/types/room';
 import { navalAudio } from '@/features/battle/services/navalAudio';
 
 class NetworkClient {
@@ -23,6 +24,22 @@ class NetworkClient {
     }
   })();
 
+  private saveActiveRoom(roomId: string): void {
+    try {
+      localStorage.setItem('naval_active_room_id', roomId);
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  private clearActiveRoom(): void {
+    try {
+      localStorage.removeItem('naval_active_room_id');
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
   constructor() {
     // Session token persisted across reloads and reconnects
   }
@@ -41,6 +58,16 @@ class NetworkClient {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     // In local Vite dev, proxy /ws to ws://localhost:3000/ws
     return `${protocol}//${window.location.host}/ws`;
+  }
+
+  public reconnect(): void {
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+    useGameStore.getState().setIsConnected(false);
+    this.stopPing();
+    this.connect();
   }
 
   public reconnectWithUrl(newUrl: string): void {
@@ -69,17 +96,23 @@ class NetworkClient {
         useGameStore.getState().setIsConnected(true);
         this.startPing();
         const store = useGameStore.getState();
-        if (this.hasConnectedOnce) {
-          useToastStore.getState().success('Connection to Admiralty fleet server restored.', 'Server Connected');
-          if (store.currentRoom?.id && (store.stage === 'BATTLE' || store.stage === 'DEBRIEF')) {
-            this.send({
-              type: 'RECONNECT',
-              roomId: store.currentRoom.id,
-              sessionToken: this.sessionToken,
-            });
-          } else {
-            this.send({ type: 'GET_ROOMS' });
-          }
+
+        let savedRoomId: string | null = null;
+        try {
+          savedRoomId = localStorage.getItem('naval_active_room_id');
+        } catch {
+          // Ignore storage errors
+        }
+
+        const targetRoomId = store.currentRoom?.id || savedRoomId;
+
+        if (targetRoomId) {
+          // Reconnect to active room session (covers tab close / page refresh / network drop)
+          this.send({
+            type: 'RECONNECT',
+            roomId: targetRoomId,
+            sessionToken: this.sessionToken,
+          });
         } else {
           this.send({ type: 'GET_ROOMS' });
         }
@@ -146,7 +179,19 @@ class NetworkClient {
         break;
       }
       case 'ROOM_STATE': {
-        const room = msg.room as { timeOfDay?: 'DAY' | 'NIGHT'; status?: string } | undefined;
+        const room = msg.room as { id?: string; timeOfDay?: 'DAY' | 'NIGHT'; status?: string; players?: Array<{ id: string }> } | undefined;
+        const currentSelfId = store.selfId;
+        const targetSelfId = (msg.selfId as string) || currentSelfId;
+        const isInRoom = room?.players?.some((p) => p.id === targetSelfId);
+
+        // If client is not listed in this room and no direct selfId was provided, ignore stray room broadcast
+        if (!isInRoom && !msg.selfId) {
+          break;
+        }
+
+        if (room?.id) {
+          this.saveActiveRoom(room.id);
+        }
         if (room?.timeOfDay) {
           store.setTimeOfDay(room.timeOfDay);
         }
@@ -177,20 +222,18 @@ class NetworkClient {
         break;
       }
       case 'CANNON_FIRED': {
-        navalAudio.playCannonShot();
-        const ship = store.ships.find((s) => s.id === msg.ownerId);
-        const name = ship?.name || 'A ship';
-        store.addCombatLog(`${name} unleashed a broadside volley!`, 'info');
-        if (msg.ownerId) {
-          store.triggerFireEvent(msg.ownerId as string, (msg.side as 'port' | 'starboard') || 'port');
+        // Only trigger audio & muzzle burst if fired by ANOTHER ship!
+        // The local ship ALREADY triggered instant sound & particles on local fire input.
+        if (msg.ownerId !== store.selfId) {
+          navalAudio.playCannonShot();
+          if (msg.ownerId) {
+            store.triggerFireEvent(msg.ownerId as string, (msg.side as 'left' | 'right') || 'left');
+          }
         }
         break;
       }
       case 'HIT_EVENT': {
         navalAudio.playHullImpact();
-        const target = store.ships.find((s) => s.id === msg.targetId);
-        const name = target?.name || 'A vessel';
-        store.addCombatLog(`${name} took ${msg.damage} broadside damage!`, 'damage');
         if (msg.targetId === store.selfId) {
           store.triggerCameraShake(0.85, 'hit');
         }
@@ -229,7 +272,9 @@ class NetworkClient {
         break;
       }
       case 'ERROR': {
+        this.clearActiveRoom();
         useToastStore.getState().error(msg.message as string, 'Armada Alert');
+        this.send({ type: 'GET_ROOMS' });
         break;
       }
     }
@@ -252,7 +297,8 @@ class NetworkClient {
     roomName: string,
     maxPlayers: number = 4,
     timeOfDay: 'DAY' | 'NIGHT' | 'RANDOM' = 'DAY',
-    targetKills: number = 5
+    targetKills: number = 5,
+    gameMode: GameMode = 'FFA'
   ): void {
     const store = useGameStore.getState();
 
@@ -274,8 +320,13 @@ class NetworkClient {
       maxPlayers,
       targetKills,
       timeOfDay,
+      gameMode,
       sessionToken: this.sessionToken,
     });
+  }
+
+  public switchTeam(): void {
+    this.send({ type: 'SWITCH_TEAM' });
   }
 
   public joinRoom(roomId: string): void {
@@ -295,6 +346,7 @@ class NetworkClient {
       return;
     }
 
+    this.saveActiveRoom(roomId);
     this.send({
       type: 'JOIN_ROOM',
       roomId,
@@ -305,6 +357,7 @@ class NetworkClient {
   }
 
   public leaveRoom(): void {
+    this.clearActiveRoom();
     this.send({ type: 'LEAVE_ROOM' });
     useGameStore.getState().resetToLobby();
     this.send({ type: 'GET_ROOMS' });
@@ -341,12 +394,12 @@ class NetworkClient {
     });
   }
 
-  public fireBroadside(side: 'port' | 'starboard'): void {
+  public fireBroadside(side: 'left' | 'right'): void {
     const store = useGameStore.getState();
     const config = SHIP_PRESETS[store.selectedShip];
 
     // Check local cooldown
-    const progress = side === 'port' ? store.portReloadProgress : store.starboardReloadProgress;
+    const progress = side === 'left' ? store.leftReloadProgress : store.rightReloadProgress;
     if (progress < 1.0) return;
 
     // Trigger local cooldown UI animation immediately

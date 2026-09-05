@@ -92,7 +92,7 @@ export const CannonSystem3D: React.FC<CannonSystem3DProps> = React.memo(({ canno
           selfShip.x,
           selfShip.z,
           selfShip.rotationY,
-          aimDirection as 'port' | 'starboard',
+          aimDirection as 'left' | 'right',
           6.0
         );
         const speed = 40.0;

@@ -3,21 +3,21 @@ import { Crosshair, Flame } from "lucide-react";
 import type { AimDirection } from "@/types";
 
 interface BroadsideGaugesProps {
-  portProgress: number;
-  stbdProgress: number;
+  leftProgress: number;
+  rightProgress: number;
   aimDirection: AimDirection;
   onFireBattery: () => void;
 }
 
 export const BroadsideGauges: React.FC<BroadsideGaugesProps> = React.memo(
-  ({ portProgress, stbdProgress, aimDirection, onFireBattery }) => {
-    const isPortReady = portProgress >= 1.0;
-    const isStbdReady = stbdProgress >= 1.0;
+  ({ leftProgress, rightProgress, aimDirection, onFireBattery }) => {
+    const isLeftReady = leftProgress >= 1.0;
+    const isRightReady = rightProgress >= 1.0;
 
-    const isAimingPort = aimDirection === "port";
-    const isAimingStbd = aimDirection === "starboard";
+    const isAimingLeft = aimDirection === "left";
+    const isAimingRight = aimDirection === "right";
     const canFireActiveAim =
-      (isAimingPort && isPortReady) || (isAimingStbd && isStbdReady);
+      (isAimingLeft && isLeftReady) || (isAimingRight && isRightReady);
 
     return (
       <div className="pointer-events-auto flex items-center gap-3.5 naval-plaque px-4 py-2 select-none rounded-md border border-amber-600/40 shadow-xl relative">
@@ -27,31 +27,31 @@ export const BroadsideGauges: React.FC<BroadsideGaugesProps> = React.memo(
         <div className="absolute bottom-1 left-1 w-1 h-1 rounded-full bg-amber-400/80 shadow-[0_0_2px_rgba(0,0,0,0.8)]" />
         <div className="absolute bottom-1 right-1 w-1 h-1 rounded-full bg-amber-400/80 shadow-[0_0_2px_rgba(0,0,0,0.8)]" />
 
-        {/* Left Battery (Left [Q] -> starboard) */}
+        {/* Left Battery (LEFT [Q]) */}
         <div
-          className={`flex flex-col gap-1 w-24 transition-opacity ${isAimingPort ? "opacity-40" : "opacity-100"}`}
+          className={`flex flex-col gap-1 w-24 transition-opacity ${isAimingRight ? "opacity-40" : "opacity-100"}`}
         >
           <div className="flex items-center justify-between text-[10px] font-mono">
             <span
-              className={`font-cinzel font-bold tracking-wider ${isAimingStbd ? "text-amber-300 gold-emboss" : "text-stone-400"}`}
+              className={`font-cinzel font-bold tracking-wider ${isAimingLeft ? "text-amber-300 gold-emboss" : "text-stone-400"}`}
             >
-              Left [Q]
+              LEFT [Q]
             </span>
             <span
-              className={`text-[9px] font-mono font-bold ${isStbdReady ? "text-emerald-400" : "text-amber-400/90"}`}
+              className={`text-[9px] font-mono font-bold ${isLeftReady ? "text-emerald-400" : "text-amber-400/90"}`}
             >
-              {isStbdReady ? "PRIMED" : `${Math.round(stbdProgress * 100)}%`}
+              {isLeftReady ? "PRIMED" : `${Math.round(leftProgress * 100)}%`}
             </span>
           </div>
           {/* Gunpowder charge bar */}
           <div className="w-full h-2 bg-stone-950 rounded-sm overflow-hidden border border-amber-900/60 shadow-inner">
             <div
               className={`h-full rounded-sm transition-all duration-75 ${
-                isStbdReady
+                isLeftReady
                   ? "bg-gradient-to-r from-emerald-600 to-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
                   : "bg-gradient-to-r from-amber-700 to-amber-500"
               }`}
-              style={{ width: `${Math.min(100, stbdProgress * 100)}%` }}
+              style={{ width: `${Math.min(100, leftProgress * 100)}%` }}
             />
           </div>
         </div>
@@ -66,7 +66,7 @@ export const BroadsideGauges: React.FC<BroadsideGaugesProps> = React.memo(
                 ? "bg-gradient-to-b from-amber-900/90 to-stone-950 border-amber-500/50 text-amber-200"
                 : "bg-stone-950/80 border-stone-800 text-stone-500 hover:text-stone-300"
           }`}
-          title="Discharge Broadside Cannons (Space / Click)"
+          title="Discharge Broadside Cannons (Space / Left Click)"
         >
           <div className="flex items-center gap-1.5">
             {canFireActiveAim ? (
@@ -83,31 +83,31 @@ export const BroadsideGauges: React.FC<BroadsideGaugesProps> = React.memo(
           </span>
         </button>
 
-        {/* Right Battery (Right [E] -> port) */}
+        {/* Right Battery (RIGHT [E]) */}
         <div
-          className={`flex flex-col gap-1 w-24 transition-opacity ${isAimingStbd ? "opacity-40" : "opacity-100"}`}
+          className={`flex flex-col gap-1 w-24 transition-opacity ${isAimingLeft ? "opacity-40" : "opacity-100"}`}
         >
           <div className="flex items-center justify-between text-[10px] font-mono">
             <span
-              className={`font-cinzel font-bold tracking-wider ${isAimingPort ? "text-amber-300 gold-emboss" : "text-stone-400"}`}
+              className={`font-cinzel font-bold tracking-wider ${isAimingRight ? "text-amber-300 gold-emboss" : "text-stone-400"}`}
             >
-              Right [E]
+              RIGHT [E]
             </span>
             <span
-              className={`text-[9px] font-mono font-bold ${isPortReady ? "text-emerald-400" : "text-amber-400/90"}`}
+              className={`text-[9px] font-mono font-bold ${isRightReady ? "text-emerald-400" : "text-amber-400/90"}`}
             >
-              {isPortReady ? "PRIMED" : `${Math.round(portProgress * 100)}%`}
+              {isRightReady ? "PRIMED" : `${Math.round(rightProgress * 100)}%`}
             </span>
           </div>
           {/* Gunpowder charge bar */}
           <div className="w-full h-2 bg-stone-950 rounded-sm overflow-hidden border border-amber-900/60 shadow-inner">
             <div
               className={`h-full rounded-sm transition-all duration-75 ${
-                isPortReady
+                isRightReady
                   ? "bg-gradient-to-r from-emerald-600 to-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
                   : "bg-gradient-to-r from-amber-700 to-amber-500"
               }`}
-              style={{ width: `${Math.min(100, portProgress * 100)}%` }}
+              style={{ width: `${Math.min(100, rightProgress * 100)}%` }}
             />
           </div>
         </div>

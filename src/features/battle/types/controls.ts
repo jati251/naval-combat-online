@@ -12,7 +12,7 @@ export interface ShipActions {
   changeSail: (sail: SailState) => void;
   setRudder: (rudder: number) => void;
   cycleSail: (dir: 'up' | 'down') => void;
-  fireBattery: (side: 'port' | 'starboard') => void;
+  fireBattery: (side: 'left' | 'right') => void;
   setAim: (direction: AimDirection, isAiming: boolean) => void;
 }
 

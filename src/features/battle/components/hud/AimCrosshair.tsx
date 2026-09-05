@@ -45,7 +45,7 @@ export const AimCrosshair: React.FC<AimCrosshairProps> = React.memo(
         <div className="mt-1.5 flex items-center gap-1.5 px-3 py-0.5 rounded naval-plaque border border-amber-600/40 text-[10px] font-cinzel tracking-widest text-amber-100 shadow-md">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_4px_rgba(16,185,129,0.8)]" />
           <span className="font-bold uppercase tracking-wider">
-            {aimDirection === "starboard" ? "LEFT BATTERY" : "RIGHT BATTERY"}
+            {aimDirection === "left" ? "LEFT BATTERY" : "RIGHT BATTERY"}
           </span>
           <span className="text-amber-500/60">·</span>
           <span className="text-[9px] font-mono text-amber-300/80">

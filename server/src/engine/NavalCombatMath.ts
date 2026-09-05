@@ -1,9 +1,9 @@
 /**
  * Authoritative Naval Combat Gunnery & Ballistics Math Engine
- * Single Source of Truth for Port & Starboard broadside transformations.
+ * Single Source of Truth for Left & Right broadside transformations.
  */
 
-export type BroadsideSide = 'port' | 'starboard';
+export type BroadsideSide = 'left' | 'right';
 
 export interface BroadsideTransform {
   /** Ballistic firing angle in world radians */
@@ -20,8 +20,8 @@ export interface BroadsideTransform {
 
 /**
  * Calculates unified ballistic transform for broadside firing.
- * Starboard (Right): fires at heading + PI/2, lateral vector (+cosH, -sinH)
- * Port (Left): fires at heading - PI/2, lateral vector (-cosH, +sinH)
+ * Left: fires at heading + PI/2, lateral vector (+cosH, -sinH)
+ * Right: fires at heading - PI/2, lateral vector (-cosH, +sinH)
  */
 export function getBroadsideTransform(
   shipX: number,
@@ -31,17 +31,17 @@ export function getBroadsideTransform(
   width: number,
   offsetAlongLength: number = 0
 ): BroadsideTransform {
-  const isRight = side === 'starboard';
+  const isLeft = side === 'left';
   const cosH = Math.cos(heading);
   const sinH = Math.sin(heading);
 
-  // Starboard (Right) = +1, Port (Left) = -1
-  const lateralSign = isRight ? 1 : -1;
+  // Left = +1, Right = -1
+  const lateralSign = isLeft ? 1 : -1;
   const lateralX = cosH * lateralSign;
   const lateralZ = -sinH * lateralSign;
 
-  // Starboard (Right) = heading + PI/2, Port (Left) = heading - PI/2
-  const fireAngle = heading + (isRight ? Math.PI * 0.5 : -Math.PI * 0.5);
+  // Left = heading + PI/2, Right = heading - PI/2
+  const fireAngle = heading + (isLeft ? Math.PI * 0.5 : -Math.PI * 0.5);
 
   const halfWid = width * 0.5 + 0.2;
   const spawnX = shipX + sinH * offsetAlongLength + lateralX * halfWid;

@@ -11,7 +11,7 @@ export type SailState = 'ANCHOR' | 'HALF_SAIL' | 'FULL_SAIL';
 
 export interface BroadsideFireCommand {
   playerId: string;
-  side: 'port' | 'starboard';
+  side: 'left' | 'right';
   angle: number;
 }
 
@@ -161,8 +161,8 @@ export interface ShipSimulationState {
   maxHealth: number;
   isSunk: boolean;
   score: number;
-  reloadTimerPort: number;
-  reloadTimerStarboard: number;
+  reloadTimerLeft: number;
+  reloadTimerRight: number;
 }
 
 export interface CannonballSimulationState {
@@ -179,6 +179,9 @@ export interface CannonballSimulationState {
   maxLife: number;
 }
 
+export type GameMode = 'FFA' | 'TEAM';
+export type Team = 'red' | 'blue';
+
 export interface RoomPlayer {
   id: string;
   name: string;
@@ -188,6 +191,7 @@ export interface RoomPlayer {
   score: number;
   kills: number;
   deaths: number;
+  team?: Team;
   respawnCountdown?: number;
   sessionToken?: string;
   isDisconnected?: boolean;
@@ -203,6 +207,7 @@ export interface RoomInfo {
   players: RoomPlayer[];
   maxPlayers: number;
   targetKills: number;
+  gameMode: GameMode;
   windAngle: number;
   windSpeed: number;
   timeOfDay: TimeOfDay;
@@ -210,18 +215,19 @@ export interface RoomInfo {
 
 // Client to Server Message
 export type ClientMessage =
-  | { type: 'CREATE_ROOM'; roomName: string; playerName: string; shipClass: ShipClass; maxPlayers?: number; targetKills?: number; timeOfDay?: TimeOfDay | 'RANDOM'; sessionToken?: string }
+  | { type: 'CREATE_ROOM'; roomName: string; playerName: string; shipClass: ShipClass; maxPlayers?: number; targetKills?: number; timeOfDay?: TimeOfDay | 'RANDOM'; gameMode?: GameMode; sessionToken?: string }
   | { type: 'JOIN_ROOM'; roomId: string; playerName: string; shipClass: ShipClass; sessionToken?: string }
   | { type: 'RECONNECT'; roomId: string; sessionToken: string }
   | { type: 'LEAVE_ROOM' }
   | { type: 'SELECT_SHIP'; shipClass: ShipClass }
+  | { type: 'SWITCH_TEAM' }
   | { type: 'SET_READY'; ready: boolean }
   | { type: 'START_GAME' }
   | { type: 'ADD_BOT' }
   | { type: 'REMOVE_BOT'; botId?: string }
   | { type: 'GET_ROOMS' }
   | { type: 'INPUT'; seq: number; rudder: number; sail: SailState }
-  | { type: 'FIRE_BROADSIDE'; side: 'port' | 'starboard'; angle: number }
+  | { type: 'FIRE_BROADSIDE'; side: 'left' | 'right'; angle: number }
   | { type: 'PING'; clientTime: number };
 
 // Server to Client Message
@@ -234,13 +240,13 @@ export type ServerMessage =
       type: 'WORLD_SNAPSHOT';
       tick: number;
       serverTime: number;
-      ships: Array<Omit<ShipSimulationState, 'reloadTimerPort' | 'reloadTimerStarboard'>>;
+      ships: Array<Omit<ShipSimulationState, 'reloadTimerLeft' | 'reloadTimerRight'>>;
       cannonballs: Array<{ id: string; ownerId: string; x: number; y: number; z: number; vx: number; vy: number; vz: number }>;
     }
   | {
       type: 'CANNON_FIRED';
       ownerId: string;
-      side: 'port' | 'starboard';
+      side: 'left' | 'right';
       origin: [number, number, number];
       count: number;
     }

@@ -42,6 +42,18 @@ const ScoreboardModalContent: React.FC<{ onClose: () => void }> = ({ onClose }) 
   const leaderKills = leader?.kills || 0;
   const progressPercent = Math.min(100, Math.round((leaderKills / targetKills) * 100));
 
+  const isTeamMode = currentRoom?.gameMode === 'TEAM';
+  let redKills = 0;
+  let blueKills = 0;
+  if (isTeamMode) {
+    for (const p of players) {
+      if (p.team === 'red') redKills += p.kills || 0;
+      else if (p.team === 'blue') blueKills += p.kills || 0;
+    }
+  }
+  const redPercent = Math.min(100, Math.round((redKills / targetKills) * 100));
+  const bluePercent = Math.min(100, Math.round((blueKills / targetKills) * 100));
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 bg-black/75 backdrop-blur-sm pointer-events-auto">
       <div className="w-full max-w-2xl max-h-[94dvh] overflow-y-auto pirate-parchment rounded-xl border-2 border-amber-500/70 p-3 sm:p-5 shadow-[0_12px_40px_rgba(0,0,0,0.85),0_0_20px_rgba(245,158,11,0.2)] flex flex-col gap-2.5 sm:gap-4 relative animate-in fade-in zoom-in-95 duration-150">
@@ -60,14 +72,16 @@ const ScoreboardModalContent: React.FC<{ onClose: () => void }> = ({ onClose }) 
             <div>
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <h2 className="font-cinzel font-black text-amber-100 text-sm sm:text-lg tracking-wider gold-emboss">
-                  FLEET DEATHMATCH OBJECTIVE
+                  {isTeamMode ? 'ARMADA CLASH SUPREMACY' : 'FLEET DEATHMATCH OBJECTIVE'}
                 </h2>
                 <span className="text-[9px] sm:text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-950/80 border border-amber-500/40 text-amber-300">
                   GOAL: {targetKills} SINKS
                 </span>
               </div>
               <p className="text-[10px] sm:text-xs font-fell italic text-amber-200/90 leading-tight hidden xs:block">
-                First Captain to send {targetKills} enemy hulls to Davy Jones' locker claims the high seas!
+                {isTeamMode
+                  ? `First Armada to accumulate ${targetKills} enemy sinks secures dominion over the Caribbean!`
+                  : `First Captain to send ${targetKills} enemy hulls to Davy Jones' locker claims the high seas!`}
               </p>
             </div>
           </div>
@@ -82,24 +96,64 @@ const ScoreboardModalContent: React.FC<{ onClose: () => void }> = ({ onClose }) 
         </div>
 
         {/* Objective Progress Bar */}
-        <div className="bg-[#121f30]/90 p-2 sm:p-3 rounded-lg border border-amber-500/30 flex flex-col gap-1 sm:gap-1.5">
-          <div className="flex items-center justify-between text-[11px] sm:text-xs font-cinzel">
-            <span className="text-amber-200/90 font-bold flex items-center gap-1.5 truncate mr-2">
-              <Swords className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400 shrink-0" />
-              <span className="hidden sm:inline">Fleet Supremacy Standing:</span>
-              <strong className="text-white font-mono truncate">
-                {leader ? `${leader.name} (${leaderKills}/${targetKills})` : 'Awaiting Engagements'}
-              </strong>
-            </span>
-            <span className="text-amber-300 font-mono font-bold shrink-0">{progressPercent}%</span>
+        {isTeamMode ? (
+          <div className="bg-[#121f30]/90 p-2 sm:p-3 rounded-lg border border-amber-500/30 flex flex-col gap-2">
+            {/* Red Team Progress */}
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between text-[11px] sm:text-xs font-cinzel">
+                <span className="text-rose-300 font-bold flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.6)]" />
+                  <span>Red Armada</span>
+                  <strong className="text-white font-mono">({redKills}/{targetKills})</strong>
+                </span>
+                <span className="text-rose-300 font-mono font-bold">{redPercent}%</span>
+              </div>
+              <div className="w-full h-1.5 sm:h-2 bg-[#09111c] rounded-full overflow-hidden border border-rose-500/30">
+                <div
+                  className="h-full bg-gradient-to-r from-rose-700 via-rose-500 to-rose-400 rounded-full transition-all duration-300 shadow-[0_0_10px_rgba(244,63,94,0.6)]"
+                  style={{ width: `${redPercent}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Blue Team Progress */}
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between text-[11px] sm:text-xs font-cinzel">
+                <span className="text-cyan-300 font-bold flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_6px_rgba(6,182,212,0.6)]" />
+                  <span>Blue Armada</span>
+                  <strong className="text-white font-mono">({blueKills}/{targetKills})</strong>
+                </span>
+                <span className="text-cyan-300 font-mono font-bold">{bluePercent}%</span>
+              </div>
+              <div className="w-full h-1.5 sm:h-2 bg-[#09111c] rounded-full overflow-hidden border border-cyan-500/30">
+                <div
+                  className="h-full bg-gradient-to-r from-cyan-700 via-cyan-500 to-cyan-400 rounded-full transition-all duration-300 shadow-[0_0_10px_rgba(6,182,212,0.6)]"
+                  style={{ width: `${bluePercent}%` }}
+                />
+              </div>
+            </div>
           </div>
-          <div className="w-full h-1.5 sm:h-2 bg-[#09111c] rounded-full overflow-hidden border border-amber-500/30">
-            <div
-              className="h-full bg-gradient-to-r from-amber-600 via-amber-400 to-yellow-300 rounded-full transition-all duration-300 shadow-[0_0_10px_rgba(245,158,11,0.6)]"
-              style={{ width: `${progressPercent}%` }}
-            />
+        ) : (
+          <div className="bg-[#121f30]/90 p-2 sm:p-3 rounded-lg border border-amber-500/30 flex flex-col gap-1 sm:gap-1.5">
+            <div className="flex items-center justify-between text-[11px] sm:text-xs font-cinzel">
+              <span className="text-amber-200/90 font-bold flex items-center gap-1.5 truncate mr-2">
+                <Swords className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400 shrink-0" />
+                <span className="hidden sm:inline">Fleet Supremacy Standing:</span>
+                <strong className="text-white font-mono truncate">
+                  {leader ? `${leader.name} (${leaderKills}/${targetKills})` : 'Awaiting Engagements'}
+                </strong>
+              </span>
+              <span className="text-amber-300 font-mono font-bold shrink-0">{progressPercent}%</span>
+            </div>
+            <div className="w-full h-1.5 sm:h-2 bg-[#09111c] rounded-full overflow-hidden border border-amber-500/30">
+              <div
+                className="h-full bg-gradient-to-r from-amber-600 via-amber-400 to-yellow-300 rounded-full transition-all duration-300 shadow-[0_0_10px_rgba(245,158,11,0.6)]"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Tactical Captains Table */}
         <div className="overflow-x-auto">
@@ -145,6 +199,17 @@ const ScoreboardModalContent: React.FC<{ onClose: () => void }> = ({ onClose }) 
                     <td className="py-1.5 sm:py-2.5 font-cinzel">
                       <div className="flex items-center gap-1.5">
                         <span className="truncate max-w-[100px] sm:max-w-[140px] font-bold">{player.name}</span>
+                        {isTeamMode && (
+                          <span
+                            className={`text-[8px] sm:text-[9px] px-1 py-0.2 rounded font-mono font-bold border ${
+                              player.team === 'red'
+                                ? 'bg-rose-950 text-rose-300 border-rose-600/60'
+                                : 'bg-cyan-950 text-cyan-300 border-cyan-600/60'
+                            }`}
+                          >
+                            {player.team === 'red' ? 'RED' : 'BLUE'}
+                          </span>
+                        )}
                         {isSelf && (
                           <span className="text-[8px] sm:text-[9px] px-1 sm:px-1.5 py-0.2 rounded bg-amber-400 text-stone-950 font-bold uppercase">
                             You

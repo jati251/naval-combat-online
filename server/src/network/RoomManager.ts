@@ -92,6 +92,7 @@ export class RoomManager {
           msg.maxPlayers || 4,
           msg.targetKills || 5,
           resolvedTimeOfDay,
+          msg.gameMode || 'FFA',
           (topic, payload) => this.broadcastToTopic(topic, payload),
           (cid, payload) => this.sendDirect(cid, payload)
         );
@@ -114,6 +115,20 @@ export class RoomManager {
         if (!room) {
           this.sendDirect(clientId, { type: 'ERROR', message: 'Fleet anchorage not found!' });
           return;
+        }
+
+        // 1. Check if this client is an existing player reconnecting with sessionToken
+        if (msg.sessionToken) {
+          const existingPlayerId = room.getPlayerIdBySession(msg.sessionToken);
+
+          if (existingPlayerId && room.players.has(existingPlayerId)) {
+            const success = room.reconnectPlayer(clientId, msg.sessionToken);
+            if (success) {
+              this.clientRoomMap.set(clientId, msg.roomId);
+              this.broadcastLobbyUpdate();
+              return { joinedRoomId: msg.roomId };
+            }
+          }
         }
 
         if (room.players.size >= room.maxPlayers) {
@@ -170,6 +185,7 @@ export class RoomManager {
         const success = room.reconnectPlayer(clientId, msg.sessionToken);
         if (success) {
           this.clientRoomMap.set(clientId, msg.roomId);
+          this.broadcastLobbyUpdate();
           return { joinedRoomId: msg.roomId };
         } else {
           this.sendDirect(clientId, { type: 'ERROR', message: 'Reconnection session expired.' });
@@ -203,6 +219,14 @@ export class RoomManager {
         if (!roomId) return;
         const room = this.rooms.get(roomId);
         if (room) room.setPlayerShip(clientId, msg.shipClass);
+        break;
+      }
+
+      case 'SWITCH_TEAM': {
+        const roomId = this.clientRoomMap.get(clientId);
+        if (!roomId) return;
+        const room = this.rooms.get(roomId);
+        if (room) room.switchTeam(clientId);
         break;
       }
 
