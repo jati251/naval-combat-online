@@ -57,6 +57,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
         uShipPos: { value: new THREE.Vector3(0, 0, 0) },
         uShipHeading: { value: 0 },
         uShipSpeed: { value: 0 },
+        uIsMobile: { value: isMobile ? 1.0 : 0.0 },
       },
       vertexShader: `
         uniform float uTime;
@@ -156,6 +157,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
         uniform vec3 uShipPos;
         uniform float uShipHeading;
         uniform float uShipSpeed;
+        uniform float uIsMobile;
 
         varying vec3 vNormal;
         varying vec3 vWorldPosition;
@@ -232,7 +234,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
           // Capillary ripples are sub-pixel beyond 120m.
           // Fading them out saves trigonometry and completely eliminates distant specular shimmering.
           vec3 normal = baseNormal;
-          if (camDist < 140.0) {
+          if (uIsMobile < 0.5 && camDist < 140.0) {
             float capStrength = 1.0 - smoothstep(60.0, 140.0, camDist);
             vec3 capNorm = computeCapillaryNormal(vWorldPosition.xz, uTime);
             normal = normalize(vec3(
@@ -242,9 +244,9 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
             ));
           }
 
-          // 2. DISTANCE LOD: Island Proximity & Shoreline (Culled beyond 380m)
+          // 2. DISTANCE LOD: Island Proximity & Shoreline (Culled beyond 380m, skipped on mobile)
           float minDistToShore = 9999.0;
-          if (camDist < 380.0) {
+          if (uIsMobile < 0.5 && camDist < 380.0) {
             for (int i = 0; i < 9; i++) {
               vec2 relPos = vWorldPosition.xz - uIslandPos[i].xy;
               float sandR = uIslandPos[i].z;
@@ -302,13 +304,13 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
             waterColor = mix(waterColor, uLagoonColor, shoreProximity * 0.76);
           }
 
-          // 4. DISTANCE LOD: Subsurface Scattering (Only computed within 220m)
+          // 4. DISTANCE LOD: Subsurface Scattering (Only computed within 220m, simplified on mobile)
           vec3 sss = vec3(0.0);
-          if (camDist < 220.0) {
+          if (camDist < (uIsMobile > 0.5 ? 80.0 : 220.0)) {
             vec3 sssLightDir = normalize(lightDir + normal * 0.35);
             float sssFactor = pow(max(dot(viewDir, -sssLightDir), 0.0), 3.2);
             float crestThickness = smoothstep(0.25, 1.2, vWaveHeight);
-            float sssDistFade = 1.0 - smoothstep(120.0, 220.0, camDist);
+            float sssDistFade = 1.0 - smoothstep(uIsMobile > 0.5 ? 40.0 : 120.0, uIsMobile > 0.5 ? 80.0 : 220.0, camDist);
             sss = uSubsurfaceColor * (sssFactor * crestThickness * 0.7 * sssDistFade);
           }
 
@@ -319,23 +321,27 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
 
           vec3 baseShaded = mix(waterColor + sss, skyReflection, fresnel * 0.55);
 
-          // 6. DISTANCE LOD: Sun Glitter Specular Highlight (Multi-lobe near, single-lobe far)
+          // 6. DISTANCE LOD: Sun Glitter Specular Highlight (simplified on mobile)
           vec3 halfVector = normalize(lightDir + viewDir);
           float NdotH = max(dot(normal, halfVector), 0.0);
-          if (camDist < 180.0) {
-            float oceanBloomSheen = pow(NdotH, 14.0) * 0.40;  // Broad warm golden sun trail
-            float specularCore    = pow(NdotH, 64.0) * 0.90;  // Core sun highlight
-            float specularSharp   = pow(NdotH, 140.0) * 1.6;  // Brilliant crisp center
+          if (uIsMobile > 0.5) {
+            // Mobile: single-lobe specular only
+            float specMobile = pow(NdotH, 32.0) * 0.85;
+            baseShaded += uSunColor * specMobile;
+          } else if (camDist < 180.0) {
+            float oceanBloomSheen = pow(NdotH, 14.0) * 0.40;
+            float specularCore    = pow(NdotH, 64.0) * 0.90;
+            float specularSharp   = pow(NdotH, 140.0) * 1.6;
             baseShaded += uSunColor * (oceanBloomSheen + specularCore + specularSharp);
           } else {
             float specularFar = pow(NdotH, 32.0) * 0.90;
             baseShaded += uSunColor * specularFar;
           }
 
-          // 7. DISTANCE LOD: Organic Lacy Cellular Sea Foam on Wave Crests (Skipped beyond 150m)
+          // 7. DISTANCE LOD: Organic Lacy Cellular Sea Foam on Wave Crests (Skipped on mobile and beyond 150m)
           float crestFoam = 0.0;
           float crestBreak = smoothstep(0.95, 1.45, vWaveHeight) * smoothstep(0.08, 0.32, vCrestPinch);
-          if (crestBreak > 0.01 && camDist < 150.0) {
+          if (uIsMobile < 0.5 && crestBreak > 0.01 && camDist < 150.0) {
             float foamCell = cellularFoam(vWorldPosition.xz * 0.85 + vec2(uTime * 0.05, -uTime * 0.03));
             float bubbleWeb = smoothstep(0.08, 0.45, foamCell) * (1.0 - smoothstep(0.50, 0.88, foamCell));
             float solidHead = 1.0 - smoothstep(0.0, 0.22, foamCell);
@@ -344,9 +350,9 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
             crestFoam = crestBreak * lacyFoam * foamDistFade;
           }
 
-          // 8. DISTANCE LOD: Natural Shoreline Breaking Surf Foam (Skipped beyond 280m)
+          // 8. DISTANCE LOD: Natural Shoreline Breaking Surf Foam (Skipped on mobile and beyond 280m)
           float totalShoreFoam = 0.0;
-          if (minDistToShore < 6.0 && camDist < 280.0) {
+          if (uIsMobile < 0.5 && minDistToShore < 6.0 && camDist < 280.0) {
             float shoreDist = max(0.0, minDistToShore);
             float surfPulse = sin(uTime * 1.8 - shoreDist * 0.85) * 0.5 + 0.5;
             float edgeFoam = 1.0 - smoothstep(0.0, 3.6, shoreDist);
@@ -356,9 +362,9 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
             totalShoreFoam = clamp((edgeFoam * 0.9 + swashWave * 0.6) * (0.4 + shoreFroth * 0.6), 0.0, 1.0);
           }
 
-          // 9. Dynamic Broad-Spreading Ship Wake with Bintik-Bintik Bubble Froth (Wide & Natural)
+          // 9. Dynamic Broad-Spreading Ship Wake (Skipped on mobile)
           float shipWakeFoam = 0.0;
-          if (uShipSpeed > 0.35 && camDist < 180.0) {
+          if (uIsMobile < 0.5 && uShipSpeed > 0.35 && camDist < 180.0) {
             vec2 rel = vWorldPosition.xz - uShipPos.xz;
             float sinH = sin(uShipHeading);
             float cosH = cos(uShipHeading);

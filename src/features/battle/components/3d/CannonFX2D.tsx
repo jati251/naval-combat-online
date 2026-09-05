@@ -8,6 +8,10 @@ import {
   MAX_SMOKE,
   MAX_SPARKS,
   MAX_WATER_PLUMES,
+  MAX_FLASH_MOBILE,
+  MAX_SMOKE_MOBILE,
+  MAX_SPARKS_MOBILE,
+  MAX_WATER_PLUMES_MOBILE,
   type FXParticle,
   createParticlePool,
   spawnSmoke,
@@ -25,26 +29,32 @@ import {
  * Includes Muzzle Flash, Volumetric Gunpowder Smoke Clouds, and Ballistic Smoke Trails.
  * Frustum-culling disabled ensures particles are always rendered anywhere on the ocean.
  */
-export const CannonFX2D: React.FC = React.memo(() => {
+export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobile = false }) => {
+  // Resolve pool sizes once based on device tier
+  const maxFlash = isMobile ? MAX_FLASH_MOBILE : MAX_FLASH;
+  const maxSmoke = isMobile ? MAX_SMOKE_MOBILE : MAX_SMOKE;
+  const maxSparks = isMobile ? MAX_SPARKS_MOBILE : MAX_SPARKS;
+  const maxPlumes = isMobile ? MAX_WATER_PLUMES_MOBILE : MAX_WATER_PLUMES;
+
   const flashTex = useMemo(() => createMuzzleFlashTexture(), []);
   const smokeTex = useMemo(() => createGunpowderSmokeTexture(), []);
   const sparkTex = useMemo(() => createSparkTexture(), []);
   const plumeTex = useMemo(() => createWaterPlumeTexture(), []);
 
-  const flashPool = useRef<FXParticle[]>(createParticlePool(MAX_FLASH));
-  const smokePool = useRef<FXParticle[]>(createParticlePool(MAX_SMOKE));
-  const sparkPool = useRef<FXParticle[]>(createParticlePool(MAX_SPARKS));
-  const plumePool = useRef<FXParticle[]>(createParticlePool(MAX_WATER_PLUMES));
+  const flashPool = useRef<FXParticle[]>(createParticlePool(maxFlash));
+  const smokePool = useRef<FXParticle[]>(createParticlePool(maxSmoke));
+  const sparkPool = useRef<FXParticle[]>(createParticlePool(maxSparks));
+  const plumePool = useRef<FXParticle[]>(createParticlePool(maxPlumes));
 
   const flashPointsRef = useRef<THREE.Points>(null);
   const smokePointsRef = useRef<THREE.Points>(null);
   const sparkPointsRef = useRef<THREE.Points>(null);
   const plumePointsRef = useRef<THREE.Points>(null);
 
-  const [flashPos, flashSz] = useMemo(() => [new Float32Array(MAX_FLASH * 3), new Float32Array(MAX_FLASH)], []);
-  const [smokePos, smokeSz] = useMemo(() => [new Float32Array(MAX_SMOKE * 3), new Float32Array(MAX_SMOKE)], []);
-  const [sparkPos, sparkSz] = useMemo(() => [new Float32Array(MAX_SPARKS * 3), new Float32Array(MAX_SPARKS)], []);
-  const [plumePos, plumeSz] = useMemo(() => [new Float32Array(MAX_WATER_PLUMES * 3), new Float32Array(MAX_WATER_PLUMES)], []);
+  const [flashPos, flashSz] = useMemo(() => [new Float32Array(maxFlash * 3), new Float32Array(maxFlash)], [maxFlash]);
+  const [smokePos, smokeSz] = useMemo(() => [new Float32Array(maxSmoke * 3), new Float32Array(maxSmoke)], [maxSmoke]);
+  const [sparkPos, sparkSz] = useMemo(() => [new Float32Array(maxSparks * 3), new Float32Array(maxSparks)], [maxSparks]);
+  const [plumePos, plumeSz] = useMemo(() => [new Float32Array(maxPlumes * 3), new Float32Array(maxPlumes)], [maxPlumes]);
 
   const knownBallIds = useRef<Map<string, { x: number; y: number; z: number }>>(new Map());
   const processedFireEvents = useRef<Set<string>>(new Set());
@@ -77,8 +87,8 @@ export const CannonFX2D: React.FC = React.memo(() => {
       spawnFlash(flashPool.current, gx, gy, gz, 5.0 + Math.random() * 2.5);
       spawnSparks(sparkPool.current, gx, gy, gz, normX, normZ);
 
-      // Thick billowing gunpowder smoke cloud (5-8 clouds per barrel)
-      const smokeCount = 6 + Math.floor(Math.random() * 4);
+      // Thick billowing gunpowder smoke cloud (reduced on mobile)
+      const smokeCount = isMobile ? (3 + Math.floor(Math.random() * 2)) : (6 + Math.floor(Math.random() * 4));
       for (let sm = 0; sm < smokeCount; sm++) {
         const outSpeed = 6.0 + Math.random() * 12.0;
         const svx = normX * outSpeed + (Math.random() - 0.5) * 4.5;
@@ -173,7 +183,7 @@ export const CannonFX2D: React.FC = React.memo(() => {
       const posArr = posAttr.array as Float32Array;
       const szArr = szAttr.array as Float32Array;
 
-      for (let i = 0; i < MAX_SMOKE; i++) {
+      for (let i = 0; i < maxSmoke; i++) {
         const p = smokePool.current[i];
         if (p.life > 0) {
           p.life -= delta;
@@ -208,7 +218,7 @@ export const CannonFX2D: React.FC = React.memo(() => {
       const posArr = posAttr.array as Float32Array;
       const szArr = szAttr.array as Float32Array;
 
-      for (let i = 0; i < MAX_FLASH; i++) {
+      for (let i = 0; i < maxFlash; i++) {
         const p = flashPool.current[i];
         if (p.life > 0) {
           p.life -= delta;
@@ -233,7 +243,7 @@ export const CannonFX2D: React.FC = React.memo(() => {
       const posArr = posAttr.array as Float32Array;
       const szArr = szAttr.array as Float32Array;
 
-      for (let i = 0; i < MAX_SPARKS; i++) {
+      for (let i = 0; i < maxSparks; i++) {
         const p = sparkPool.current[i];
         if (p.life > 0) {
           p.life -= delta;
@@ -263,7 +273,7 @@ export const CannonFX2D: React.FC = React.memo(() => {
       const posArr = posAttr.array as Float32Array;
       const szArr = szAttr.array as Float32Array;
 
-      for (let i = 0; i < MAX_WATER_PLUMES; i++) {
+      for (let i = 0; i < maxPlumes; i++) {
         const p = plumePool.current[i];
         if (p.life > 0) {
           p.life -= delta;

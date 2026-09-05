@@ -108,7 +108,7 @@ function createCirrusCloudTexture(): THREE.CanvasTexture {
  * Multi-Tiered Caribbean Celestial Cloudscapes
  * Includes trade-wind cumulus banks and majestic high-altitude cirrus veils.
  */
-const CaribbeanClouds2D: React.FC<{ isNight: boolean }> = ({ isNight }) => {
+const CaribbeanClouds2D: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({ isNight, isMobile = false }) => {
   const cumulusTex = useMemo(() => createCumulusCloudTexture(), []);
   const cirrusTex = useMemo(() => createCirrusCloudTexture(), []);
   const windAngle = useGameStore((s) => s.windAngle);
@@ -117,7 +117,7 @@ const CaribbeanClouds2D: React.FC<{ isNight: boolean }> = ({ isNight }) => {
   // Layer 1: Volumetric Mid-Sky Cumulus Banks (24 dynamic clouds with fixed celestial orientation)
   const cumulusClouds = useMemo(() => {
     const items = [];
-    const count = 24;
+    const count = isMobile ? 8 : 24;
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * Math.PI * 2 + (Math.random() * 0.3 - 0.15);
       const dist = 220 + Math.random() * 140;
@@ -143,12 +143,12 @@ const CaribbeanClouds2D: React.FC<{ isNight: boolean }> = ({ isNight }) => {
       });
     }
     return items;
-  }, [isNight]);
+  }, [isNight, isMobile]);
 
   // Layer 2: High Stratospheric Cirrus Streaks (14 grand veils with fixed celestial orientation)
   const cirrusClouds = useMemo(() => {
     const items = [];
-    const count = 14;
+    const count = isMobile ? 4 : 14;
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * Math.PI * 2 + (Math.random() * 0.4 - 0.2);
       const dist = 360 + Math.random() * 150;
@@ -173,7 +173,7 @@ const CaribbeanClouds2D: React.FC<{ isNight: boolean }> = ({ isNight }) => {
       });
     }
     return items;
-  }, [isNight]);
+  }, [isNight, isMobile]);
 
   useFrame((state, delta) => {
     if (groupRef.current) {
@@ -243,11 +243,11 @@ export const NIGHT_FOG_COLOR = '#091326';
  * Day: Brilliant Rayleigh Atmospheric Scattering, Solar Corona, & Crepuscular Godrays
  * Night: Midnight Obsidian/Indigo Sky, Radiant Silver Moon Disc, Lunar Corona, & Twinkling Stars
  */
-const CaribbeanSkyDome: React.FC<{ isNight: boolean }> = ({ isNight }) => {
+const CaribbeanSkyDome: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({ isNight, isMobile = false }) => {
   const meshRef = useRef<THREE.Mesh>(null);
 
   const shaderMaterial = useMemo(() => {
-    return new THREE.ShaderMaterial({
+    const mat = new THREE.ShaderMaterial({
       uniforms: {
         uIsNight: { value: isNight ? 1.0 : 0.0 },
         uTopColor: { value: new THREE.Color(isNight ? '#030712' : '#0165b3') },
@@ -290,7 +290,8 @@ const CaribbeanSkyDome: React.FC<{ isNight: boolean }> = ({ isNight }) => {
 
           if (uIsNight > 0.5) {
             // ──────────────── NIGHT BATTLE SKY ────────────────
-            // 1. Procedural High-Altitude Star Field
+            // 1. Procedural High-Altitude Star Field (skipped on mobile for GPU savings)
+            #ifndef MOBILE_MODE
             if (h > 0.12) {
               vec3 starCoord = floor(dir * 180.0);
               float starVal = starHash(starCoord);
@@ -299,6 +300,7 @@ const CaribbeanSkyDome: React.FC<{ isNight: boolean }> = ({ isNight }) => {
                 sky += vec3(0.85, 0.92, 1.0) * starIntensity * 1.6;
               }
             }
+            #endif
 
             // 2. Glowing Silver Moon Disc
             float moonDisc = smoothstep(0.9984, 0.9996, celestialDot) * 2.8;
@@ -346,7 +348,12 @@ const CaribbeanSkyDome: React.FC<{ isNight: boolean }> = ({ isNight }) => {
       side: THREE.BackSide,
       depthWrite: false,
     });
-  }, [isNight]);
+    // Inject mobile define to skip expensive star hash
+    if (isMobile) {
+      mat.defines = { MOBILE_MODE: '' };
+    }
+    return mat;
+  }, [isNight, isMobile]);
 
   useFrame((state) => {
     if (meshRef.current) {
@@ -356,12 +363,12 @@ const CaribbeanSkyDome: React.FC<{ isNight: boolean }> = ({ isNight }) => {
 
   return (
     <mesh ref={meshRef} material={shaderMaterial}>
-      <sphereGeometry args={[800, 28, 14]} />
+      <sphereGeometry args={[800, isMobile ? 16 : 28, isMobile ? 8 : 14]} />
     </mesh>
   );
 };
 
-export const Environment3D: React.FC = React.memo(() => {
+export const Environment3D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobile = false }) => {
   const timeOfDay = useGameStore((s) => s.timeOfDay);
   const isNight = timeOfDay === 'NIGHT';
 
@@ -374,7 +381,7 @@ export const Environment3D: React.FC = React.memo(() => {
   return (
     <>
       {/* Dynamic Celestial Sky Dome (Day Azure or Night Obsidian with Stars & Moon) */}
-      <CaribbeanSkyDome isNight={isNight} />
+      <CaribbeanSkyDome isNight={isNight} isMobile={isMobile} />
 
       {/* Atmospheric Sea Fog */}
       <fog attach="fog" args={[fogColor, fogNear, fogFar]} />
@@ -384,9 +391,9 @@ export const Environment3D: React.FC = React.memo(() => {
         position={lightPos}
         intensity={isNight ? 0.75 : 2.35}
         color={isNight ? '#c8dcff' : '#fffbeb'}
-        castShadow
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
+        castShadow={!isMobile}
+        shadow-mapSize-width={isMobile ? 0 : 1024}
+        shadow-mapSize-height={isMobile ? 0 : 1024}
         shadow-camera-near={10}
         shadow-camera-far={250}
         shadow-camera-left={-75}
@@ -412,7 +419,7 @@ export const Environment3D: React.FC = React.memo(() => {
       />
 
       {/* Multi-Tiered Celestial Cloudscapes (Cumulus & Cirrus) */}
-      <CaribbeanClouds2D isNight={isNight} />
+      <CaribbeanClouds2D isNight={isNight} isMobile={isMobile} />
     </>
   );
 });

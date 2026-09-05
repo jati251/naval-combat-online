@@ -35,12 +35,12 @@ const FleetEntities: React.FC = React.memo(() => {
   );
 });
 
-const CannonEntities: React.FC = React.memo(() => {
+const CannonEntities: React.FC<{ isMobile: boolean }> = React.memo(({ isMobile }) => {
   const cannonballs = useGameStore((s) => s.cannonballs);
   return (
     <>
       <CannonSystem3D cannonballs={cannonballs} />
-      <CannonFX2D />
+      <CannonFX2D isMobile={isMobile} />
     </>
   );
 });
@@ -72,16 +72,16 @@ export const NavalCanvas: React.FC = React.memo(() => {
         }}
       >
         <color attach="background" args={[bgColor]} />
-        <Environment3D />
+        <Environment3D isMobile={isMobile} />
         <OceanWater isMobile={isMobile} />
         <Islands3D />
-        <Shipwrecks3D />
+        {!isMobile && <Shipwrecks3D />}
         {!isMobile && <JumpingFish3D />}
-        <MapBoundary3D />
+        <MapBoundary3D isMobile={isMobile} />
         {!isMobile && !isNight && <CaribbeanSeabirds3D />}
         {!isMobile && <OceanAtmosphereParticles3D />}
         <FleetEntities />
-        <CannonEntities />
+        <CannonEntities isMobile={isMobile} />
       </Canvas>
     </div>
   );

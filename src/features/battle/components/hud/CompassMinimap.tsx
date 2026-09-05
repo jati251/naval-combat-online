@@ -39,10 +39,20 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(() => {
     canvas.width = CANVAS_SIZE * dpr;
     canvas.height = CANVAS_SIZE * dpr;
 
+    // Detect mobile device for canvas render throttling
+    const isMobileDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth <= 1024;
+
     let animId: number;
     let frameCount = 0;
     const render = () => {
       frameCount++;
+
+      // Mobile: throttle canvas rendering to ~15fps (skip 3 of 4 frames) to save CPU
+      if (isMobileDevice && frameCount % 4 !== 0) {
+        animId = requestAnimationFrame(render);
+        return;
+      }
+
       const { selfId: curId, ships: curShips, windAngle: curWindAngle, windSpeed: curWindSpeed } = useGameStore.getState();
       const curSelf = curShips.find((s) => s.id === curId);
       const cx = CANVAS_SIZE * 0.5;

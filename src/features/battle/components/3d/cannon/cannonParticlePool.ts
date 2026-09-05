@@ -5,6 +5,12 @@ export const MAX_SMOKE = 800;
 export const MAX_SPARKS = 360;
 export const MAX_WATER_PLUMES = 120;
 
+// Mobile-optimized pool sizes: ~75% reduction in per-frame iteration budget
+export const MAX_FLASH_MOBILE = 40;
+export const MAX_SMOKE_MOBILE = 200;
+export const MAX_SPARKS_MOBILE = 80;
+export const MAX_WATER_PLUMES_MOBILE = 30;
+
 export interface FXParticle {
   x: number;
   y: number;

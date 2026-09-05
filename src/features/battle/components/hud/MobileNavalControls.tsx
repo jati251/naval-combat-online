@@ -69,22 +69,42 @@ export const MobileNavalControls: React.FC = () => {
     setRudder(0);
   }, [setRudder]);
 
-  // Handle Salvo Fire
+  // Anti-double-fire timestamp debounce
+  const lastFireTimestamp = useRef<number>(0);
+
+  // Handle Salvo Fire (Guaranteed single side per user action)
   const handleFireSalvo = useCallback((e?: React.TouchEvent | React.MouseEvent) => {
-    if (e && 'stopPropagation' in e) e.stopPropagation();
-    if (aimDirection === 'port' || aimDirection === 'starboard') {
-      fireBattery(aimDirection);
+    if (e) {
+      e.stopPropagation();
+      if ('preventDefault' in e && e.cancelable) e.preventDefault();
+    }
+
+    const now = performance.now();
+    // Guard against synthetic click events or rapid double-tap (minimum 350ms cooldown)
+    if (now - lastFireTimestamp.current < 350) return;
+    lastFireTimestamp.current = now;
+
+    if (aimDirection === 'port') {
+      if (isPortReady) fireBattery('port');
+    } else if (aimDirection === 'starboard') {
+      if (isStbdReady) fireBattery('starboard');
     } else {
-      // Auto-fire whichever battery is ready
+      // Default: Fire whichever single battery is ready (never both!)
       if (isStbdReady) {
         fireBattery('starboard');
       } else if (isPortReady) {
         fireBattery('port');
-      } else {
-        fireBattery('starboard');
       }
     }
   }, [aimDirection, fireBattery, isPortReady, isStbdReady]);
+
+  // Handle Aim Toggle (Safe touch / click single dispatch)
+  const handleToggleAim = useCallback((targetSide: 'port' | 'starboard', e: React.TouchEvent | React.MouseEvent) => {
+    e.stopPropagation();
+    if ('preventDefault' in e && e.cancelable) e.preventDefault();
+    const isCurrentlyAiming = aimDirection === targetSide;
+    setAim(isCurrentlyAiming ? 'none' : targetSide, !isCurrentlyAiming);
+  }, [aimDirection, setAim]);
 
   // Progress for radial cooldown ring (0 to 1)
   const activeCooldownProgress = isAimingPort ? portProgress : isAimingStbd ? stbdProgress : Math.max(portProgress, stbdProgress);
@@ -185,8 +205,8 @@ export const MobileNavalControls: React.FC = () => {
       <div className="relative flex items-end justify-end pointer-events-auto select-none touch-none">
         {/* Aim Port Battery (Skill 1 position) */}
         <button
-          onTouchStart={(e) => { e.stopPropagation(); setAim(isAimingPort ? 'none' : 'port', !isAimingPort); }}
-          onClick={() => setAim(isAimingPort ? 'none' : 'port', !isAimingPort)}
+          onTouchStart={(e) => handleToggleAim('port', e)}
+          onClick={(e) => handleToggleAim('port', e)}
           className={`absolute -top-12 sm:-top-14 right-16 sm:right-22 w-11 h-11 sm:w-13 sm:h-13 rounded-full border-2 flex flex-col items-center justify-center transition-all shadow-xl touch-none active:scale-95 cursor-pointer ${
             isAimingPort
               ? 'bg-amber-500 text-stone-950 border-amber-200 shadow-[0_0_15px_rgba(245,158,11,0.6)] scale-105'
@@ -207,8 +227,8 @@ export const MobileNavalControls: React.FC = () => {
 
         {/* Aim Starboard Battery (Skill 2 position) */}
         <button
-          onTouchStart={(e) => { e.stopPropagation(); setAim(isAimingStbd ? 'none' : 'starboard', !isAimingStbd); }}
-          onClick={() => setAim(isAimingStbd ? 'none' : 'starboard', !isAimingStbd)}
+          onTouchStart={(e) => handleToggleAim('starboard', e)}
+          onClick={(e) => handleToggleAim('starboard', e)}
           className={`absolute -top-20 sm:-top-24 right-3 sm:right-5 w-11 h-11 sm:w-13 sm:h-13 rounded-full border-2 flex flex-col items-center justify-center transition-all shadow-xl touch-none active:scale-95 cursor-pointer ${
             isAimingStbd
               ? 'bg-amber-500 text-stone-950 border-amber-200 shadow-[0_0_15px_rgba(245,158,11,0.6)] scale-105'

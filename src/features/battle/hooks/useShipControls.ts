@@ -122,10 +122,15 @@ export function useShipControls() {
       }
     };
 
-    // 3. Pointer Handlers (Left Click to fire aimed battery)
+    // 3. Pointer Handlers (Left Click to fire aimed battery - Desktop only)
     const handlePointerDown = (e: MouseEvent) => {
+      // Ignore on touch devices to prevent double-firing collision with mobile touch controls
+      if (typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0)) {
+        return;
+      }
+
       const target = e.target as HTMLElement;
-      if (target.closest('button') || target.closest('input') || target.closest('a')) {
+      if (target.closest('button') || target.closest('input') || target.closest('a') || target.closest('.touch-none')) {
         return;
       }
 

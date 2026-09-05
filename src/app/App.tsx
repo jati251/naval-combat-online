@@ -20,13 +20,17 @@ export const App: React.FC = () => {
       <ToastContainer />
       {stage === 'LOBBY' && <LobbyView />}
 
-      {(stage === 'BATTLE' || stage === 'DEBRIEF') && (
-        <>
-          <NavalCanvas />
-          <SpeedMotionBlurOverlay />
-          <BattleHUD />
-        </>
-      )}
+      {(stage === 'BATTLE' || stage === 'DEBRIEF') && (() => {
+        const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth <= 1024;
+        return (
+          <>
+            <NavalCanvas />
+            {/* Skip backdrop-filter blur overlay on mobile — extremely expensive on mobile WebKit */}
+            {!isMobile && <SpeedMotionBlurOverlay />}
+            <BattleHUD />
+          </>
+        );
+      })()}
     </div>
   );
 };

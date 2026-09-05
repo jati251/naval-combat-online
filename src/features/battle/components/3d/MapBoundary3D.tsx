@@ -8,7 +8,7 @@ export const ARENA_RADIUS = 500;
  * Assassin's Creed IV: Black Flag Shimmering Naval Map Boundary
  * An ethereal oceanic energy barrier and floating beacon buoys at R = 500m.
  */
-export const MapBoundary3D: React.FC = React.memo(() => {
+export const MapBoundary3D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobile = false }) => {
   const boundaryShader = useMemo(() => {
     return new THREE.ShaderMaterial({
       uniforms: {
@@ -59,7 +59,7 @@ export const MapBoundary3D: React.FC = React.memo(() => {
   // Floating Perimeter Navigation Buoy Markers with Blinking Lanterns
   const buoys = useMemo(() => {
     const list: Array<{ id: number; x: number; z: number; angle: number }> = [];
-    const count = 16;
+    const count = isMobile ? 6 : 16;
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * Math.PI * 2;
       list.push({
@@ -70,7 +70,7 @@ export const MapBoundary3D: React.FC = React.memo(() => {
       });
     }
     return list;
-  }, []);
+  }, [isMobile]);
 
   const buoyGroupRef = useRef<THREE.Group>(null);
 
@@ -89,7 +89,7 @@ export const MapBoundary3D: React.FC = React.memo(() => {
     <group>
       {/* 1. Shimmering AC Black Flag Energy Curtain Wall */}
       <mesh position={[0, 18, 0]} material={boundaryShader}>
-        <cylinderGeometry args={[ARENA_RADIUS, ARENA_RADIUS, 42, 64, 1, true]} />
+        <cylinderGeometry args={[ARENA_RADIUS, ARENA_RADIUS, 42, isMobile ? 24 : 64, 1, true]} />
       </mesh>
 
       {/* 2. Perimeter Warning Buoys */}
