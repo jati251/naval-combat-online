@@ -166,6 +166,9 @@ class NetworkClient {
         const target = store.ships.find((s) => s.id === msg.targetId);
         const name = target?.name || 'A vessel';
         store.addCombatLog(`${name} took ${msg.damage} broadside damage!`, 'damage');
+        if (msg.targetId === store.selfId) {
+          store.triggerCameraShake(0.85, 'hit');
+        }
         break;
       }
       case 'SHIP_SUNK': {

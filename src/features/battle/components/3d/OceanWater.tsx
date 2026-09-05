@@ -210,76 +210,103 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }
         }
 
         void main() {
+          float camDist = length(vWorldPosition - cameraPosition);
+
+          // 0. DISTANCE LOD: Horizon Early Exit (Distant Sea > 660m)
+          // Near the horizon, water blends 100% into sky fog.
+          // Direct return saves all arithmetic for distant pixels.
+          if (camDist > 660.0) {
+            gl_FragColor = vec4(uSkyHorizonColor, 1.0);
+            return;
+          }
+
           vec3 baseNormal = normalize(vNormal);
           vec3 lightDir = normalize(uLightDir);
           vec3 viewDir = normalize(cameraPosition - vWorldPosition);
 
-          // 1. High-Frequency Micro-Wave Capillary Normal Blending
-          vec3 capNorm = computeCapillaryNormal(vWorldPosition.xz, uTime);
-          vec3 normal = normalize(vec3(
-            baseNormal.x + capNorm.x * 0.18,
-            baseNormal.y,
-            baseNormal.z + capNorm.z * 0.18
-          ));
+          // 1. DISTANCE LOD: High-Frequency Micro-Wave Capillary Normal Blending (0m - 140m)
+          // Capillary ripples are sub-pixel beyond 120m.
+          // Fading them out saves trigonometry and completely eliminates distant specular shimmering.
+          vec3 normal = baseNormal;
+          if (camDist < 140.0) {
+            float capStrength = 1.0 - smoothstep(60.0, 140.0, camDist);
+            vec3 capNorm = computeCapillaryNormal(vWorldPosition.xz, uTime);
+            normal = normalize(vec3(
+              baseNormal.x + capNorm.x * (0.18 * capStrength),
+              baseNormal.y,
+              baseNormal.z + capNorm.z * (0.18 * capStrength)
+            ));
+          }
 
-          // 2. Island Proximity & Shoreline Lagoon Shallows (Supports 9 Arena Islands with Contour Matching)
+          // 2. DISTANCE LOD: Island Proximity & Shoreline (Culled beyond 380m)
           float minDistToShore = 9999.0;
-          for (int i = 0; i < 9; i++) {
-            vec2 relPos = vWorldPosition.xz - uIslandPos[i].xy;
-            float seed = uIslandPos[i].w;
-            float sandR = uIslandPos[i].z;
-            float isElongated = uIslandParams[i].w;
+          if (camDist < 380.0) {
+            for (int i = 0; i < 9; i++) {
+              vec2 relPos = vWorldPosition.xz - uIslandPos[i].xy;
+              float sandR = uIslandPos[i].z;
 
-            if (isElongated > 0.5) {
-              float rotA = uIslandParams[i].z;
-              float cosA = cos(rotA);
-              float sinA = sin(rotA);
-              vec2 localPos = vec2(relPos.x * cosA - relPos.y * sinA, relPos.x * sinA + relPos.y * cosA);
+              // Fast AABB bounding circle check: skip heavy trig if far from this island
+              float centerDistSq = dot(relPos, relPos);
+              float maxInfluence = (sandR * 1.6 + 32.0);
+              if (centerDistSq > maxInfluence * maxInfluence) {
+                continue;
+              }
 
-              float scaleX = uIslandParams[i].x;
-              float scaleZ = uIslandParams[i].y;
-              vec2 scaledPos = vec2(localPos.x / scaleX, localPos.y / scaleZ);
-              float angle = atan(scaledPos.y, scaledPos.x);
+              float seed = uIslandPos[i].w;
+              float isElongated = uIslandParams[i].w;
 
-              float coastNoise = (sin(angle * 5.0 + seed * 0.1) * 0.08 +
-                                  sin(angle * 11.0 + seed * 0.3) * 0.04 +
-                                  sin(angle * 17.0 + seed * 0.7) * 0.02) * sandR;
+              if (isElongated > 0.5) {
+                float rotA = uIslandParams[i].z;
+                float cosA = cos(rotA);
+                float sinA = sin(rotA);
+                vec2 localPos = vec2(relPos.x * cosA - relPos.y * sinA, relPos.x * sinA + relPos.y * cosA);
 
-              float scaleFactor = length(vec2(cos(angle) * scaleX, sin(angle) * scaleZ));
-              float worldBeachR = (sandR * 1.2 + coastNoise) * scaleFactor;
-              float distToSand = length(localPos) - worldBeachR;
-              minDistToShore = min(minDistToShore, distToSand);
-            } else {
-              float distToCenter = length(relPos);
-              float angle = atan(relPos.y, relPos.x);
-              // Harmonic coastal noise identically matching createBeachGeometry
-              float coastNoise = (sin(angle * 5.0 + seed * 0.1) * 0.08 +
-                                  sin(angle * 11.0 + seed * 0.3) * 0.04 +
-                                  sin(angle * 17.0 + seed * 0.7) * 0.02) * sandR;
-              float distToSand = distToCenter - (sandR * 1.18 + coastNoise);
-              minDistToShore = min(minDistToShore, distToSand);
+                float scaleX = uIslandParams[i].x;
+                float scaleZ = uIslandParams[i].y;
+                vec2 scaledPos = vec2(localPos.x / scaleX, localPos.y / scaleZ);
+                float angle = atan(scaledPos.y, scaledPos.x);
+
+                float coastNoise = (sin(angle * 5.0 + seed * 0.1) * 0.08 +
+                                    sin(angle * 11.0 + seed * 0.3) * 0.04 +
+                                    sin(angle * 17.0 + seed * 0.7) * 0.02) * sandR;
+
+                float scaleFactor = length(vec2(cos(angle) * scaleX, sin(angle) * scaleZ));
+                float worldBeachR = (sandR * 1.2 + coastNoise) * scaleFactor;
+                float distToSand = length(localPos) - worldBeachR;
+                minDistToShore = min(minDistToShore, distToSand);
+              } else {
+                float distToCenter = sqrt(centerDistSq);
+                float angle = atan(relPos.y, relPos.x);
+                float coastNoise = (sin(angle * 5.0 + seed * 0.1) * 0.08 +
+                                    sin(angle * 11.0 + seed * 0.3) * 0.04 +
+                                    sin(angle * 17.0 + seed * 0.7) * 0.02) * sandR;
+                float distToSand = distToCenter - (sandR * 1.18 + coastNoise);
+                minDistToShore = min(minDistToShore, distToSand);
+              }
             }
           }
-          float shoreProximity = 1.0 - smoothstep(0.0, 32.0, max(0.0, minDistToShore));
+          float shoreProximity = (camDist < 380.0) ? (1.0 - smoothstep(0.0, 32.0, max(0.0, minDistToShore))) : 0.0;
 
           // 3. Multi-Depth Sunlit Tropical Gradient (Beer-Lambert optical absorption)
-          // Depth factor floor ensures troughs never sink to near-black
           float depthFactor = clamp((vWaveHeight + 1.3) / 2.6, 0.12, 1.0);
           vec3 waterColor = mix(uDeepWaterColor, uMidWaterColor, smoothstep(0.08, 0.52, depthFactor));
           waterColor = mix(waterColor, uShallowColor, smoothstep(0.40, 0.88, depthFactor));
           waterColor = mix(waterColor, uCrestGlowColor, smoothstep(0.72, 1.0, depthFactor) * 0.50);
-
-          // Deep ambient radiance floor in troughs (prevents dark mud/blackness)
           waterColor = max(waterColor, vec3(0.03, 0.18, 0.32));
 
-          // Blend into luminous turquoise lagoon near island shores
-          waterColor = mix(waterColor, uLagoonColor, shoreProximity * 0.76);
+          if (shoreProximity > 0.001) {
+            waterColor = mix(waterColor, uLagoonColor, shoreProximity * 0.76);
+          }
 
-          // 4. Subsurface Scattering (bright tropical emerald glow through wave crests)
-          vec3 sssLightDir = normalize(lightDir + normal * 0.35);
-          float sssFactor = pow(max(dot(viewDir, -sssLightDir), 0.0), 3.2);
-          float crestThickness = smoothstep(0.25, 1.2, vWaveHeight);
-          vec3 sss = uSubsurfaceColor * (sssFactor * crestThickness * 0.7);
+          // 4. DISTANCE LOD: Subsurface Scattering (Only computed within 220m)
+          vec3 sss = vec3(0.0);
+          if (camDist < 220.0) {
+            vec3 sssLightDir = normalize(lightDir + normal * 0.35);
+            float sssFactor = pow(max(dot(viewDir, -sssLightDir), 0.0), 3.2);
+            float crestThickness = smoothstep(0.25, 1.2, vWaveHeight);
+            float sssDistFade = 1.0 - smoothstep(120.0, 220.0, camDist);
+            sss = uSubsurfaceColor * (sssFactor * crestThickness * 0.7 * sssDistFade);
+          }
 
           // 5. Accurate Physical Fresnel & Sky Reflection (Schlick approximation)
           float NdotV = max(dot(viewDir, normal), 0.0);
@@ -288,40 +315,46 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }
 
           vec3 baseShaded = mix(waterColor + sss, skyReflection, fresnel * 0.55);
 
-          // 6. Stable Anisotropic Multi-Lobe Sun Glitter Road (Flicker-Free During Camera Orbit)
+          // 6. DISTANCE LOD: Sun Glitter Specular Highlight (Multi-lobe near, single-lobe far)
           vec3 halfVector = normalize(lightDir + viewDir);
           float NdotH = max(dot(normal, halfVector), 0.0);
-          float oceanBloomSheen = pow(NdotH, 14.0) * 0.40;  // Broad warm golden sun trail
-          float specularCore    = pow(NdotH, 64.0) * 0.90;  // Core sun highlight
-          float specularSharp   = pow(NdotH, 140.0) * 1.6;  // Brilliant crisp center
+          if (camDist < 180.0) {
+            float oceanBloomSheen = pow(NdotH, 14.0) * 0.40;  // Broad warm golden sun trail
+            float specularCore    = pow(NdotH, 64.0) * 0.90;  // Core sun highlight
+            float specularSharp   = pow(NdotH, 140.0) * 1.6;  // Brilliant crisp center
+            baseShaded += uSunColor * (oceanBloomSheen + specularCore + specularSharp);
+          } else {
+            float specularFar = pow(NdotH, 32.0) * 0.90;
+            baseShaded += uSunColor * specularFar;
+          }
 
-          baseShaded += uSunColor * (oceanBloomSheen + specularCore + specularSharp);
-
-          // 7. Organic Lacy Cellular Sea Foam on Wave Crests
+          // 7. DISTANCE LOD: Organic Lacy Cellular Sea Foam on Wave Crests (Skipped beyond 150m)
+          float crestFoam = 0.0;
           float crestBreak = smoothstep(0.95, 1.45, vWaveHeight) * smoothstep(0.08, 0.32, vCrestPinch);
-          float foamCell = cellularFoam(vWorldPosition.xz * 0.85 + vec2(uTime * 0.05, -uTime * 0.03));
-          float bubbleWeb = smoothstep(0.08, 0.45, foamCell) * (1.0 - smoothstep(0.50, 0.88, foamCell));
-          float solidHead = 1.0 - smoothstep(0.0, 0.22, foamCell);
-          float lacyFoam = clamp(bubbleWeb * 1.5 + solidHead * 0.9, 0.0, 1.0);
-          float crestFoam = crestBreak * lacyFoam;
+          if (crestBreak > 0.01 && camDist < 150.0) {
+            float foamCell = cellularFoam(vWorldPosition.xz * 0.85 + vec2(uTime * 0.05, -uTime * 0.03));
+            float bubbleWeb = smoothstep(0.08, 0.45, foamCell) * (1.0 - smoothstep(0.50, 0.88, foamCell));
+            float solidHead = 1.0 - smoothstep(0.0, 0.22, foamCell);
+            float lacyFoam = clamp(bubbleWeb * 1.5 + solidHead * 0.9, 0.0, 1.0);
+            float foamDistFade = 1.0 - smoothstep(80.0, 150.0, camDist);
+            crestFoam = crestBreak * lacyFoam * foamDistFade;
+          }
 
-          // 8. Natural Shoreline Breaking Surf Foam (Single Organic Wash Along Waterline)
-          float shoreDist = max(0.0, minDistToShore);
-          // Gentle swashing wave pulse rolling onto the sand
-          float surfPulse = sin(uTime * 1.8 - shoreDist * 0.85) * 0.5 + 0.5;
-          // Strictly confined to beach shoreline (0 to 4.5m)
-          float edgeFoam = 1.0 - smoothstep(0.0, 3.6, shoreDist);
-          float swashWave = smoothstep(0.5, 3.2, shoreDist) * (1.0 - smoothstep(3.2, 5.0, shoreDist)) * surfPulse;
+          // 8. DISTANCE LOD: Natural Shoreline Breaking Surf Foam (Skipped beyond 280m)
+          float totalShoreFoam = 0.0;
+          if (minDistToShore < 6.0 && camDist < 280.0) {
+            float shoreDist = max(0.0, minDistToShore);
+            float surfPulse = sin(uTime * 1.8 - shoreDist * 0.85) * 0.5 + 0.5;
+            float edgeFoam = 1.0 - smoothstep(0.0, 3.6, shoreDist);
+            float swashWave = smoothstep(0.5, 3.2, shoreDist) * (1.0 - smoothstep(3.2, 5.0, shoreDist)) * surfPulse;
+            float shoreCell = cellularFoam(vWorldPosition.xz * 0.55 + vec2(uTime * 0.03, -uTime * 0.02));
+            float shoreFroth = smoothstep(0.12, 0.55, shoreCell);
+            totalShoreFoam = clamp((edgeFoam * 0.9 + swashWave * 0.6) * (0.4 + shoreFroth * 0.6), 0.0, 1.0);
+          }
 
-          // Break up the surf line with organic cellular froth
-          float shoreCell = cellularFoam(vWorldPosition.xz * 0.55 + vec2(uTime * 0.03, -uTime * 0.02));
-          float shoreFroth = smoothstep(0.12, 0.55, shoreCell);
-
-          float totalShoreFoam = clamp((edgeFoam * 0.9 + swashWave * 0.6) * (0.4 + shoreFroth * 0.6), 0.0, 1.0);
-
-          // 9. Natural Fluid-Dynamic Ship Wake (Organic Kelvin V-Wake with Smooth Gaussian Center)
+          // 9. Natural Fluid-Dynamic Ship Wake (Continuous Milky Sea Churn & Sleek Kelvin V-Wash)
           float shipWakeFoam = 0.0;
-          if (uShipSpeed > 0.35) {
+          if (uShipSpeed > 0.35 && camDist < 180.0) {
             vec2 rel = vWorldPosition.xz - uShipPos.xz;
             float sinH = sin(uShipHeading);
             float cosH = cos(uShipHeading);
@@ -330,25 +363,35 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }
             float lz = sinH * rel.x + cosH * rel.y;
 
             float behind = -lz;
-            if (behind > 0.8 && behind < 85.0) {
+            if (behind > -0.6 && behind < 70.0) {
               float latDist = abs(lx);
-              // Natural curved parabolic Kelvin V-wake boundary
-              float wakeSpread = 2.4 + pow(behind, 0.65) * 1.3;
-              float vArm = (1.0 - smoothstep(0.0, 2.8, abs(latDist - wakeSpread))) * 0.75;
 
-              // Smooth Gaussian center froth (NO hard rectangular edge!)
-              float centerSpread = 2.4 + behind * 0.12;
-              float centerFroth = exp(-(latDist * latDist) / (centerSpread * centerSpread));
+              // 1. Natural Kelvin V-wake boundary
+              float wakeSpread = 0.80 + pow(max(0.0, behind + 0.5), 0.52) * 0.72;
+              float vArm = exp(-pow(abs(latDist - wakeSpread) / 0.70, 2.0)) * 0.75;
 
-              // Swirling fluid vortices shed by the rudder
-              float eddy = cellularFoam(vec2(lx * 0.65, behind * 0.28 - uTime * 0.55));
-              float swirl = sin(behind * 0.4 - uTime * 2.6 + eddy * 3.14) * 0.5 + 0.5;
+              // 2. Churned keel center wash: rich milky white froth stream along the center
+              float centerCoreWidth = 1.15 + max(0.0, behind) * 0.045;
+              float centerCore = exp(-(latDist * latDist) / (centerCoreWidth * centerCoreWidth));
 
-              // Organic backwards decay
-              float trailFade = exp(-behind * 0.04) * (1.0 - smoothstep(65.0, 85.0, behind));
+              // 3. Fluid turbulence streaks (continuous fluid flow, completely free of Voronoi dark dots!)
+              float stream1 = sin(lx * 2.8 + sin(behind * 0.45 - uTime * 2.2)) * 0.5 + 0.5;
+              float stream2 = cos(behind * 0.9 - uTime * 2.6 + lx * 1.6) * 0.5 + 0.5;
+              float fluidStreaks = stream1 * 0.6 + stream2 * 0.4;
 
-              float combinedFoam = (vArm * 0.7 + centerFroth * 1.35 * (0.35 + swirl * 0.65)) * trailFade;
-              shipWakeFoam = clamp(combinedFoam * (0.3 + eddy * 0.8), 0.0, 1.0) * min(1.0, uShipSpeed / 3.0);
+              // 4. Fine liquid froth modulation
+              float microDetail = sin(lx * 6.5 + behind * 2.2) * cos(behind * 3.0 - uTime * 2.8) * 0.12 + 0.88;
+
+              // Combine center wash and V-arms: bright creamy center with natural fluid texture
+              float wakeBody = (centerCore * 1.35 + vArm * 0.85) * (0.70 + fluidStreaks * 0.30) * microDetail;
+
+              // 5. Seamless lead-in fade emerging from under the stern (-0.5m to 2.2m)
+              float leadIn = smoothstep(-0.5, 2.2, behind);
+
+              // 6. Natural backward distance decay
+              float trailFade = exp(-max(0.0, behind) * 0.042) * (1.0 - smoothstep(48.0, 70.0, behind));
+
+              shipWakeFoam = clamp(wakeBody * leadIn * trailFade, 0.0, 1.0) * min(1.0, uShipSpeed / 2.4);
             }
           }
 
@@ -356,9 +399,8 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }
           float totalFoam = clamp(crestFoam * 0.75 + totalShoreFoam * 0.85 + shipWakeFoam * 0.9, 0.0, 1.0);
           vec3 finalColor = mix(baseShaded, uFoamColor, totalFoam);
 
-          // 10. Horizon Fog (Matches Scene FOG_NEAR: 120, FOG_FAR: 750 for seamless blend)
-          float dist = length(vWorldPosition - cameraPosition);
-          float horizonFog = smoothstep(120.0, 740.0, dist);
+          // 10. Horizon Fog Blend
+          float horizonFog = smoothstep(120.0, 680.0, camDist);
           finalColor = mix(finalColor, uSkyHorizonColor, horizonFog);
 
           gl_FragColor = vec4(finalColor, 1.0);

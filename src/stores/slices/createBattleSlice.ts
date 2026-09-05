@@ -1,6 +1,12 @@
 import type { StateCreator } from 'zustand';
 import type { ShipSnapshot, CannonballSnapshot, CombatLog, GameStage } from '@/types';
 
+export interface CameraShakeEvent {
+  intensity: number;
+  direction?: 'port' | 'starboard' | 'hit';
+  timestamp: number;
+}
+
 export interface BattleSlice {
   serverTime: number;
   ships: ShipSnapshot[];
@@ -10,6 +16,7 @@ export interface BattleSlice {
   windSpeed: number;
   combatLogs: CombatLog[];
   fireEvents: Array<{ id: string; ownerId: string; side: 'port' | 'starboard'; timestamp: number }>;
+  cameraShake: CameraShakeEvent | null;
 
   updateWorldSnapshot: (
     serverTime: number,
@@ -20,6 +27,7 @@ export interface BattleSlice {
   addCombatLog: (text: string, type?: CombatLog['type']) => void;
   setWinner: (name: string) => void;
   triggerFireEvent: (ownerId: string, side: 'port' | 'starboard') => void;
+  triggerCameraShake: (intensity: number, direction?: 'port' | 'starboard' | 'hit') => void;
 }
 
 export const createBattleSlice: StateCreator<
@@ -36,6 +44,7 @@ export const createBattleSlice: StateCreator<
   windSpeed: 12,
   combatLogs: [],
   fireEvents: [],
+  cameraShake: null,
 
   updateWorldSnapshot: (serverTime, ships, cannonballs) =>
     set({
@@ -73,4 +82,13 @@ export const createBattleSlice: StateCreator<
         },
       ],
     })),
+
+  triggerCameraShake: (intensity, direction) =>
+    set({
+      cameraShake: {
+        intensity,
+        direction,
+        timestamp: Date.now(),
+      },
+    }),
 });

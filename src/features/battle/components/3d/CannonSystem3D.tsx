@@ -44,7 +44,6 @@ function getRoundShotTex(): THREE.CanvasTexture {
 }
 
 const MAX_RENDER_BALLS = 250;
-const EMPTY_TRAJECTORY: number[] = [];
 
 interface ClientBallState {
   id: string;
@@ -60,6 +59,8 @@ interface ClientBallState {
   lastServerUpdate: number;
 }
 
+const MAX_TRAJECTORY_STEPS = 26;
+
 /**
  * Ultra-Lightweight 2D Black Roundshot Billboard Cannonball System
  * - High-contrast authentic black cast-iron roundshot sprites.
@@ -68,59 +69,53 @@ interface ClientBallState {
  * - Single GPU draw call with 0 dynamic GC allocation.
  */
 export const CannonSystem3D: React.FC<CannonSystem3DProps> = React.memo(({ cannonballs }) => {
-  const selfId = useGameStore((s) => s.selfId);
-  const ships = useGameStore((s) => s.ships);
   const isAiming = useGameStore((s) => s.isAiming);
   const aimDirection = useGameStore((s) => s.aimDirection);
 
-  const selfShip = ships.find((s) => s.id === selfId);
   const roundShotTexture = useMemo(() => getRoundShotTex(), []);
 
   const pointsRef = useRef<THREE.Points>(null);
+  const lineGeoRef = useRef<THREE.BufferGeometry>(null);
   const ballPositions = useMemo(() => new Float32Array(MAX_RENDER_BALLS * 3), []);
+  const trajectoryPositions = useMemo(() => new Float32Array(MAX_TRAJECTORY_STEPS * 3), []);
   const clientBalls = useRef<Map<string, ClientBallState>>(new Map());
-
-  // Ballistic aiming arc trajectory (computed only when actively aiming)
-  const trajectoryPoints = useMemo(() => {
-    if (!isAiming || aimDirection === 'none' || !selfShip || selfShip.isSunk) {
-      return EMPTY_TRAJECTORY;
-    }
-
-    const pts: number[] = [];
-    const fireAngle =
-      selfShip.rotationY + (aimDirection === 'port' ? -Math.PI * 0.5 : Math.PI * 0.5);
-    const speed = 40.0;
-    const gravity = 9.81;
-    const originX = selfShip.x + Math.sin(fireAngle) * 3.5;
-    const originY = selfShip.y + 1.8;
-    const originZ = selfShip.z + Math.cos(fireAngle) * 3.5;
-
-    const vx = Math.sin(fireAngle) * speed;
-    const vy = 5.5;
-    const vz = Math.cos(fireAngle) * speed;
-
-    for (let step = 0; step <= 25; step++) {
-      const t = step * 0.08;
-      const px = originX + vx * t;
-      const py = originY + vy * t - 0.5 * gravity * t * t;
-      const pz = originZ + vz * t;
-      pts.push(px, py, pz);
-      if (py < 0.0) break;
-    }
-
-    return pts;
-  }, [
-    isAiming,
-    aimDirection,
-    selfShip?.x,
-    selfShip?.y,
-    selfShip?.z,
-    selfShip?.rotationY,
-    selfShip?.isSunk,
-  ]);
 
   // Per-Frame Ballistic Flight Physics & Smooth Position Updates (60-144 FPS)
   useFrame((state, delta) => {
+    // 0. Update Ballistic Aiming Arc Trajectory (zero dynamic array allocation)
+    if (isAiming && aimDirection !== 'none') {
+      const { selfId, ships } = useGameStore.getState();
+      const selfShip = ships.find((s) => s.id === selfId);
+      if (selfShip && !selfShip.isSunk && lineGeoRef.current) {
+        const fireAngle =
+          selfShip.rotationY + (aimDirection === 'port' ? -Math.PI * 0.5 : Math.PI * 0.5);
+        const speed = 40.0;
+        const gravity = 9.81;
+        const originX = selfShip.x + Math.sin(fireAngle) * 3.5;
+        const originY = selfShip.y + 1.8;
+        const originZ = selfShip.z + Math.cos(fireAngle) * 3.5;
+
+        const vx = Math.sin(fireAngle) * speed;
+        const vy = 5.5;
+        const vz = Math.cos(fireAngle) * speed;
+
+        let activeCount = 0;
+        for (let step = 0; step < MAX_TRAJECTORY_STEPS; step++) {
+          const t = step * 0.08;
+          const px = originX + vx * t;
+          const py = originY + vy * t - 0.5 * gravity * t * t;
+          const pz = originZ + vz * t;
+          trajectoryPositions[step * 3] = px;
+          trajectoryPositions[step * 3 + 1] = py;
+          trajectoryPositions[step * 3 + 2] = pz;
+          activeCount = step + 1;
+          if (py < 0.0) break;
+        }
+        lineGeoRef.current.setDrawRange(0, activeCount);
+        const linePosAttr = lineGeoRef.current.attributes.position as THREE.BufferAttribute;
+        if (linePosAttr) linePosAttr.needsUpdate = true;
+      }
+    }
     const dt = Math.min(delta, 0.05);
     const now = state.clock.elapsedTime;
     const serverMap = new Map<string, CannonballSnapshot>();
@@ -219,16 +214,16 @@ export const CannonSystem3D: React.FC<CannonSystem3DProps> = React.memo(({ canno
         />
       </points>
 
-      {/* Ballistic Aiming Arc Projector Line */}
-      {isAiming && trajectoryPoints.length > 3 && (
+      {/* Ballistic Aiming Arc Projector Line (Zero GC Allocation) */}
+      {isAiming && aimDirection !== 'none' && (
         <line>
-          <bufferGeometry>
+          <bufferGeometry ref={lineGeoRef}>
             <bufferAttribute
               attach="attributes-position"
-              args={[new Float32Array(trajectoryPoints), 3]}
+              args={[trajectoryPositions, 3]}
             />
           </bufferGeometry>
-          <lineBasicMaterial color="#38bdf8" linewidth={3} transparent opacity={0.75} />
+          <lineBasicMaterial color="#38bdf8" linewidth={2} transparent opacity={0.7} />
         </line>
       )}
     </group>

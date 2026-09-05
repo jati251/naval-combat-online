@@ -1,11 +1,78 @@
-import React, { useRef, useMemo, useState } from 'react';
+import React, { useRef, useMemo } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
 import { navalAudio } from '../../services/navalAudio';
 
 /**
- * Procedural circular ripple & droplet splash texture.
+ * High-performance 2D Procedural Flying Fish / Marlin Sprite Texture
+ * Radiant Caribbean turquoise & silver marlin with outstretched pectoral wings.
+ */
+function createFishSpriteTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return new THREE.CanvasTexture(canvas);
+
+  ctx.clearRect(0, 0, 256, 128);
+
+  // 1. Torpedo fish body
+  const bodyGrad = ctx.createLinearGradient(40, 64, 210, 64);
+  bodyGrad.addColorStop(0, '#0284c7'); // Electric sapphire head
+  bodyGrad.addColorStop(0.5, '#38bdf8'); // Shimmering turquoise flank
+  bodyGrad.addColorStop(1, '#0369a1'); // Dark ocean tail
+
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.ellipse(125, 64, 80, 20, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 2. Silver specular belly streak
+  ctx.fillStyle = 'rgba(248, 250, 252, 0.9)';
+  ctx.beginPath();
+  ctx.ellipse(125, 72, 65, 9, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 3. Outstretched Gliding Pectoral Wings (Flying Fish)
+  ctx.fillStyle = 'rgba(56, 189, 248, 0.75)';
+  ctx.beginPath();
+  ctx.moveTo(115, 62);
+  ctx.quadraticCurveTo(80, 15, 45, 10);
+  ctx.quadraticCurveTo(90, 45, 135, 62);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(115, 66);
+  ctx.quadraticCurveTo(80, 113, 45, 118);
+  ctx.quadraticCurveTo(90, 83, 135, 66);
+  ctx.closePath();
+  ctx.fill();
+
+  // 4. Crescent Tail Fin
+  ctx.fillStyle = '#0284c7';
+  ctx.beginPath();
+  ctx.moveTo(200, 64);
+  ctx.lineTo(235, 38);
+  ctx.lineTo(220, 64);
+  ctx.lineTo(235, 90);
+  ctx.closePath();
+  ctx.fill();
+
+  // 5. Sunlit highlight glint & droplet sparkles
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(65, 62, 3, 0, Math.PI * 2); // Eye glint
+  ctx.fill();
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
+}
+
+/**
+ * Procedural circular splashdown ripple texture.
  */
 function createSplashRingTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
@@ -14,15 +81,14 @@ function createSplashRingTexture(): THREE.CanvasTexture {
   const ctx = canvas.getContext('2d');
   if (!ctx) return new THREE.CanvasTexture(canvas);
 
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
-  ctx.lineWidth = 6;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+  ctx.lineWidth = 5;
   ctx.beginPath();
   ctx.arc(64, 64, 48, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Subtle inner ripple
-  ctx.strokeStyle = 'rgba(224, 242, 254, 0.5)';
-  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(186, 230, 253, 0.5)';
+  ctx.lineWidth = 2.5;
   ctx.beginPath();
   ctx.arc(64, 64, 28, 0, Math.PI * 2);
   ctx.stroke();
@@ -32,53 +98,13 @@ function createSplashRingTexture(): THREE.CanvasTexture {
   return texture;
 }
 
-let cachedRingTexture: THREE.CanvasTexture | null = null;
-function getRingTexture(): THREE.CanvasTexture {
-  if (!cachedRingTexture) {
-    cachedRingTexture = createSplashRingTexture();
-  }
-  return cachedRingTexture;
-}
+let cachedFishTex: THREE.CanvasTexture | null = null;
+let cachedRingTex: THREE.CanvasTexture | null = null;
 
-// ────────────────────────────────────────────────────────────────────────────
-// Streamlined Caribbean Flying Fish / Marlin Mesh Geometry & Materials
-// ────────────────────────────────────────────────────────────────────────────
-const fishBodyGeo = new THREE.ConeGeometry(0.32, 2.4, 8);
-fishBodyGeo.rotateX(-Math.PI / 2); // align along forward Z
+const MAX_JUMPING_FISH = 3;
 
-const dorsalFinGeo = new THREE.ConeGeometry(0.12, 0.9, 4);
-dorsalFinGeo.rotateZ(Math.PI / 3);
-
-const pectoralFinGeo = new THREE.PlaneGeometry(1.6, 0.6);
-pectoralFinGeo.rotateX(-Math.PI / 2);
-
-const caudalFinGeo = new THREE.ConeGeometry(0.2, 0.8, 3);
-caudalFinGeo.rotateZ(-Math.PI / 2);
-
-const fishScaleMat = new THREE.MeshStandardMaterial({
-  color: '#0284c7', // Caribbean sapphire blue back
-  metalness: 0.85,
-  roughness: 0.22,
-  emissive: '#0369a1',
-  emissiveIntensity: 0.25,
-});
-
-const fishBellyMat = new THREE.MeshStandardMaterial({
-  color: '#f8fafc', // Shimmering silver white belly
-  metalness: 0.9,
-  roughness: 0.2,
-});
-
-const finMat = new THREE.MeshStandardMaterial({
-  color: '#38bdf8',
-  transparent: true,
-  opacity: 0.65,
-  side: THREE.DoubleSide,
-  roughness: 0.3,
-});
-
-interface ActiveFishJump {
-  id: number;
+interface FishState {
+  active: boolean;
   startX: number;
   startZ: number;
   targetX: number;
@@ -86,14 +112,14 @@ interface ActiveFishJump {
   peakY: number;
   duration: number;
   elapsed: number;
-  scale: number;
   heading: number;
+  scale: number;
   hasSplashedExit: boolean;
   hasSplashedEntry: boolean;
 }
 
-interface SplashRing {
-  id: number;
+interface RingState {
+  active: boolean;
   x: number;
   z: number;
   scale: number;
@@ -101,166 +127,226 @@ interface SplashRing {
 }
 
 /**
- * Rare Random Leaping Marine Life (Caribbean Flying Fish / Blue Marlin Breaches)
- * Occasionally leaps gracefully out of the ocean in view of the ship.
+ * Ultra-Lightweight 2D Penetrating Marine Life (Caribbean Flying Fish)
+ * - 2D billboarding quad with depthWrite={false} ensuring it smoothly penetrates ("bisa nembus")
+ *   all props, rocks, and ships without getting stuck.
+ * - Zero React state thrashing (100% animated inside useFrame).
+ * - Hard lifecycle timeout guarantees it can never bug out or remain stuck in scene.
  */
 export const JumpingFish3D: React.FC = React.memo(() => {
-  const ringTexture = useMemo(() => getRingTexture(), []);
-  const activeJumps = useRef<ActiveFishJump[]>([]);
-  const splashRings = useRef<SplashRing[]>([]);
-  const [, setRenderTick] = useState(0);
+  const fishTexture = useMemo(() => {
+    if (!cachedFishTex) cachedFishTex = createFishSpriteTexture();
+    return cachedFishTex;
+  }, []);
 
-  const nextSpawnTimer = useRef(12.0 + Math.random() * 14.0); // Next jump in 12-26 seconds
-  const jumpIdSeq = useRef(1);
+  const ringTexture = useMemo(() => {
+    if (!cachedRingTex) cachedRingTex = createSplashRingTexture();
+    return cachedRingTex;
+  }, []);
+
+  const fishMeshRefs = useRef<(THREE.Mesh | null)[]>([]);
+  const ringMeshRefs = useRef<(THREE.Mesh | null)[]>([]);
+
+  const fishStates = useRef<FishState[]>(
+    Array.from({ length: MAX_JUMPING_FISH }, () => ({
+      active: false,
+      startX: 0,
+      startZ: 0,
+      targetX: 0,
+      targetZ: 0,
+      peakY: 2.2,
+      duration: 1.2,
+      elapsed: 0,
+      heading: 0,
+      scale: 1.0,
+      hasSplashedExit: false,
+      hasSplashedEntry: false,
+    }))
+  );
+
+  const ringStates = useRef<RingState[]>(
+    Array.from({ length: 6 }, () => ({
+      active: false,
+      x: 0,
+      z: 0,
+      scale: 0.5,
+      opacity: 0,
+    }))
+  );
+
+  const spawnTimer = useRef(8.0 + Math.random() * 8.0);
+
+  const spawnRing = (x: number, z: number) => {
+    const slot = ringStates.current.find((r) => !r.active) || ringStates.current[0];
+    slot.active = true;
+    slot.x = x;
+    slot.z = z;
+    slot.scale = 0.5;
+    slot.opacity = 0.85;
+  };
 
   useFrame((state, delta) => {
-    // 1. Spawning Timer Countdown
-    nextSpawnTimer.current -= delta;
-    if (nextSpawnTimer.current <= 0) {
-      // Schedule next jump (rare: 18 - 32 seconds)
-      nextSpawnTimer.current = 18.0 + Math.random() * 14.0;
+    const dt = Math.min(delta, 0.08);
 
-      // Spawn near player's ship or camera
-      const { ships, selfId } = useGameStore.getState();
-      const selfShip = ships.find((s) => s.id === selfId);
+    // 1. Spawning timer
+    spawnTimer.current -= dt;
+    if (spawnTimer.current <= 0) {
+      spawnTimer.current = 14.0 + Math.random() * 12.0;
 
-      const center = selfShip ? new THREE.Vector3(selfShip.x, 0, selfShip.z) : state.camera.position;
-      // Random angle & distance (20m to 55m away for great cinematic visibility)
-      const angle = Math.random() * Math.PI * 2;
-      const dist = 22.0 + Math.random() * 32.0;
+      const freeFish = fishStates.current.find((f) => !f.active);
+      if (freeFish) {
+        const { ships, selfId } = useGameStore.getState();
+        const selfShip = ships.find((s) => s.id === selfId);
+        const center = selfShip ? new THREE.Vector3(selfShip.x, 0, selfShip.z) : state.camera.position;
 
-      const sx = center.x + Math.cos(angle) * dist;
-      const sz = center.z + Math.sin(angle) * dist;
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 18.0 + Math.random() * 26.0;
+        const sx = center.x + Math.cos(angle) * dist;
+        const sz = center.z + Math.sin(angle) * dist;
 
-      // Leap direction (tangent / forward vector)
-      const jumpAngle = angle + (Math.random() - 0.5) * 1.5;
-      const jumpDist = 8.0 + Math.random() * 5.0; // 8-13m leap
-      const ex = sx + Math.cos(jumpAngle) * jumpDist;
-      const ez = sz + Math.sin(jumpAngle) * jumpDist;
+        const jumpAngle = angle + (Math.random() - 0.5) * 1.2;
+        const jumpDist = 9.0 + Math.random() * 5.0;
+        const ex = sx + Math.cos(jumpAngle) * jumpDist;
+        const ez = sz + Math.sin(jumpAngle) * jumpDist;
 
-      const duration = 1.25 + Math.random() * 0.4;
-      const peakHeight = 2.4 + Math.random() * 1.2;
+        freeFish.active = true;
+        freeFish.startX = sx;
+        freeFish.startZ = sz;
+        freeFish.targetX = ex;
+        freeFish.targetZ = ez;
+        freeFish.peakY = 2.0 + Math.random() * 1.2;
+        freeFish.duration = 1.1 + Math.random() * 0.35;
+        freeFish.elapsed = 0;
+        freeFish.heading = jumpAngle;
+        freeFish.scale = 1.6 + Math.random() * 0.8;
+        freeFish.hasSplashedExit = false;
+        freeFish.hasSplashedEntry = false;
 
-      activeJumps.current.push({
-        id: jumpIdSeq.current++,
-        startX: sx,
-        startZ: sz,
-        targetX: ex,
-        targetZ: ez,
-        peakY: peakHeight,
-        duration,
-        elapsed: 0,
-        scale: 0.8 + Math.random() * 0.4,
-        heading: jumpAngle + Math.PI * 0.5,
-        hasSplashedExit: false,
-        hasSplashedEntry: false,
-      });
-
-      // Spawn exit splash ring
-      splashRings.current.push({
-        id: jumpIdSeq.current++,
-        x: sx,
-        z: sz,
-        scale: 0.4,
-        opacity: 0.9,
-      });
-    }
-
-    // 2. Update active fish jumps
-    for (let i = activeJumps.current.length - 1; i >= 0; i--) {
-      const jump = activeJumps.current[i];
-      jump.elapsed += delta;
-
-      const progress = Math.min(1.0, jump.elapsed / jump.duration);
-
-      // Audio splash on exit and re-entry if close to player
-      if (!jump.hasSplashedExit && progress > 0.05) {
-        jump.hasSplashedExit = true;
-        navalAudio.playWaterSplash();
-      }
-
-      if (!jump.hasSplashedEntry && progress > 0.88) {
-        jump.hasSplashedEntry = true;
-        splashRings.current.push({
-          id: jumpIdSeq.current++,
-          x: jump.targetX,
-          z: jump.targetZ,
-          scale: 0.4,
-          opacity: 0.95,
-        });
-        navalAudio.playWaterSplash();
-      }
-
-      if (progress >= 1.0) {
-        activeJumps.current.splice(i, 1);
+        spawnRing(sx, sz);
       }
     }
 
-    // 3. Update splash rings
-    for (let i = splashRings.current.length - 1; i >= 0; i--) {
-      const ring = splashRings.current[i];
-      ring.scale += delta * 3.5;
-      ring.opacity -= delta * 1.2;
-      if (ring.opacity <= 0) {
-        splashRings.current.splice(i, 1);
+    // 2. Update Fish Jumps directly on meshes (bypassing React re-renders)
+    for (let i = 0; i < MAX_JUMPING_FISH; i++) {
+      const fish = fishStates.current[i];
+      const mesh = fishMeshRefs.current[i];
+      if (!mesh) continue;
+
+      if (fish.active) {
+        fish.elapsed += dt;
+        const progress = Math.min(1.0, fish.elapsed / fish.duration);
+
+        // Water sounds
+        if (!fish.hasSplashedExit && progress > 0.06) {
+          fish.hasSplashedExit = true;
+          navalAudio.playWaterSplash();
+        }
+
+        if (!fish.hasSplashedEntry && progress > 0.88) {
+          fish.hasSplashedEntry = true;
+          spawnRing(fish.targetX, fish.targetZ);
+          navalAudio.playWaterSplash();
+        }
+
+        // Hard timeout: guaranteed cleanup so it CANNOT get stuck
+        if (progress >= 1.0 || fish.elapsed > 2.0) {
+          fish.active = false;
+          mesh.visible = false;
+          mesh.position.set(0, -100, 0);
+          continue;
+        }
+
+        // Parabolic arc: 4 * h * p * (1 - p)
+        const py = 4.0 * fish.peakY * progress * (1.0 - progress);
+        const px = THREE.MathUtils.lerp(fish.startX, fish.targetX, progress);
+        const pz = THREE.MathUtils.lerp(fish.startZ, fish.targetZ, progress);
+
+        // Dynamic pitch angle (tilt up during launch, down on splashdown)
+        const vy = 4.0 * fish.peakY * (1.0 - 2.0 * progress);
+        const pitch = -Math.atan2(vy, 8.5);
+
+        mesh.visible = true;
+        mesh.position.set(px, py, pz);
+        mesh.rotation.set(0, -fish.heading + Math.PI * 0.5, 0);
+        mesh.rotateZ(pitch);
+        mesh.scale.set(fish.scale, fish.scale, 1);
+      } else {
+        mesh.visible = false;
+        mesh.position.set(0, -100, 0);
       }
     }
 
-    // Trigger lightweight component sync when jumps are active
-    if (activeJumps.current.length > 0 || splashRings.current.length > 0) {
-      setRenderTick((t) => (t + 1) % 1000000);
+    // 3. Update Splashdown Rings directly on meshes
+    for (let i = 0; i < 6; i++) {
+      const ring = ringStates.current[i];
+      const mesh = ringMeshRefs.current[i];
+      if (!mesh) continue;
+
+      if (ring.active) {
+        ring.scale += dt * 3.8;
+        ring.opacity -= dt * 1.35;
+
+        if (ring.opacity <= 0) {
+          ring.active = false;
+          mesh.visible = false;
+          mesh.position.set(0, -100, 0);
+          continue;
+        }
+
+        mesh.visible = true;
+        mesh.position.set(ring.x, 0.08, ring.z);
+        mesh.scale.set(ring.scale, ring.scale, 1);
+        const mat = mesh.material as THREE.MeshBasicMaterial;
+        if (mat) mat.opacity = ring.opacity;
+      } else {
+        mesh.visible = false;
+        mesh.position.set(0, -100, 0);
+      }
     }
   });
 
   return (
     <group>
-      {/* Active Leaping Fish */}
-      {activeJumps.current.map((jump) => {
-        const progress = Math.min(1.0, jump.elapsed / jump.duration);
-        // Parabolic arc: 4 * h * p * (1 - p)
-        const py = 4.0 * jump.peakY * progress * (1.0 - progress);
-        const px = THREE.MathUtils.lerp(jump.startX, jump.targetX, progress);
-        const pz = THREE.MathUtils.lerp(jump.startZ, jump.targetZ, progress);
-
-        // Dynamic pitch angle (tilts upward at launch, downwards at dive)
-        const verticalVelocity = 4.0 * jump.peakY * (1.0 - 2.0 * progress);
-        const pitch = -Math.atan2(verticalVelocity, 8.0);
-
-        return (
-          <group
-            key={`fish-${jump.id}`}
-            position={[px, py, pz]}
-            rotation={[pitch, jump.heading, 0]}
-            scale={[jump.scale, jump.scale, jump.scale]}
-          >
-            {/* Upper Sapphire Body */}
-            <mesh geometry={fishBodyGeo} material={fishScaleMat} castShadow />
-            {/* Lower Silver Belly */}
-            <mesh position={[0, -0.08, 0]} scale={[0.85, 0.85, 0.95]} geometry={fishBodyGeo} material={fishBellyMat} />
-            {/* Dorsal Fin */}
-            <mesh position={[0, 0.35, -0.2]} geometry={dorsalFinGeo} material={finMat} />
-            {/* Large Gliding Pectoral Fins (Flying Fish Wings) */}
-            <mesh position={[0, 0.05, 0.4]} geometry={pectoralFinGeo} material={finMat} />
-            {/* Caudal Tail Fin */}
-            <mesh position={[0, 0.05, -1.2]} geometry={caudalFinGeo} material={finMat} />
-          </group>
-        );
-      })}
-
-      {/* Splashdown & Breach Ripple Rings */}
-      {splashRings.current.map((ring) => (
+      {/* 2D Flying Fish Quads (Penetrates props cleanly with depthWrite=false) */}
+      {Array.from({ length: MAX_JUMPING_FISH }).map((_, i) => (
         <mesh
-          key={`ring-${ring.id}`}
-          position={[ring.x, 0.12, ring.z]}
-          rotation={[-Math.PI / 2, 0, 0]}
-          scale={[ring.scale, ring.scale, ring.scale]}
+          key={`fish-quad-${i}`}
+          ref={(el) => {
+            fishMeshRefs.current[i] = el;
+          }}
+          visible={false}
+          position={[0, -100, 0]}
         >
-          <planeGeometry args={[2.5, 2.5]} />
+          <planeGeometry args={[2.4, 1.2]} />
+          <meshBasicMaterial
+            map={fishTexture}
+            transparent
+            alphaTest={0.05}
+            depthWrite={false}
+            depthTest={true}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      ))}
+
+      {/* Ripple Rings */}
+      {Array.from({ length: 6 }).map((_, i) => (
+        <mesh
+          key={`ring-quad-${i}`}
+          ref={(el) => {
+            ringMeshRefs.current[i] = el;
+          }}
+          visible={false}
+          position={[0, -100, 0]}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
+          <planeGeometry args={[2.2, 2.2]} />
           <meshBasicMaterial
             map={ringTexture}
             transparent
-            opacity={Math.max(0, ring.opacity)}
+            opacity={0}
             depthWrite={false}
+            depthTest={true}
             blending={THREE.AdditiveBlending}
           />
         </mesh>

@@ -47,18 +47,35 @@ export class PhysicsEngine {
   /**
    * Generates a guaranteed safe spawn point with ample clearance from islands and shipwrecks.
    */
-  public static findSafeSpawnPoint(playerIndex: number, totalPlayers: number): { x: number; z: number; rotationY: number } {
-    const candidateRadii = [155, 175, 135, 195, 215];
-    const baseAngle = (playerIndex / Math.max(1, totalPlayers)) * Math.PI * 2;
+  public static findSafeSpawnPoint(
+    playerIndex: number,
+    totalPlayers: number,
+    existingShips: Array<{ x: number; z: number }> = []
+  ): { x: number; z: number; rotationY: number } {
+    // Dynamic randomized spawn distribution:
+    // 1. Give each match a randomized angular rotation offset so spawns are never in identical locations
+    const randomAngleOffset = Math.random() * Math.PI * 2;
+    // 2. Spread players across distinct dynamic sectors around the archipelago
+    const sectorAngle = (Math.PI * 2) / Math.max(1, totalPlayers);
+    const playerSector = randomAngleOffset + playerIndex * sectorAngle;
 
-    for (const radius of candidateRadii) {
-      for (let attempt = 0; attempt < 16; attempt++) {
-        const angle = baseAngle + attempt * 0.392;
-        const x = Math.sin(angle) * radius;
-        const z = Math.cos(angle) * radius;
+    // 3. Multi-tier distance bands from dynamic channels (130m) to open ocean (240m)
+    const distanceBands = [145, 185, 215, 160, 235, 135];
+    distanceBands.sort(() => Math.random() - 0.5);
+
+    for (const radius of distanceBands) {
+      for (let attempt = 0; attempt < 24; attempt++) {
+        // Sector jitter and radial jitter
+        const angleJitter = (Math.random() - 0.5) * (sectorAngle * 0.7);
+        const radiusJitter = (Math.random() - 0.5) * 22;
+        const angle = playerSector + angleJitter;
+        const r = Math.max(115, Math.min(255, radius + radiusJitter));
+
+        const x = Math.sin(angle) * r;
+        const z = Math.cos(angle) * r;
 
         let safe = true;
-        // Check islands clearance
+        // Realistic island clearance (tight to visible beach, leaving open water free for spawning)
         for (const isl of SERVER_ISLANDS) {
           if (isl.elongation) {
             const rx = x - isl.x;
@@ -71,13 +88,13 @@ export class PhysicsEngine {
             const uZ = lz / isl.elongation.scaleZ;
             const a = Math.atan2(uZ, uX);
             const scaleFactor = Math.hypot(Math.cos(a) * isl.elongation.scaleX, Math.sin(a) * isl.elongation.scaleZ);
-            const minSafeDist = isl.sandRadius * 1.2 * scaleFactor + 65;
-            if (Math.hypot(lx, lz) < minSafeDist) {
+            const minClearance = isl.sandRadius * 0.85 * scaleFactor + 25;
+            if (Math.hypot(lx, lz) < minClearance) {
               safe = false;
               break;
             }
           } else {
-            if (Math.hypot(x - isl.x, z - isl.z) < isl.sandRadius * 1.2 + 65) {
+            if (Math.hypot(x - isl.x, z - isl.z) < isl.sandRadius * 0.85 + 25) {
               safe = false;
               break;
             }
@@ -87,7 +104,7 @@ export class PhysicsEngine {
         if (safe) {
           // Check wrecks clearance
           for (const wreck of SERVER_WRECKS) {
-            if (Math.hypot(x - wreck.x, z - wreck.z) < wreck.radius + 45) {
+            if (Math.hypot(x - wreck.x, z - wreck.z) < wreck.radius + 20) {
               safe = false;
               break;
             }
@@ -95,13 +112,32 @@ export class PhysicsEngine {
         }
 
         if (safe) {
-          const rotationY = Math.atan2(-x, -z);
+          // Ensure clearance from already spawned ships (at least 35m)
+          for (const s of existingShips) {
+            if (Math.hypot(x - s.x, z - s.z) < 35) {
+              safe = false;
+              break;
+            }
+          }
+        }
+
+        if (safe) {
+          // Tactical heading: facing towards central arena with +-30deg variation
+          const centerHeading = Math.atan2(-x, -z);
+          const headingJitter = (Math.random() - 0.5) * 1.0;
+          const rotationY = centerHeading + headingJitter;
           return { x, z, rotationY };
         }
       }
     }
 
-    return { x: 0, z: 220, rotationY: Math.PI };
+    // Fallback randomized perimeter spawn
+    const fallbackAngle = playerSector;
+    return {
+      x: Math.sin(fallbackAngle) * 200,
+      z: Math.cos(fallbackAngle) * 200,
+      rotationY: Math.atan2(-Math.sin(fallbackAngle), -Math.cos(fallbackAngle)),
+    };
   }
 
   /**
@@ -138,11 +174,12 @@ export class PhysicsEngine {
     else if (ship.sail === 'FULL_SAIL') targetSpeed = config.topSpeed;
 
     // Wind efficiency calculation (sailing with/against wind)
+    // Lightened wind gameplay effect: generous base speed (88-100%) so ships never get crippled
     const shipHeading = ship.rotationY;
     const angleDiff = Math.abs((((shipHeading - windAngle + Math.PI) % (Math.PI * 2)) - Math.PI));
-    // Best speed when broad reaching / running with wind, slower directly into wind
-    const windFactor = 0.5 + 0.5 * Math.sin(angleDiff * 0.5);
-    targetSpeed *= windFactor * (windSpeed / 10);
+    const windFactor = 0.88 + 0.12 * Math.sin(angleDiff * 0.5);
+    const windSpeedMod = 1.0 + (windSpeed - 12) * 0.008;
+    targetSpeed *= windFactor * windSpeedMod;
 
     // Accelerate or decelerate towards target speed
     if (ship.speed < targetSpeed) {
@@ -152,7 +189,7 @@ export class PhysicsEngine {
     }
 
     // Rudder turning: turning rate scales with speed, with responsive low-speed turning
-    const effectiveTurnSpeed = config.turnSpeed * Math.max(0.45, Math.min(1.0, (ship.speed + 1.5) / config.topSpeed));
+    const effectiveTurnSpeed = config.turnSpeed * Math.max(0.65, Math.min(1.0, (ship.speed + 2.5) / config.topSpeed));
     ship.rotationY += ship.rudder * effectiveTurnSpeed * dt;
 
     // Anti-Cheat: Cap maximum possible speed (prevents speedhack)
@@ -183,15 +220,15 @@ export class PhysicsEngine {
       ship.speed *= 0.2;
     }
 
-    // Ship physical collision radius accounts for bow & hull length
-    const shipRadius = config.length * 0.42;
+    // Ship physical collision radius: tightened to realistic hull half-width + safety margin
+    const shipRadius = Math.max(1.8, Math.min(4.0, config.width * 0.5 + 0.6));
     const fwdX = Math.sin(ship.rotationY);
     const fwdZ = Math.cos(ship.rotationY);
 
     // Tactical Caribbean Islands Collision & Run-Aground Deceleration
     for (const isl of SERVER_ISLANDS) {
       if (isl.elongation) {
-        // True elliptical collision matching 3D beach geometry and orientation
+        // Elliptical island shoreline: reduced from sandRadius * 1.2 to 0.76 to match real beach waterline
         const relX = ship.x - isl.x;
         const relZ = ship.z - isl.z;
         const cosA = Math.cos(isl.elongation.angle);
@@ -204,7 +241,7 @@ export class PhysicsEngine {
         const uZ = localZ / isl.elongation.scaleZ;
         const a = Math.atan2(uZ, uX);
         const scaleFactor = Math.hypot(Math.cos(a) * isl.elongation.scaleX, Math.sin(a) * isl.elongation.scaleZ);
-        const minSafeDist = isl.sandRadius * 1.2 * scaleFactor + shipRadius;
+        const minSafeDist = isl.sandRadius * 0.76 * scaleFactor + shipRadius;
 
         if (worldDist < minSafeDist) {
           const safeDist = Math.max(0.001, worldDist);
@@ -214,20 +251,21 @@ export class PhysicsEngine {
           ship.x = isl.x + pushLocalX * cosA + pushLocalZ * sinA;
           ship.z = isl.z - pushLocalX * sinA + pushLocalZ * cosA;
 
-          // Outward normal in world space: only stop forward speed if attempting to sail INTO land
+          // Outward normal in world space
           const nx = (pushLocalX / minSafeDist) * cosA + (pushLocalZ / minSafeDist) * sinA;
           const nz = -(pushLocalX / minSafeDist) * sinA + (pushLocalZ / minSafeDist) * cosA;
           const dot = fwdX * nx + fwdZ * nz;
           if (dot < 0) {
-            ship.speed = 0;
+            // Deflection / scrape rather than dead stop (speed penalty 75% so player can steer away)
+            ship.speed *= 0.25;
           }
         }
       } else {
-        // Circular island shoreline collision against visible beach radius
+        // Circular island shoreline: reduced from sandRadius * 1.2 to 0.76
         const dx = ship.x - isl.x;
         const dz = ship.z - isl.z;
         const dist = Math.hypot(dx, dz);
-        const minSafeDist = isl.sandRadius * 1.2 + shipRadius;
+        const minSafeDist = isl.sandRadius * 0.76 + shipRadius;
         if (dist < minSafeDist && dist > 0.001) {
           const nx = dx / dist;
           const nz = dz / dist;
@@ -235,18 +273,18 @@ export class PhysicsEngine {
           ship.z = isl.z + nz * minSafeDist;
           const dot = fwdX * nx + fwdZ * nz;
           if (dot < 0) {
-            ship.speed = 0;
+            ship.speed *= 0.25;
           }
         }
       }
     }
 
-    // Floating Shipwrecks Collision & Scrape Slowdown (AC Black Flag Flotsam / Wreck Hulls)
+    // Floating Shipwrecks Collision: reduced from wreck.radius + 8.5m to wreck.radius * 0.65 + shipRadius
     for (const wreck of SERVER_WRECKS) {
       const dx = ship.x - wreck.x;
       const dz = ship.z - wreck.z;
       const dist = Math.hypot(dx, dz);
-      const minSafeDist = wreck.radius + shipRadius;
+      const minSafeDist = wreck.radius * 0.65 + shipRadius;
       if (dist < minSafeDist && dist > 0.001) {
         const nx = dx / dist;
         const nz = dz / dist;
@@ -254,7 +292,7 @@ export class PhysicsEngine {
         ship.z = wreck.z + nz * minSafeDist;
         const dot = fwdX * nx + fwdZ * nz;
         if (dot < 0) {
-          ship.speed = 0;
+          ship.speed *= 0.3;
         }
       }
     }

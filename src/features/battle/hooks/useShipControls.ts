@@ -39,6 +39,7 @@ export function useShipControls() {
       if (selfShip) {
         store.triggerFireEvent(selfShip.id, side);
       }
+      store.triggerCameraShake(0.48, side);
       networkClient.fireBroadside(side);
       triggerFireCooldown(side, config.reloadTime);
     }

@@ -1,6 +1,7 @@
 import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
+import { useGameStore } from '@/stores/useGameStore';
 
 /**
  * Procedural circular soft sparkle particle texture.
@@ -75,15 +76,26 @@ export const OceanAtmosphereParticles3D: React.FC = React.memo(() => {
     const posAttr = geo.attributes.position as THREE.BufferAttribute;
     const arr = posAttr.array as Float32Array;
 
+    const windAngle = useGameStore.getState().windAngle;
+    const windSpeed = useGameStore.getState().windSpeed;
+    // Breeze blows towards (windAngle + Math.PI)
+    const blowX = Math.sin(windAngle + Math.PI);
+    const blowZ = Math.cos(windAngle + Math.PI);
+    const speedMult = Math.max(2.5, (windSpeed || 10) * 0.35);
+
     for (let i = 0; i < count; i++) {
       const idx = i * 3;
-      // Gentle wind drift
-      arr[idx] += delta * initialOffsets[idx + 2];
-      arr[idx + 1] += Math.sin(state.clock.getElapsedTime() + initialOffsets[idx]) * delta * 1.2;
+      const speed = speedMult * initialOffsets[idx + 2];
+      // Physical wind drift
+      arr[idx] += blowX * speed * delta;
+      arr[idx + 1] += Math.sin(state.clock.getElapsedTime() + initialOffsets[idx]) * delta * 1.0;
+      arr[idx + 2] += blowZ * speed * delta;
 
-      // Wrap boundaries
-      if (arr[idx] > 60) arr[idx] = -60;
-      if (arr[idx] < -60) arr[idx] = 60;
+      // Wrap boundaries around camera
+      if (arr[idx] > 60) arr[idx] -= 120;
+      if (arr[idx] < -60) arr[idx] += 120;
+      if (arr[idx + 2] > 60) arr[idx + 2] -= 120;
+      if (arr[idx + 2] < -60) arr[idx + 2] += 120;
     }
     posAttr.needsUpdate = true;
   });

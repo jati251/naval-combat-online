@@ -13,17 +13,33 @@
 }
 
 /* Custom Maritime Glows and Glassmorphism */
+/* Lightweight Modern Maritime Glass HUD Styles */
 .glass-panel {
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(10, 15, 26, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .gold-glow {
-  text-shadow: 0 0 10px rgba(234, 179, 8, 0.6), 0 0 20px rgba(234, 179, 8, 0.3);
+  text-shadow: 0 0 8px rgba(234, 179, 8, 0.4);
 }
 
 .cyan-glow {
-  text-shadow: 0 0 10px rgba(6, 182, 212, 0.6), 0 0 20px rgba(6, 182, 212, 0.3);
+  text-shadow: 0 0 8px rgba(6, 182, 212, 0.4);
 }
+
+/* Crisp, lightweight, non-intrusive maritime plaques */
+.naval-plaque {
+  background: rgba(12, 16, 23, 0.78);
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+.naval-brass-border {
+  border: 1px solid rgba(212, 175, 55, 0.3);
+}
+
+.gold-emboss {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+

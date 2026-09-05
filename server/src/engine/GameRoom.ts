@@ -84,7 +84,8 @@ export class GameRoom {
     });
 
     const config = SERVER_SHIP_CONFIGS[shipClass];
-    const spawn = PhysicsEngine.findSafeSpawnPoint(this.players.size, 4);
+    const existingShips = Array.from(this.ships.values()).map((s) => ({ x: s.x, z: s.z }));
+    const spawn = PhysicsEngine.findSafeSpawnPoint(this.players.size, 4, existingShips);
 
     this.ships.set(id, {
       id,
@@ -266,8 +267,10 @@ export class GameRoom {
 
     // Spawn ships in perimeter circle facing center with ample maneuvering space
     const playerArray = Array.from(this.players.values());
+    const placedSpawns: Array<{ x: number; z: number }> = [];
     playerArray.forEach((player, idx) => {
-      const spawn = PhysicsEngine.findSafeSpawnPoint(idx, playerArray.length);
+      const spawn = PhysicsEngine.findSafeSpawnPoint(idx, playerArray.length, placedSpawns);
+      placedSpawns.push({ x: spawn.x, z: spawn.z });
       const config = SERVER_SHIP_CONFIGS[player.shipClass];
 
       this.ships.set(player.id, {

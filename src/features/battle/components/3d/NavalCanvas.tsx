@@ -10,7 +10,6 @@ import { Environment3D, FOG_COLOR, MAX_VIEW_DISTANCE, NAMEPLATE_CULL_DISTANCE } 
 import { Islands3D, ARENA_ISLANDS } from './Islands3D';
 import { Shipwrecks3D, ARENA_SHIPWRECKS } from './Shipwrecks3D';
 import { JumpingFish3D } from './JumpingFish3D';
-import { ShipWakeSplash3D } from './ShipWakeSplash3D';
 import { MapBoundary3D } from './MapBoundary3D';
 import { CaribbeanSeabirds3D } from './CaribbeanSeabirds3D';
 import { OceanAtmosphereParticles3D } from './OceanAtmosphereParticles3D';
@@ -42,16 +41,21 @@ const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf }) => {
   const snapshotHeading = useRef(ship.rotationY);
   const lastSeqKey = useRef('');
 
-  const [showNameplate, setShowNameplate] = useState(isSelf);
+  const [showNameplate, setShowNameplate] = useState(false);
   const frameCount = useRef(Math.floor(Math.random() * 6));
   const isInitialized = useRef(false);
 
-  const aimDirection = useGameStore((s) => s.aimDirection);
   const currentAimSide = useRef(0);
   const currentAimFwd = useRef(0);
 
+  // Dynamic Camera Trauma & Speed VFX Refs
+  const cameraTrauma = useRef(0);
+  const lastShakeTime = useRef(0);
+  const lastRecoilDir = useRef<'port' | 'starboard' | 'hit' | undefined>(undefined);
+
   // Smooth interpolation with dead reckoning extrapolation and distance culling
-  useFrame(({ camera }, delta) => {
+  useFrame((state, delta) => {
+    const { camera } = state;
     if (!groupRef.current) return;
     const curShip = shipRef.current;
 
@@ -106,8 +110,13 @@ const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf }) => {
       const targetY = snapshotPos.current.y;
 
       // Real-time client collision clamping prevents visual clipping into land/wrecks
-      const shipColRadius = 8.5;
+      const shipColRadius = 2.5;
       for (const isl of ARENA_ISLANDS) {
+        const bound = (isl.sandRadius + 15) * (isl.elongation ? Math.max(isl.elongation.scaleX, isl.elongation.scaleZ) : 1);
+        if (Math.abs(targetX - isl.x) > bound || Math.abs(targetZ - isl.z) > bound) {
+          continue;
+        }
+
         if (isl.elongation) {
           const relX = targetX - isl.x;
           const relZ = targetZ - isl.z;
@@ -121,7 +130,7 @@ const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf }) => {
           const uZ = localZ / isl.elongation.scaleZ;
           const a = Math.atan2(uZ, uX);
           const scaleFactor = Math.hypot(Math.cos(a) * isl.elongation.scaleX, Math.sin(a) * isl.elongation.scaleZ);
-          const minSafeDist = isl.sandRadius * 1.2 * scaleFactor + shipColRadius;
+          const minSafeDist = isl.sandRadius * 0.76 * scaleFactor + shipColRadius;
 
           if (worldDist < minSafeDist) {
             const safeDist = Math.max(0.001, worldDist);
@@ -135,7 +144,7 @@ const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf }) => {
           const dx = targetX - isl.x;
           const dz = targetZ - isl.z;
           const dist = Math.hypot(dx, dz);
-          const minSafe = isl.sandRadius * 1.2 + shipColRadius;
+          const minSafe = isl.sandRadius * 0.76 + shipColRadius;
           if (dist < minSafe && dist > 0.001) {
             targetX = isl.x + (dx / dist) * minSafe;
             targetZ = isl.z + (dz / dist) * minSafe;
@@ -144,10 +153,15 @@ const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf }) => {
       }
 
       for (const wreck of ARENA_SHIPWRECKS) {
+        const bound = wreck.radius + 10;
+        if (Math.abs(targetX - wreck.x) > bound || Math.abs(targetZ - wreck.z) > bound) {
+          continue;
+        }
+
         const dx = targetX - wreck.x;
         const dz = targetZ - wreck.z;
         const dist = Math.hypot(dx, dz);
-        const minSafe = wreck.radius + shipColRadius;
+        const minSafe = wreck.radius * 0.65 + shipColRadius;
         if (dist < minSafe && dist > 0.001) {
           targetX = wreck.x + (dx / dist) * minSafe;
           targetZ = wreck.z + (dz / dist) * minSafe;
@@ -167,12 +181,51 @@ const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf }) => {
       groupRef.current.rotation.z = THREE.MathUtils.lerp(groupRef.current.rotation.z, curShip.roll, Math.min(1.0, 12 * delta));
     }
 
-    // 100% Lockstep Chase Camera: Eliminates all 30Hz server tick snapping & rotational jitter
+    // 100% Lockstep Chase Camera: Immersive dynamic speed, salvo recoil & hit trauma
     if (isSelf) {
       const heading = groupRef.current.rotation.y;
       const sinH = Math.sin(heading);
       const cosH = Math.cos(heading);
 
+      // 1. Process incoming camera trauma (salvo firing recoil or hull damage impact)
+      const shakeEvent = useGameStore.getState().cameraShake;
+      if (shakeEvent && shakeEvent.timestamp !== lastShakeTime.current) {
+        lastShakeTime.current = shakeEvent.timestamp;
+        cameraTrauma.current = Math.min(1.0, cameraTrauma.current + shakeEvent.intensity);
+        lastRecoilDir.current = shakeEvent.direction;
+      }
+
+      // Exponential trauma decay
+      cameraTrauma.current = Math.max(0, cameraTrauma.current - delta * 2.6);
+      const traumaSq = cameraTrauma.current * cameraTrauma.current;
+
+      // High-frequency trauma shake vibrations
+      const shakeT = performance.now() * 0.055;
+      const shakeX = (Math.sin(shakeT * 1.8) + Math.cos(shakeT * 2.5)) * traumaSq * 0.75;
+      const shakeY = Math.cos(shakeT * 2.1) * traumaSq * 0.55;
+      const shakeZ = (Math.sin(shakeT * 1.4)) * traumaSq * 0.45;
+
+      // Lateral salvo recoil impulse
+      let recoilOffset = 0;
+      if (lastRecoilDir.current === 'port') {
+        recoilOffset = traumaSq * 1.5; // kick camera rightward
+      } else if (lastRecoilDir.current === 'starboard') {
+        recoilOffset = -traumaSq * 1.5; // kick camera leftward
+      }
+
+      // 2. Dynamic Speed Sensation & Camera Heave ("melaju")
+      const currentSpeed = Math.max(0, curShip.speed ?? 0);
+      const speedRatio = Math.min(1.2, currentSpeed / 9.5);
+
+      // Speed FOV expansion (smoothly expands from 55 to ~62.5 FOV at full sail, plus trauma kick)
+      const perspCamera = camera as THREE.PerspectiveCamera;
+      if (perspCamera.isPerspectiveCamera) {
+        const targetFov = 55 + speedRatio * 7.5 + (lastRecoilDir.current === 'hit' ? traumaSq * 4.5 : traumaSq * 2.0);
+        perspCamera.fov = THREE.MathUtils.lerp(perspCamera.fov, targetFov, Math.min(1.0, 9 * delta));
+        perspCamera.updateProjectionMatrix();
+      }
+
+      const aimDirection = useGameStore.getState().aimDirection;
       let targetSide = 0;
       let targetFwd = 0;
       if (aimDirection === 'port') {
@@ -186,25 +239,30 @@ const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf }) => {
       currentAimSide.current = THREE.MathUtils.lerp(currentAimSide.current, targetSide, Math.min(1.0, 8 * delta));
       currentAimFwd.current = THREE.MathUtils.lerp(currentAimFwd.current, targetFwd, Math.min(1.0, 8 * delta));
 
-      const sOffset = currentAimSide.current;
+      const sOffset = currentAimSide.current + recoilOffset;
       const fOffset = currentAimFwd.current;
 
       const posX = groupRef.current.position.x;
       const posY = groupRef.current.position.y;
       const posZ = groupRef.current.position.z;
 
-      camera.position.x = posX - sinH * CONTROL_CONFIG.CAMERA_DISTANCE + cosH * sOffset + sinH * fOffset;
-      camera.position.y = posY + CONTROL_CONFIG.CAMERA_HEIGHT;
-      camera.position.z = posZ - cosH * CONTROL_CONFIG.CAMERA_DISTANCE - sinH * sOffset + cosH * fOffset;
+      // Dynamic distance pull-back and gentle ocean swell breathing on camera height
+      const dynamicDist = CONTROL_CONFIG.CAMERA_DISTANCE + speedRatio * 2.4;
+      const speedBob = Math.sin(state.clock.elapsedTime * 1.9) * 0.28 * speedRatio;
+      const dynamicHeight = CONTROL_CONFIG.CAMERA_HEIGHT + speedBob;
 
-      camera.lookAt(posX + sinH * 6, posY + 3.5, posZ + cosH * 6);
+      camera.position.x = posX - sinH * dynamicDist + cosH * sOffset + sinH * fOffset + cosH * shakeX;
+      camera.position.y = posY + dynamicHeight + shakeY;
+      camera.position.z = posZ - cosH * dynamicDist - sinH * sOffset + cosH * fOffset - sinH * shakeX + shakeZ;
+
+      const lookAheadDist = 6.0 + speedRatio * 3.5;
+      camera.lookAt(posX + sinH * lookAheadDist, posY + 3.5 + shakeY * 0.5, posZ + cosH * lookAheadDist);
     }
   });
 
   const hpPercent = Math.max(0, Math.min(100, (ship.health / ship.maxHealth) * 100));
   const shipConfig = SHIP_PRESETS[ship.shipClass] || SHIP_PRESETS.brig;
   const shipLen = shipConfig.length || 18;
-  const shipWid = shipConfig.width || 5.0;
   const nameplateY = shipLen * 0.76 + 3.6;
 
   return (
@@ -217,30 +275,21 @@ const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf }) => {
         isEnemy={!isSelf}
       />
 
-      {/* Dynamic Stern Wake Spray & Churning Foam Particles */}
-      <ShipWakeSplash3D
-        speed={ship.speed ?? 0}
-        rudderAngle={ship.rudder}
-        shipLength={shipLen}
-        shipWidth={shipWid}
-        isSunk={ship.isSunk}
-      />
 
-      {/* Floating Health Bar and Nameplate (Culled beyond 110m for enemy ships) */}
-      {showNameplate && (
+      {/* Floating Health Bar and Nameplate (Culled beyond 110m for enemy vessels, hidden for player ship) */}
+      {!isSelf && showNameplate && (
         <Html position={[0, nameplateY, 0]} center distanceFactor={45}>
           <div className="flex flex-col items-center pointer-events-none select-none">
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-900/90 border border-slate-700/80 shadow text-[10px] font-bold tracking-wide text-slate-200 uppercase">
-              <span className={isSelf ? 'text-cyan-400 font-extrabold' : 'text-amber-400'}>
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-950/85 border border-slate-700/60 shadow-md text-[10px] font-bold tracking-wide uppercase">
+              <span className="text-amber-300">
                 {ship.name}
               </span>
-              {isSelf && <span className="text-[8px] bg-cyan-950 text-cyan-300 px-1 py-0.2 rounded border border-cyan-800">YOU</span>}
             </div>
 
-            <div className="w-24 h-1.5 bg-slate-950/80 border border-slate-700 rounded-full overflow-hidden mt-1 p-0.2">
+            <div className="w-20 h-1 bg-slate-950/90 border border-slate-800 rounded-full overflow-hidden mt-0.5">
               <div
                 className={`h-full rounded-full transition-all duration-150 ${
-                  hpPercent > 50 ? 'bg-emerald-500' : hpPercent > 25 ? 'bg-amber-500' : 'bg-rose-500'
+                  hpPercent > 50 ? 'bg-emerald-400' : hpPercent > 25 ? 'bg-amber-400' : 'bg-rose-500'
                 }`}
                 style={{ width: `${hpPercent}%` }}
               />
