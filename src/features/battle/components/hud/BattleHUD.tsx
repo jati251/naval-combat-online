@@ -130,9 +130,9 @@ const BroadsideGaugesContainer: React.FC = React.memo(() => {
     if (aimDirection === 'port' || aimDirection === 'starboard') {
       fireBattery(aimDirection);
     } else {
-      fireBattery(portProgress >= 1.0 ? 'port' : 'starboard');
+      fireBattery(stbdProgress >= 1.0 ? 'starboard' : 'port');
     }
-  }, [aimDirection, fireBattery, portProgress]);
+  }, [aimDirection, fireBattery, stbdProgress]);
 
   return (
     <BroadsideGauges
