@@ -1,0 +1,93 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main", "master" ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Docker image
+        run: |
+          docker build -t ghcr.io/jati251/naval-combat-online:${{ github.sha }} -t ghcr.io/jati251/naval-combat-online:latest .
+
+      - name: Push Docker image
+        run: |
+          docker push ghcr.io/jati251/naval-combat-online:${{ github.sha }}
+          docker push ghcr.io/jati251/naval-combat-online:latest
+
+      - name: Update GitOps Repository
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          git clone https://x-access-token:${GH_PAT}@github.com/jati251/homelab-gitops.git
+          cd homelab-gitops
+          
+          # Replace the image tag
+          sed -i "s|image: ghcr.io/jati251/naval-combat-online:.*|image: ghcr.io/jati251/naval-combat-online:${GITHUB_SHA}|g" apps/naval-combat-online/deploy.yaml || true
+          
+          git config user.name "CI/CD Pipeline"
+          git config user.email "ci@homelab.local"
+          git add .
+          
+          git diff-index --quiet HEAD || git commit -m "Update naval-combat-online image to ${GITHUB_SHA}"
+          git push origin master
+
+      - name: Ensure Cloudflare DNS Record
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ZONE_ID: "6788c8b247af1479236b727951fe295a"
+          RECORD_NAME: "naval-combat.cekcok.my.id"
+          TUNNEL_TARGET: "350467bc-439c-4c53-9e61-90d8dfe00e26.cfargotunnel.com"
+        run: |
+          echo "Checking if DNS record $RECORD_NAME already exists..."
+          RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records?name=$RECORD_NAME&type=CNAME" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json")
+          
+          if echo "$RESPONSE" | grep -q '"success":true'; then
+            COUNT=$(echo "$RESPONSE" | grep -o '"count":[0-9]*' | cut -d':' -f2)
+            
+            if [ -n "$COUNT" ] && [ "$COUNT" -gt 0 ]; then
+              echo "DNS Record $RECORD_NAME already exists. Skipping creation."
+            else
+              echo "DNS Record $RECORD_NAME not found. Creating..."
+              CREATE_RESP=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records" \
+                -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+                -H "Content-Type: application/json" \
+                --data '{
+                  "type": "CNAME",
+                  "name": "'"$RECORD_NAME"'",
+                  "content": "'"$TUNNEL_TARGET"'",
+                  "ttl": 1,
+                  "proxied": true
+                }')
+              
+              if echo "$CREATE_RESP" | grep -q '"success":true'; then
+                echo "DNS Record created successfully."
+              else
+                echo "Failed to create DNS record!"
+                echo "Response: $CREATE_RESP"
+                exit 1
+              fi
+            fi
+          else
+            echo "Error checking Cloudflare API! Verify token permissions."
+            echo "API Response: $RESPONSE"
+            exit 1
+          fi

@@ -1,0 +1,357 @@
+import { PhysicsEngine } from './PhysicsEngine.js';
+import {
+  type ShipClass,
+  type SailState,
+  type ShipSimulationState,
+  type CannonballSimulationState,
+  type RoomInfo,
+  type RoomPlayer,
+  type ServerMessage,
+  SERVER_SHIP_CONFIGS,
+} from '../types/protocol.js';
+
+export interface BroadsideFireCommand {
+  playerId: string;
+  side: 'port' | 'starboard';
+  angle: number;
+}
+
+export class GameRoom {
+  public id: string;
+  public name: string;
+  public maxPlayers: number;
+  public status: 'LOBBY' | 'IN_GAME' | 'FINISHED' = 'LOBBY';
+
+  public players: Map<string, RoomPlayer> = new Map();
+  public ships: Map<string, ShipSimulationState> = new Map();
+  public cannonballs: CannonballSimulationState[] = [];
+
+  public windAngle: number = Math.random() * Math.PI * 2;
+  public windSpeed: number = 10 + Math.random() * 6; // knots
+
+  private tickTimer: NodeJS.Timeout | null = null;
+  private tickSeq: number = 0;
+  private startTime: number = 0;
+  private lastTickTime: number = 0;
+
+  // Broadcast callback passed from WebSocket server
+  private broadcast: (roomId: string, message: ServerMessage) => void;
+
+  constructor(
+    id: string,
+    name: string,
+    maxPlayers: number,
+    broadcast: (roomId: string, message: ServerMessage) => void
+  ) {
+    this.id = id;
+    this.name = name;
+    this.maxPlayers = maxPlayers;
+    this.broadcast = broadcast;
+  }
+
+  public addPlayer(id: string, name: string, shipClass: ShipClass): boolean {
+    if (this.players.size >= this.maxPlayers || this.status !== 'LOBBY') {
+      return false;
+    }
+
+    const isHost = this.players.size === 0;
+    this.players.set(id, {
+      id,
+      name,
+      shipClass,
+      isReady: isHost, // Host is ready by default
+      isHost,
+      score: 0,
+    });
+
+    this.broadcastRoomState();
+    return true;
+  }
+
+  public removePlayer(id: string): void {
+    const wasHost = this.players.get(id)?.isHost ?? false;
+    this.players.delete(id);
+    this.ships.delete(id);
+
+    if (wasHost && this.players.size > 0) {
+      const nextHost = this.players.values().next().value;
+      if (nextHost) nextHost.isHost = true;
+    }
+
+    if (this.players.size === 0) {
+      this.destroy();
+      return;
+    }
+
+    if (this.status === 'IN_GAME') {
+      this.checkVictoryCondition();
+    }
+
+    this.broadcastRoomState();
+  }
+
+  public setPlayerReady(id: string, ready: boolean): void {
+    const player = this.players.get(id);
+    if (!player || this.status !== 'LOBBY') return;
+    player.isReady = ready;
+    this.broadcastRoomState();
+  }
+
+  public setPlayerShip(id: string, shipClass: ShipClass): void {
+    const player = this.players.get(id);
+    if (!player || this.status !== 'LOBBY') return;
+    player.shipClass = shipClass;
+    this.broadcastRoomState();
+  }
+
+  public handleInput(id: string, rudder: number, sail: SailState): void {
+    const ship = this.ships.get(id);
+    if (!ship || ship.isSunk) return;
+
+    // Clamp rudder between -1 and 1
+    ship.rudder = Math.max(-1, Math.min(1, rudder));
+    ship.sail = sail;
+  }
+
+  public handleFire(id: string, side: 'port' | 'starboard'): void {
+    const ship = this.ships.get(id);
+    if (!ship || ship.isSunk || this.status !== 'IN_GAME') return;
+
+    const config = SERVER_SHIP_CONFIGS[ship.shipClass];
+    const reloadTimer = side === 'port' ? ship.reloadTimerPort : ship.reloadTimerStarboard;
+
+    if (reloadTimer > 0) {
+      return; // Still reloading
+    }
+
+    // Reset reload timer
+    if (side === 'port') ship.reloadTimerPort = config.reloadTime;
+    else ship.reloadTimerStarboard = config.reloadTime;
+
+    const serverTime = (Date.now() - this.startTime) / 1000;
+    const count = config.cannonsPerSide;
+    const span = config.length * 0.65;
+    const step = span / (count + 1);
+
+    // Direction vector perpendicular to ship heading
+    // Port is left (-90 deg), Starboard is right (+90 deg)
+    const fireAngle = ship.rotationY + (side === 'port' ? -Math.PI * 0.5 : Math.PI * 0.5);
+    const muzzleSpeed = 38 + Math.random() * 4; // m/s
+
+    for (let i = 1; i <= count; i++) {
+      const offsetAlongLength = -span * 0.5 + i * step;
+
+      // Spawn position on deck side
+      const posX = ship.x + Math.sin(ship.rotationY) * offsetAlongLength + Math.sin(fireAngle) * (config.width * 0.5 + 0.2);
+      const posZ = ship.z + Math.cos(ship.rotationY) * offsetAlongLength + Math.cos(fireAngle) * (config.width * 0.5 + 0.2);
+      const posY = ship.y + 1.8; // Deck height
+
+      // Slight random spread
+      const spreadX = (Math.random() - 0.5) * 0.05;
+      const spreadY = (Math.random() - 0.5) * 0.03;
+
+      const vx = Math.sin(fireAngle + spreadX) * muzzleSpeed;
+      const vy = 5.5 + spreadY * 10; // slight upward arc
+      const vz = Math.cos(fireAngle + spreadX) * muzzleSpeed;
+
+      this.cannonballs.push({
+        id: `${ship.id}-${Date.now()}-${i}`,
+        ownerId: ship.id,
+        x: posX,
+        y: posY,
+        z: posZ,
+        vx,
+        vy,
+        vz,
+        damage: config.cannonDamage,
+        createdAt: serverTime,
+        maxLife: 4.5,
+      });
+    }
+
+    // Notify all players about muzzle flash and sound event
+    this.broadcast(this.id, {
+      type: 'CANNON_FIRED',
+      ownerId: ship.id,
+      side,
+      origin: [ship.x, ship.y + 1.8, ship.z],
+      count,
+    });
+  }
+
+  public startGame(): boolean {
+    if (this.status !== 'LOBBY' || this.players.size < 1) return false;
+
+    this.status = 'IN_GAME';
+    this.startTime = Date.now();
+    this.lastTickTime = this.startTime;
+    this.cannonballs = [];
+    this.ships.clear();
+
+    // Spawn ships in circle facing center
+    const playerArray = Array.from(this.players.values());
+    const spawnRadius = Math.max(40, playerArray.length * 25);
+
+    playerArray.forEach((player, idx) => {
+      const spawnAngle = (idx / playerArray.length) * Math.PI * 2;
+      const x = Math.sin(spawnAngle) * spawnRadius;
+      const z = Math.cos(spawnAngle) * spawnRadius;
+      // Face towards center (0, 0)
+      const rotationY = spawnAngle + Math.PI;
+      const config = SERVER_SHIP_CONFIGS[player.shipClass];
+
+      this.ships.set(player.id, {
+        id: player.id,
+        name: player.name,
+        shipClass: player.shipClass,
+        x,
+        y: 0,
+        z,
+        vx: 0,
+        vz: 0,
+        speed: 0,
+        rotationY,
+        pitch: 0,
+        roll: 0,
+        rudder: 0,
+        sail: 'ANCHOR',
+        health: config.maxHealth,
+        maxHealth: config.maxHealth,
+        isSunk: false,
+        score: 0,
+        reloadTimerPort: 0,
+        reloadTimerStarboard: 0,
+      });
+    });
+
+    this.broadcast(this.id, {
+      type: 'GAME_STARTED',
+      startTime: this.startTime,
+      windAngle: this.windAngle,
+      windSpeed: this.windSpeed,
+    });
+
+    // Start 30Hz simulation loop
+    this.tickTimer = setInterval(() => this.tick(), 1000 / 30);
+    return true;
+  }
+
+  private tick(): void {
+    const now = Date.now();
+    const dt = Math.min(0.1, (now - this.lastTickTime) / 1000);
+    this.lastTickTime = now;
+    const serverTime = (now - this.startTime) / 1000;
+    this.tickSeq++;
+
+    // Update each ship's physics
+    for (const ship of this.ships.values()) {
+      PhysicsEngine.updateShip(ship, dt, serverTime, this.windAngle, this.windSpeed);
+    }
+
+    // Update cannonballs & check impacts
+    this.cannonballs = PhysicsEngine.updateCannonballs(
+      this.cannonballs,
+      this.ships,
+      dt,
+      serverTime,
+      (ball, hitShip) => {
+        hitShip.health = Math.max(0, hitShip.health - ball.damage);
+
+        this.broadcast(this.id, {
+          type: 'HIT_EVENT',
+          targetId: hitShip.id,
+          attackerId: ball.ownerId,
+          damage: ball.damage,
+          hitPos: [ball.x, ball.y, ball.z],
+          remainingHp: hitShip.health,
+        });
+
+        if (hitShip.health <= 0 && !hitShip.isSunk) {
+          hitShip.isSunk = true;
+          const killer = this.players.get(ball.ownerId);
+          if (killer) killer.score += 100;
+
+          this.broadcast(this.id, {
+            type: 'SHIP_SUNK',
+            shipId: hitShip.id,
+            killerId: ball.ownerId,
+          });
+
+          this.checkVictoryCondition();
+        }
+      }
+    );
+
+    // Broadcast world snapshot (compact form)
+    const shipsPayload = Array.from(this.ships.values()).map(
+      ({ reloadTimerPort, reloadTimerStarboard, ...publicShip }) => publicShip
+    );
+
+    const cannonballsPayload = this.cannonballs.map((b) => ({
+      id: b.id,
+      ownerId: b.ownerId,
+      x: b.x,
+      y: b.y,
+      z: b.z,
+      vx: b.vx,
+      vy: b.vy,
+      vz: b.vz,
+    }));
+
+    this.broadcast(this.id, {
+      type: 'WORLD_SNAPSHOT',
+      tick: this.tickSeq,
+      serverTime,
+      ships: shipsPayload,
+      cannonballs: cannonballsPayload,
+    });
+  }
+
+  private checkVictoryCondition(): void {
+    if (this.status !== 'IN_GAME') return;
+
+    const aliveShips = Array.from(this.ships.values()).filter((s) => !s.isSunk);
+    // If only 1 ship left and there was more than 1 player, or all sunk
+    if (this.players.size > 1 && aliveShips.length <= 1) {
+      this.status = 'FINISHED';
+      if (this.tickTimer) clearInterval(this.tickTimer);
+
+      const winner = aliveShips[0] || Array.from(this.ships.values())[0];
+      this.broadcast(this.id, {
+        type: 'GAME_OVER',
+        winnerId: winner?.id ?? '',
+        winnerName: winner?.name ?? 'No one',
+      });
+    }
+  }
+
+  public getRoomInfo(): RoomInfo {
+    return {
+      id: this.id,
+      name: this.name,
+      status: this.status,
+      players: Array.from(this.players.values()),
+      maxPlayers: this.maxPlayers,
+      windAngle: this.windAngle,
+      windSpeed: this.windSpeed,
+    };
+  }
+
+  public broadcastRoomState(): void {
+    this.broadcast(this.id, {
+      type: 'ROOM_STATE',
+      room: this.getRoomInfo(),
+      selfId: '',
+    });
+  }
+
+  public destroy(): void {
+    if (this.tickTimer) {
+      clearInterval(this.tickTimer);
+      this.tickTimer = null;
+    }
+    this.players.clear();
+    this.ships.clear();
+    this.cannonballs = [];
+  }
+}
