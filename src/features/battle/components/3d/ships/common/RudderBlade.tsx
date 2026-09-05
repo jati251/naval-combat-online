@@ -17,10 +17,26 @@ export const RudderBlade: React.FC<RudderBladeProps> = React.memo(({ length, rud
 
   return (
     <group position={[0, 0.6, -length * 0.5]}>
-      <mesh ref={meshRef} position={[0, 0, -0.42]} castShadow>
-        <boxGeometry args={[0.2, 2.4, 0.9]} />
-        <meshStandardMaterial color="#2d170b" roughness={0.85} />
+      {/* Fixed Sternpost Timber attached to Hull Keel */}
+      <mesh position={[0, 0, -0.08]} castShadow receiveShadow>
+        <boxGeometry args={[0.22, 2.45, 0.2]} />
+        <meshStandardMaterial color="#382013" roughness={0.75} />
       </mesh>
+
+      {/* Pivoting Rudder Blade with Iron Pintle Straps */}
+      <group ref={meshRef} position={[0, 0, -0.18]}>
+        <mesh position={[0, 0, -0.45]} castShadow receiveShadow>
+          <boxGeometry args={[0.18, 2.35, 0.9]} />
+          <meshStandardMaterial color="#4a2810" roughness={0.7} />
+        </mesh>
+        {/* 3 Heavy Forged Iron Pintle Hinge Straps */}
+        {[-0.7, 0, 0.7].map((hy, hIdx) => (
+          <mesh key={`hinge-${hIdx}`} position={[0, hy, -0.25]} castShadow>
+            <boxGeometry args={[0.24, 0.14, 0.55]} />
+            <meshStandardMaterial color="#18181b" metalness={0.85} roughness={0.3} />
+          </mesh>
+        ))}
+      </group>
     </group>
   );
 });

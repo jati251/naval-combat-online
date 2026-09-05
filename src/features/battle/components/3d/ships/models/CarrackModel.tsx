@@ -100,14 +100,31 @@ export const CarrackModel: React.FC<SubModelProps> = React.memo(({
       <group position={[0, hullDepth + sheerStern * 0.7, -length * 0.35]}>
         <mesh castShadow receiveShadow>
           <boxGeometry args={[width * 0.86, 2.2, length * 0.28]} />
-          <meshStandardMaterial color="#0f172a" map={hullTexture} roughness={0.8} />
+          <meshStandardMaterial color="#1e293b" roughness={0.7} />
+        </mesh>
+        {/* Iron Transom Molding */}
+        <mesh position={[0, 1.12, -length * 0.141]} castShadow>
+          <boxGeometry args={[width * 0.88, 0.12, 0.08]} />
+          <meshStandardMaterial color="#047857" emissive="#065f46" emissiveIntensity={0.6} metalness={0.8} />
         </mesh>
         {/* Spectral Emerald Windows */}
         {[-width * 0.26, -width * 0.09, width * 0.09, width * 0.26].map((wx, wIdx) => (
-          <mesh key={`win-${wIdx}`} position={[wx, 0.2, -length * 0.141]}>
-            <planeGeometry args={[width * 0.13, 1.1]} />
-            <meshStandardMaterial color="#6ee7b7" emissive="#10b981" emissiveIntensity={1.4} roughness={0.2} />
-          </mesh>
+          <group key={`win-${wIdx}`} position={[wx, 0.2, -length * 0.142]}>
+            <mesh rotation={[0, Math.PI, 0]}>
+              <planeGeometry args={[width * 0.13, 1.1]} />
+              <meshStandardMaterial
+                color="#6ee7b7"
+                emissive="#10b981"
+                emissiveIntensity={1.5}
+                roughness={0.2}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+            <mesh position={[0, 0, -0.01]}>
+              <boxGeometry args={[width * 0.145, 1.15, 0.02]} />
+              <meshStandardMaterial color="#022c22" roughness={0.9} />
+            </mesh>
+          </group>
         ))}
         {/* Dual Gargoyle Emerald Lanterns */}
         {[-width * 0.32, width * 0.32].map((lx, lIdx) => (
@@ -145,7 +162,7 @@ export const CarrackModel: React.FC<SubModelProps> = React.memo(({
               mastHeight={mastHeight}
               hullWidth={width * 0.96}
               shroudSpread={2.1}
-              includeRatlines={true}
+              includeRatlines={!isEnemy}
               color="#18181b"
             />
             <group position={[0, hullDepth, mastZ]}>

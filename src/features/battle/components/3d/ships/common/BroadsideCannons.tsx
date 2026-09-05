@@ -1,4 +1,5 @@
 import React from 'react';
+import * as THREE from 'three';
 
 interface BroadsideCannonsProps {
   positions: number[];
@@ -9,61 +10,47 @@ interface BroadsideCannonsProps {
   isDoubleDecker?: boolean;
 }
 
+// Module-level shared geometries for all broadside cannons (zero memory leaks / GC)
+const barrelGeo = new THREE.CylinderGeometry(0.11, 0.17, 1.35, 8);
+const muzzleGeo = new THREE.CylinderGeometry(0.13, 0.13, 0.08, 8);
+const breechGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.1, 8);
+const cascabelGeo = new THREE.SphereGeometry(0.07, 6, 6);
+const trunnionGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.38, 6);
+const carriageGeo = new THREE.BoxGeometry(0.42, 0.28, 0.38);
+const wheelGeo = new THREE.CylinderGeometry(0.09, 0.09, 0.06, 6);
+
+// Module-level shared materials
+const gunMetalMat = new THREE.MeshStandardMaterial({ color: '#18181b', metalness: 0.92, roughness: 0.25 });
+const gunMetalDarkMat = new THREE.MeshStandardMaterial({ color: '#09090b', metalness: 0.92, roughness: 0.25 });
+const carriageMat = new THREE.MeshStandardMaterial({ color: '#831843', roughness: 0.7 });
+const wheelMat = new THREE.MeshStandardMaterial({ color: '#381a08', roughness: 0.8 });
+
 const SingleCannonUnit: React.FC<{
   isPort: boolean;
   color: string;
   barrelScale?: number;
 }> = React.memo(({ isPort, color, barrelScale = 1.0 }) => {
   const dir = isPort ? -1 : 1;
+  const barrelMat = color === '#09090b' ? gunMetalDarkMat : gunMetalMat;
 
   return (
     <group scale={[barrelScale, barrelScale, barrelScale]}>
       {/* Naval Cannon Barrel */}
       <group rotation={[0, 0, dir * Math.PI / 2]}>
-        {/* Main tapered tube */}
-        <mesh castShadow>
-          <cylinderGeometry args={[0.11, 0.17, 1.35, 10]} />
-          <meshStandardMaterial color={color} metalness={0.92} roughness={0.25} />
-        </mesh>
-        {/* Muzzle swell ring */}
-        <mesh position={[0, 0.64, 0]}>
-          <cylinderGeometry args={[0.13, 0.13, 0.08, 10]} />
-          <meshStandardMaterial color={color} metalness={0.95} roughness={0.2} />
-        </mesh>
-        {/* Breech ring & Cascabel button */}
-        <mesh position={[0, -0.66, 0]}>
-          <cylinderGeometry args={[0.18, 0.18, 0.1, 10]} />
-          <meshStandardMaterial color={color} metalness={0.9} roughness={0.3} />
-        </mesh>
-        <mesh position={[0, -0.74, 0]}>
-          <sphereGeometry args={[0.07, 8, 8]} />
-          <meshStandardMaterial color={color} metalness={0.9} roughness={0.3} />
-        </mesh>
-        {/* Trunnions (side pivot cylinders) */}
-        <mesh position={[0, 0.05, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.04, 0.04, 0.38, 8]} />
-          <meshStandardMaterial color={color} metalness={0.9} />
-        </mesh>
+        <mesh castShadow geometry={barrelGeo} material={barrelMat} />
+        <mesh position={[0, 0.64, 0]} geometry={muzzleGeo} material={barrelMat} />
+        <mesh position={[0, -0.66, 0]} geometry={breechGeo} material={barrelMat} />
+        <mesh position={[0, -0.74, 0]} geometry={cascabelGeo} material={barrelMat} />
+        <mesh position={[0, 0.05, 0]} rotation={[Math.PI / 2, 0, 0]} geometry={trunnionGeo} material={barrelMat} />
       </group>
 
       {/* Wheeled Naval Truck Carriage */}
       <group position={[-dir * 0.28, -0.16, 0]}>
-        {/* Carriage wooden cheeks */}
-        <mesh castShadow position={[0, 0.06, 0]}>
-          <boxGeometry args={[0.42, 0.28, 0.38]} />
-          <meshStandardMaterial color="#831843" roughness={0.7} />
-        </mesh>
-        {/* 4 Wooden Truck Wheels with Iron Hubs */}
-        {[-0.14, 0.14].map((wx, xIdx) => (
-          <React.Fragment key={`wh-${xIdx}`}>
-            {[-0.18, 0.18].map((wz, zIdx) => (
-              <mesh key={`w-${xIdx}-${zIdx}`} position={[wx, -0.06, wz]} rotation={[0, 0, Math.PI / 2]}>
-                <cylinderGeometry args={[0.09, 0.09, 0.06, 8]} />
-                <meshStandardMaterial color="#381a08" roughness={0.8} />
-              </mesh>
-            ))}
-          </React.Fragment>
-        ))}
+        <mesh castShadow position={[0, 0.06, 0]} geometry={carriageGeo} material={carriageMat} />
+        <mesh position={[-0.14, -0.06, -0.18]} rotation={[0, 0, Math.PI / 2]} geometry={wheelGeo} material={wheelMat} />
+        <mesh position={[-0.14, -0.06, 0.18]} rotation={[0, 0, Math.PI / 2]} geometry={wheelGeo} material={wheelMat} />
+        <mesh position={[0.14, -0.06, -0.18]} rotation={[0, 0, Math.PI / 2]} geometry={wheelGeo} material={wheelMat} />
+        <mesh position={[0.14, -0.06, 0.18]} rotation={[0, 0, Math.PI / 2]} geometry={wheelGeo} material={wheelMat} />
       </group>
     </group>
   );

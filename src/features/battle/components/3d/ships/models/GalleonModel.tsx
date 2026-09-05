@@ -126,10 +126,35 @@ export const GalleonModel: React.FC<SubModelProps> = React.memo(({
 
       {/* Towering 2-Tier Sterncastle with Quarter Galleries */}
       <group position={[0, hullDepth + sheerStern * 0.75, -length * 0.34]}>
+        {/* Lower Castle Bulkhead */}
         <mesh castShadow receiveShadow>
           <boxGeometry args={[width * 0.9, 2.0, length * 0.32]} />
-          <meshStandardMaterial color={isEnemy ? '#881337' : '#501e14'} map={hullTexture} />
+          <meshStandardMaterial map={hullTexture} roughness={0.65} />
         </mesh>
+        {/* Lower Gilded Transom Molding */}
+        <mesh position={[0, 1.02, -length * 0.161]} castShadow>
+          <boxGeometry args={[width * 0.92, 0.12, 0.08]} />
+          <meshStandardMaterial color="#f59e0b" metalness={0.85} roughness={0.2} />
+        </mesh>
+        {/* Lower Stern Gallery: 5 Leaded Stately Windows */}
+        {[-width * 0.32, -width * 0.16, 0, width * 0.16, width * 0.32].map((wx, wIdx) => (
+          <group key={`g-win-${wIdx}`} position={[wx, 0.1, -length * 0.162]}>
+            <mesh rotation={[0, Math.PI, 0]}>
+              <planeGeometry args={[width * 0.11, 0.8]} />
+              <meshStandardMaterial
+                color="#fef08a"
+                emissive="#f59e0b"
+                emissiveIntensity={1.1}
+                roughness={0.15}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+            <mesh position={[0, 0, -0.01]}>
+              <boxGeometry args={[width * 0.125, 0.85, 0.02]} />
+              <meshStandardMaterial color="#1a0e06" roughness={0.9} />
+            </mesh>
+          </group>
+        ))}
 
         {/* Side Quarter Galleries (Port & Starboard protruding balconies) */}
         {[-width * 0.46, width * 0.46].map((qx, qIdx) => (
@@ -143,11 +168,30 @@ export const GalleonModel: React.FC<SubModelProps> = React.memo(({
         <group position={[0, 1.7, -length * 0.04]}>
           <mesh castShadow receiveShadow>
             <boxGeometry args={[width * 0.78, 1.5, length * 0.22]} />
-            <meshStandardMaterial color={trimColor} map={hullTexture} />
+            <meshStandardMaterial map={hullTexture} roughness={0.65} />
           </mesh>
+          {/* Upper Gallery: 3 Royal Windows */}
+          {[-width * 0.22, 0, width * 0.22].map((ux, uIdx) => (
+            <group key={`u-win-${uIdx}`} position={[ux, 0.05, -length * 0.112]}>
+              <mesh rotation={[0, Math.PI, 0]}>
+                <planeGeometry args={[width * 0.11, 0.65]} />
+                <meshStandardMaterial
+                  color="#fef08a"
+                  emissive="#f59e0b"
+                  emissiveIntensity={1.2}
+                  roughness={0.15}
+                  side={THREE.DoubleSide}
+                />
+              </mesh>
+              <mesh position={[0, 0, -0.01]}>
+                <boxGeometry args={[width * 0.125, 0.7, 0.02]} />
+                <meshStandardMaterial color="#1a0e06" roughness={0.9} />
+              </mesh>
+            </group>
+          ))}
           <mesh position={[0, 0.85, -length * 0.11]}>
             <boxGeometry args={[width * 0.8, 0.25, 0.1]} />
-            <meshStandardMaterial color="#f59e0b" metalness={0.8} />
+            <meshStandardMaterial color="#f59e0b" metalness={0.85} roughness={0.2} />
           </mesh>
         </group>
 
@@ -185,7 +229,7 @@ export const GalleonModel: React.FC<SubModelProps> = React.memo(({
         mastHeight={length * 0.76}
         hullWidth={width * 0.96}
         shroudSpread={2.2}
-        includeRatlines={true}
+        includeRatlines={!isEnemy}
       />
       <group position={[0, hullDepth, length * 0.26]}>
         <mesh position={[0, length * 0.38, 0]} castShadow>
@@ -215,7 +259,7 @@ export const GalleonModel: React.FC<SubModelProps> = React.memo(({
         mastHeight={length * 0.84}
         hullWidth={width * 0.96}
         shroudSpread={2.3}
-        includeRatlines={true}
+        includeRatlines={!isEnemy}
       />
       <group position={[0, hullDepth, -length * 0.04]}>
         <mesh position={[0, length * 0.42, 0]} castShadow>
@@ -261,7 +305,7 @@ export const GalleonModel: React.FC<SubModelProps> = React.memo(({
         mastHeight={length * 0.64}
         hullWidth={width * 0.88}
         shroudSpread={1.8}
-        includeRatlines={true}
+        includeRatlines={!isEnemy}
       />
       <group position={[0, hullDepth + sheerStern * 0.7, -length * 0.32]}>
         <mesh position={[0, length * 0.32, 0]} castShadow>

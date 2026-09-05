@@ -159,7 +159,7 @@ export const CorvetteModel: React.FC<SubModelProps> = React.memo(({
               mastHeight={mastHeight}
               hullWidth={width * 0.96}
               shroudSpread={1.9}
-              includeRatlines={true}
+              includeRatlines={!isEnemy}
             />
             {/* 2 Raked Masts with Square Sails & Spanker */}
             <group position={[0, hullDepth, mastZ]} rotation={[0.05, 0, 0]}>

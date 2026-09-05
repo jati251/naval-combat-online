@@ -116,16 +116,41 @@ export const BrigModel: React.FC<SubModelProps> = React.memo(({
 
       {/* Raised Quarterdeck Captain's Cabin */}
       <group position={[0, hullDepth + sheerStern * 0.7, -length * 0.36]}>
+        {/* Main Cabin Bulkhead */}
         <mesh castShadow receiveShadow>
           <boxGeometry args={[width * 0.82, 1.6, length * 0.26]} />
-          <meshStandardMaterial color={isEnemy ? '#881337' : '#1e3a5f'} map={hullTexture} roughness={0.6} />
+          <meshStandardMaterial map={hullTexture} roughness={0.65} />
+        </mesh>
+        {/* Gilded Transom Arch Molding along Top */}
+        <mesh position={[0, 0.82, -length * 0.131]} castShadow>
+          <boxGeometry args={[width * 0.84, 0.12, 0.08]} />
+          <meshStandardMaterial color={trimColor || '#f59e0b'} metalness={0.8} roughness={0.25} />
+        </mesh>
+        {/* Lower Transom Counter Strake */}
+        <mesh position={[0, -0.75, -length * 0.131]} castShadow>
+          <boxGeometry args={[width * 0.82, 0.14, 0.08]} />
+          <meshStandardMaterial color="#2d170b" roughness={0.7} />
         </mesh>
         {/* Leaded Stern Gallery Windows */}
         {[-width * 0.24, 0, width * 0.24].map((wx, wIdx) => (
-          <mesh key={`win-${wIdx}`} position={[wx, 0.1, -length * 0.131]}>
-            <planeGeometry args={[width * 0.16, 0.75]} />
-            <meshStandardMaterial color="#fef08a" emissive="#f59e0b" emissiveIntensity={0.8} />
-          </mesh>
+          <group key={`win-${wIdx}`} position={[wx, 0.1, -length * 0.132]}>
+            {/* Window Glass Pane facing Aft (-Z) */}
+            <mesh rotation={[0, Math.PI, 0]}>
+              <planeGeometry args={[width * 0.16, 0.75]} />
+              <meshStandardMaterial
+                color="#fef08a"
+                emissive="#f59e0b"
+                emissiveIntensity={1.1}
+                roughness={0.15}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+            {/* Window Frame Mullion */}
+            <mesh position={[0, 0, -0.01]}>
+              <boxGeometry args={[width * 0.18, 0.79, 0.03]} />
+              <meshStandardMaterial color="#1a0e06" roughness={0.9} />
+            </mesh>
+          </group>
         ))}
         {/* Dual Heavy Stern Lanterns */}
         {[-width * 0.28, width * 0.28].map((lx, lIdx) => (
@@ -168,7 +193,7 @@ export const BrigModel: React.FC<SubModelProps> = React.memo(({
               mastHeight={mastHeight}
               hullWidth={width * 0.96}
               shroudSpread={2.1}
-              includeRatlines={true}
+              includeRatlines={!isEnemy}
             />
             <group position={[0, hullDepth, mastZ]}>
               <mesh position={[0, mastHeight * 0.5, 0]} castShadow>

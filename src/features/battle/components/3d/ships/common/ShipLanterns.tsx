@@ -14,7 +14,7 @@ interface ShipLanternsProps {
  * - Bow Cathead Navigation Lights: Port (Red) & Starboard (Green) running lights.
  * - Dynamic: Lights illuminate brilliantly at Night and stay unlit/quiet during Day.
  */
-export const ShipLanterns: React.FC<ShipLanternsProps> = React.memo(({ shipClass }) => {
+export const ShipLanterns: React.FC<ShipLanternsProps> = React.memo(({ shipClass, isEnemy = false }) => {
   const timeOfDay = useGameStore((s) => s.timeOfDay);
   const isNight = timeOfDay === 'NIGHT';
 
@@ -76,8 +76,8 @@ export const ShipLanterns: React.FC<ShipLanternsProps> = React.memo(({ shipClass
         {/* Glowing Amber Glass */}
         <mesh geometry={lanternGlassGeo} material={amberGlassMat} />
 
-        {/* Localized Warm Amber Point Light on Deck and Ocean Wake at Night */}
-        {isNight && (
+        {/* Localized Warm Amber Point Light on Deck and Ocean Wake at Night (Player ship only) */}
+        {isNight && !isEnemy && (
           <pointLight
             color="#ffaa33"
             intensity={1.8}
@@ -91,7 +91,7 @@ export const ShipLanterns: React.FC<ShipLanternsProps> = React.memo(({ shipClass
       <group position={[-bowX, bowY, bowZ]}>
         <mesh geometry={lanternCasingGeo} material={brassMat} scale={[0.7, 0.7, 0.7]} />
         <mesh geometry={lanternGlassGeo} material={portRedGlassMat} scale={[0.7, 0.7, 0.7]} />
-        {isNight && (
+        {isNight && !isEnemy && (
           <pointLight
             color="#ef4444"
             intensity={0.6}
@@ -105,7 +105,7 @@ export const ShipLanterns: React.FC<ShipLanternsProps> = React.memo(({ shipClass
       <group position={[bowX, bowY, bowZ]}>
         <mesh geometry={lanternCasingGeo} material={brassMat} scale={[0.7, 0.7, 0.7]} />
         <mesh geometry={lanternGlassGeo} material={stbdGreenGlassMat} scale={[0.7, 0.7, 0.7]} />
-        {isNight && (
+        {isNight && !isEnemy && (
           <pointLight
             color="#22c55e"
             intensity={0.6}

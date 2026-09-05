@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 
+const geometryCache = new Map<string, THREE.BufferGeometry>();
+
 /**
  * Creates aerodynamic billowing square sail geometry with authentic 18th-century
  * camber, forward-pushing belly, and scalloped/roached lower foot (clew cutaway).
@@ -9,6 +11,10 @@ export function createBillowedSailGeometry(
   height: number,
   depth = 0.52
 ): THREE.BufferGeometry {
+  const cacheKey = `billowed_${width.toFixed(2)}_${height.toFixed(2)}_${depth.toFixed(2)}`;
+  const cached = geometryCache.get(cacheKey);
+  if (cached) return cached;
+
   const segmentsX = 14;
   const segmentsY = 12;
   const geo = new THREE.PlaneGeometry(width, height, segmentsX, segmentsY);
@@ -41,6 +47,7 @@ export function createBillowedSailGeometry(
   }
 
   geo.computeVertexNormals();
+  geometryCache.set(cacheKey, geo);
   return geo;
 }
 
@@ -52,6 +59,10 @@ export function createJibSailGeometry(
   heightY: number,
   depth = 0.42
 ): THREE.BufferGeometry {
+  const cacheKey = `jib_${spanZ.toFixed(2)}_${heightY.toFixed(2)}_${depth.toFixed(2)}`;
+  const cached = geometryCache.get(cacheKey);
+  if (cached) return cached;
+
   const shape = new THREE.Shape();
   shape.moveTo(0, 0);
   shape.lineTo(0, heightY);
@@ -73,6 +84,7 @@ export function createJibSailGeometry(
   }
 
   geo.computeVertexNormals();
+  geometryCache.set(cacheKey, geo);
   return geo;
 }
 
@@ -84,6 +96,10 @@ export function createLateenSailGeometry(
   heightY: number,
   depth = 0.46
 ): THREE.BufferGeometry {
+  const cacheKey = `lateen_${lengthZ.toFixed(2)}_${heightY.toFixed(2)}_${depth.toFixed(2)}`;
+  const cached = geometryCache.get(cacheKey);
+  if (cached) return cached;
+
   const shape = new THREE.Shape();
   shape.moveTo(-lengthZ * 0.4, 0);
   shape.lineTo(0, heightY);
@@ -104,6 +120,7 @@ export function createLateenSailGeometry(
   }
 
   geo.computeVertexNormals();
+  geometryCache.set(cacheKey, geo);
   return geo;
 }
 
@@ -141,6 +158,10 @@ export function createCurvedHullGeometry(options: CurvedHullOptions): THREE.Buff
     segmentsZ = 32,
     segmentsGirth = 22,
   } = options;
+
+  const cacheKey = `hull_${length}_${width}_${depth}_${sheerBow}_${sheerStern}_${tumblehome}_${transomWidthRatio}_${segmentsZ}_${segmentsGirth}`;
+  const cached = geometryCache.get(cacheKey);
+  if (cached) return cached;
 
   const vertices: number[] = [];
   const uvs: number[] = [];
@@ -275,6 +296,10 @@ export function createCurvedHullGeometry(options: CurvedHullOptions): THREE.Buff
     // Face pointing aft (-Z)
     indices.push(centerTransomIdx, tB, tA);
   }
+  // Close the upper transom arch between port rail (j=0) and starboard rail (j=numG)
+  const tPortRail = transomBaseIdx + 1;
+  const tStbdRail = transomBaseIdx + 1 + numG;
+  indices.push(centerTransomIdx, tPortRail, tStbdRail);
 
   // Bow Cutwater Cap (narrow forward stem closure at i = numZ)
   const bowBaseIdx = vertices.length / 3;
@@ -300,6 +325,10 @@ export function createCurvedHullGeometry(options: CurvedHullOptions): THREE.Buff
     // Face pointing forward (+Z)
     indices.push(centerBowIdx, bA, bB);
   }
+  // Close upper cutwater cap between starboard rail and port rail
+  const bPortRail = bowBaseIdx + 1;
+  const bStbdRail = bowBaseIdx + 1 + numG;
+  indices.push(centerBowIdx, bStbdRail, bPortRail);
 
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
@@ -307,6 +336,7 @@ export function createCurvedHullGeometry(options: CurvedHullOptions): THREE.Buff
   geo.setIndex(indices);
   geo.computeVertexNormals();
 
+  geometryCache.set(cacheKey, geo);
   return geo;
 }
 
@@ -325,6 +355,10 @@ export function createCurvedDeckGeometry(options: CurvedHullOptions, inset = -0.
     transomWidthRatio = 0.62,
     segmentsZ = 28,
   } = options;
+
+  const cacheKey = `deck_${length}_${width}_${depth}_${sheerBow}_${sheerStern}_${tumblehome}_${transomWidthRatio}_${segmentsZ}_${inset}`;
+  const cached = geometryCache.get(cacheKey);
+  if (cached) return cached;
 
   const segmentsX = 10;
   const vertices: number[] = [];
@@ -396,6 +430,7 @@ export function createCurvedDeckGeometry(options: CurvedHullOptions, inset = -0.
   geo.setIndex(indices);
   geo.computeVertexNormals();
 
+  geometryCache.set(cacheKey, geo);
   return geo;
 }
 
@@ -418,6 +453,10 @@ export function createSheerRailGeometry(
     transomWidthRatio = 0.62,
     segmentsZ = 28,
   } = options;
+
+  const cacheKey = `rail_${length}_${width}_${depth}_${sheerBow}_${sheerStern}_${transomWidthRatio}_${segmentsZ}_${railWidth}_${railHeight}_${side}`;
+  const cached = geometryCache.get(cacheKey);
+  if (cached) return cached;
 
   const halfWidth = width * 0.5;
   const halfLength = length * 0.5;
@@ -489,6 +528,32 @@ export function createSheerRailGeometry(
         }
       }
     }
+
+    // Cap the stern end (i = 0) facing -Z
+    const s0 = baseIdx;
+    const s1 = baseIdx + 1;
+    const s2 = baseIdx + 2;
+    const s3 = baseIdx + 3;
+    if (multiplier > 0) {
+      indices.push(s0, s2, s1);
+      indices.push(s0, s3, s2);
+    } else {
+      indices.push(s0, s1, s2);
+      indices.push(s0, s2, s3);
+    }
+
+    // Cap the bow end (i = segmentsZ) facing +Z
+    const b0 = baseIdx + segmentsZ * 4;
+    const b1 = baseIdx + segmentsZ * 4 + 1;
+    const b2 = baseIdx + segmentsZ * 4 + 2;
+    const b3 = baseIdx + segmentsZ * 4 + 3;
+    if (multiplier > 0) {
+      indices.push(b0, b1, b2);
+      indices.push(b0, b2, b3);
+    } else {
+      indices.push(b0, b2, b1);
+      indices.push(b0, b3, b2);
+    }
   };
 
   if (side === 'starboard' || side === 'both') addRail(1);
@@ -500,5 +565,6 @@ export function createSheerRailGeometry(
   geo.setIndex(indices);
   geo.computeVertexNormals();
 
+  geometryCache.set(cacheKey, geo);
   return geo;
 }

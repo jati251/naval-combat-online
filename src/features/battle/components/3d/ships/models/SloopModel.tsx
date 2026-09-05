@@ -133,14 +133,31 @@ export const SloopModel: React.FC<SubModelProps> = React.memo(({
       <group position={[0, hullDepth + sheerStern * 0.6, -length * 0.36]}>
         <mesh castShadow receiveShadow>
           <boxGeometry args={[width * 0.72, 1.25, length * 0.22]} />
-          <meshStandardMaterial color={isEnemy ? '#881337' : '#1e3a5f'} map={hullTexture} />
+          <meshStandardMaterial map={hullTexture} roughness={0.65} />
+        </mesh>
+        {/* Gilded Transom Molding */}
+        <mesh position={[0, 0.64, -length * 0.111]} castShadow>
+          <boxGeometry args={[width * 0.74, 0.1, 0.06]} />
+          <meshStandardMaterial color={trimColor || '#eab308'} metalness={0.8} roughness={0.3} />
         </mesh>
         {/* Cabin arched windows */}
         {[-width * 0.22, width * 0.22].map((wx, idx) => (
-          <mesh key={`win-${idx}`} position={[wx, 0.12, -length * 0.112]}>
-            <planeGeometry args={[width * 0.18, 0.55]} />
-            <meshStandardMaterial color="#fef08a" emissive="#f59e0b" emissiveIntensity={0.85} />
-          </mesh>
+          <group key={`win-${idx}`} position={[wx, 0.12, -length * 0.112]}>
+            <mesh rotation={[0, Math.PI, 0]}>
+              <planeGeometry args={[width * 0.18, 0.55]} />
+              <meshStandardMaterial
+                color="#fef08a"
+                emissive="#f59e0b"
+                emissiveIntensity={1.1}
+                roughness={0.15}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+            <mesh position={[0, 0, -0.01]}>
+              <boxGeometry args={[width * 0.2, 0.59, 0.02]} />
+              <meshStandardMaterial color="#1a0e06" roughness={0.9} />
+            </mesh>
+          </group>
         ))}
         {/* Brass Stern Lantern */}
         <mesh position={[0, 0.8, -length * 0.12]} castShadow>
@@ -159,7 +176,7 @@ export const SloopModel: React.FC<SubModelProps> = React.memo(({
         mastHeight={mastHeight}
         hullWidth={width * 0.96}
         shroudSpread={1.8}
-        includeRatlines={true}
+        includeRatlines={!isEnemy}
       />
 
       {/* Tall Single Mast with Gaff Rig & Square Topsail */}

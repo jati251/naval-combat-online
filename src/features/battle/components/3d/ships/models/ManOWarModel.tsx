@@ -116,15 +116,64 @@ export const ManOWarModel: React.FC<SubModelProps> = React.memo(({
 
       {/* 3-Tier Sovereign Admiral's Stern Gallery */}
       <group position={[0, hullDepth + sheerStern * 0.75, -length * 0.38]}>
+        {/* Main Admiral's Great Cabin */}
         <mesh castShadow receiveShadow>
           <boxGeometry args={[width * 0.92, 2.3, length * 0.25]} />
-          <meshStandardMaterial color={isEnemy ? '#881337' : '#1e3a5f'} map={hullTexture} />
+          <meshStandardMaterial map={hullTexture} roughness={0.65} />
         </mesh>
+        {/* Heavy Gold Transom Molding */}
+        <mesh position={[0, 1.18, -length * 0.126]} castShadow>
+          <boxGeometry args={[width * 0.94, 0.14, 0.08]} />
+          <meshStandardMaterial color={trimColor || '#f59e0b'} metalness={0.88} roughness={0.2} />
+        </mesh>
+        {/* Lower Gallery: 7 Leaded Admiral Windows */}
+        {[-width * 0.36, -width * 0.24, -width * 0.12, 0, width * 0.12, width * 0.24, width * 0.36].map((wx, wIdx) => (
+          <group key={`m-win-${wIdx}`} position={[wx, 0.15, -length * 0.128]}>
+            <mesh rotation={[0, Math.PI, 0]}>
+              <planeGeometry args={[width * 0.085, 0.9]} />
+              <meshStandardMaterial
+                color="#fef08a"
+                emissive="#f59e0b"
+                emissiveIntensity={1.1}
+                roughness={0.15}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+            <mesh position={[0, 0, -0.01]}>
+              <boxGeometry args={[width * 0.098, 0.95, 0.02]} />
+              <meshStandardMaterial color="#1a0e06" roughness={0.9} />
+            </mesh>
+          </group>
+        ))}
+
         {/* Upper Grand Poop Deck */}
         <group position={[0, 1.8, -length * 0.02]}>
           <mesh castShadow receiveShadow>
             <boxGeometry args={[width * 0.82, 1.5, length * 0.18]} />
-            <meshStandardMaterial color={trimColor} map={hullTexture} />
+            <meshStandardMaterial map={hullTexture} roughness={0.65} />
+          </mesh>
+          {/* Upper Gallery: 5 Leaded Windows */}
+          {[-width * 0.28, -width * 0.14, 0, width * 0.14, width * 0.28].map((ux, uIdx) => (
+            <group key={`mu-win-${uIdx}`} position={[ux, 0.1, -length * 0.092]}>
+              <mesh rotation={[0, Math.PI, 0]}>
+                <planeGeometry args={[width * 0.085, 0.65]} />
+                <meshStandardMaterial
+                  color="#fef08a"
+                  emissive="#f59e0b"
+                  emissiveIntensity={1.2}
+                  roughness={0.15}
+                  side={THREE.DoubleSide}
+                />
+              </mesh>
+              <mesh position={[0, 0, -0.01]}>
+                <boxGeometry args={[width * 0.098, 0.7, 0.02]} />
+                <meshStandardMaterial color="#1a0e06" roughness={0.9} />
+              </mesh>
+            </group>
+          ))}
+          <mesh position={[0, 0.78, -length * 0.091]} castShadow>
+            <boxGeometry args={[width * 0.84, 0.12, 0.06]} />
+            <meshStandardMaterial color={trimColor || '#f59e0b'} metalness={0.88} roughness={0.2} />
           </mesh>
         </group>
 
@@ -172,7 +221,7 @@ export const ManOWarModel: React.FC<SubModelProps> = React.memo(({
               mastHeight={mastHeight}
               hullWidth={width * 0.96}
               shroudSpread={2.4}
-              includeRatlines={true}
+              includeRatlines={!isEnemy}
             />
             <group position={[0, hullDepth, mastZ]}>
               <mesh position={[0, mastHeight * 0.5, 0]} castShadow>
