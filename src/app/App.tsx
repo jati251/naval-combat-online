@@ -6,6 +6,8 @@ import { NavalCanvas } from '@/features/battle/components/3d/NavalCanvas';
 import { BattleHUD } from '@/features/battle/components/hud/BattleHUD';
 import { DebriefModal } from '@/features/battle/components/hud/DebriefModal';
 
+import { ToastContainer } from '@/components/ui/ToastContainer';
+
 export const App: React.FC = () => {
   const stage = useGameStore((s) => s.stage);
 
@@ -16,6 +18,7 @@ export const App: React.FC = () => {
 
   return (
     <div className="w-screen h-screen overflow-hidden bg-slate-950 text-slate-100 relative">
+      <ToastContainer />
       {stage === 'LOBBY' && <LobbyView />}
 
       {(stage === 'BATTLE' || stage === 'DEBRIEF') && (

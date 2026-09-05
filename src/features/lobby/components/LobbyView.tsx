@@ -13,6 +13,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useGameStore } from '@/stores/useGameStore';
+import { useToastStore } from '@/stores/useToastStore';
 import { networkClient } from '@/services/networkClient';
 import { SHIP_PRESETS, type ShipClass } from '@/types/game';
 import { ShipTurntable3D } from './ShipTurntable3D';
@@ -32,6 +33,13 @@ export const LobbyView: React.FC = () => {
   const [inputServerUrl, setInputServerUrl] = useState(serverUrl);
   const [newRoomName, setNewRoomName] = useState('');
   const [maxPlayers, setMaxPlayers] = useState(4);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    networkClient.refreshRooms();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
 
   const currentShipConfig = SHIP_PRESETS[selectedShip];
   const selfPlayer = currentRoom?.players.find((p) => p.id === selfId);
@@ -39,7 +47,14 @@ export const LobbyView: React.FC = () => {
 
   const handleCreateRoom = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newRoomName.trim()) return;
+    if (!newRoomName.trim()) {
+      useToastStore.getState().warning('Nama fleet armada tidak boleh kosong!', 'Input Diperlukan');
+      return;
+    }
+    if (!playerName.trim()) {
+      useToastStore.getState().warning('Harap tentukan Nama Captain Anda terlebih dahulu!', 'Nama Captain Diperlukan');
+      return;
+    }
     networkClient.createRoom(newRoomName.trim(), maxPlayers);
     setShowCreateModal(false);
     setNewRoomName('');
@@ -183,25 +198,35 @@ export const LobbyView: React.FC = () => {
             <div className="flex flex-col h-full justify-between gap-4">
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div>
-                  <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">
-                    ACTIVE SQUADRON
-                  </span>
-                  <h3 className="font-cinzel text-xl font-bold text-slate-100">{currentRoom.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">
+                      ACTIVE SQUADRON
+                    </span>
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      REALTIME
+                    </span>
+                  </div>
+                  <h3 className="font-cinzel text-xl font-bold text-slate-100 mt-0.5">{currentRoom.name}</h3>
                 </div>
                 <button
                   onClick={() => networkClient.leaveRoom()}
-                  className="p-2 rounded-xl bg-slate-900 hover:bg-rose-950/60 border border-slate-800 hover:border-rose-700 text-slate-400 hover:text-rose-300 transition"
+                  className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-rose-950/60 border border-slate-800 hover:border-rose-700 text-slate-400 hover:text-rose-300 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
                   title="Leave Room"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Leave</span>
                 </button>
               </div>
 
               {/* Player Fleet Roster */}
               <div className="flex-1 flex flex-col gap-2 overflow-y-auto max-h-72 pr-1">
                 <span className="text-xs text-slate-400 font-semibold flex items-center justify-between">
-                  <span>CAPTAINS IN FORMATION</span>
-                  <span>
+                  <span className="flex items-center gap-1.5">
+                    <span>CAPTAINS IN FORMATION</span>
+                    <span className="text-[10px] text-emerald-400 font-normal">(Live Auto-Sync)</span>
+                  </span>
+                  <span className="font-mono">
                     {currentRoom.players.length} / {currentRoom.maxPlayers}
                   </span>
                 </span>
@@ -211,19 +236,24 @@ export const LobbyView: React.FC = () => {
                     key={p.id}
                     className={`flex items-center justify-between p-3 rounded-2xl border transition ${
                       p.id === selfId
-                        ? 'bg-slate-900/90 border-cyan-500/50'
+                        ? 'bg-slate-900/90 border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.15)]'
                         : 'bg-slate-950/80 border-slate-800'
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold font-cinzel text-amber-300">
-                        {p.name.charAt(0)}
+                        {p.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="flex flex-col">
                         <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
                           {p.name}
+                          {p.id === selfId && (
+                            <span className="text-[9px] bg-cyan-500/20 text-cyan-300 px-1.5 py-0.2 rounded border border-cyan-500/40">
+                              YOU
+                            </span>
+                          )}
                           {p.isHost && (
-                            <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded border border-amber-500/40">
+                            <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded border border-amber-500/40 font-black">
                               HOST
                             </span>
                           )}
@@ -276,19 +306,38 @@ export const LobbyView: React.FC = () => {
             <div className="flex flex-col h-full justify-between gap-4">
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div>
-                  <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">
-                    FLEET ENGAGEMENTS
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">
+                      FLEET ENGAGEMENTS
+                    </span>
+                    <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-semibold">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      LIVE
+                    </span>
+                  </div>
                   <h3 className="font-cinzel text-xl font-bold text-slate-100">Battle Arenas</h3>
                 </div>
 
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg transition active:scale-95 cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Create Fleet</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    className="px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-cyan-500/50 text-slate-300 hover:text-cyan-300 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer active:scale-95 disabled:opacity-60"
+                    title="Refresh Fleet List"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-cyan-400' : ''}`} />
+                    <span>Refresh</span>
+                  </button>
+
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg transition active:scale-95 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Create Fleet</span>
+                  </button>
+                </div>
               </div>
 
               {/* Rooms List */}
@@ -312,16 +361,30 @@ export const LobbyView: React.FC = () => {
                             <Users className="w-3 h-3 text-cyan-400" />
                             {room.players.length} / {room.maxPlayers}
                           </span>
-                          <span className="text-amber-400 font-semibold">{room.status}</span>
+                          <span
+                            className={`font-semibold ${
+                              room.status === 'IN_GAME'
+                                ? 'text-amber-400'
+                                : room.status === 'FINISHED'
+                                ? 'text-slate-500'
+                                : 'text-emerald-400'
+                            }`}
+                          >
+                            {room.status === 'IN_GAME' ? 'In Battle' : room.status}
+                          </span>
                         </div>
                       </div>
 
                       <button
-                        disabled={room.status !== 'LOBBY' || room.players.length >= room.maxPlayers}
+                        disabled={room.status === 'FINISHED' || room.players.length >= room.maxPlayers}
                         onClick={() => networkClient.joinRoom(room.id)}
-                        className="px-4 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-800 disabled:text-slate-600 text-white font-bold text-xs transition active:scale-95 cursor-pointer"
+                        className={`px-3.5 py-1.5 rounded-xl font-bold text-xs transition active:scale-95 cursor-pointer ${
+                          room.status === 'IN_GAME'
+                            ? 'bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 text-slate-950'
+                            : 'bg-cyan-600 hover:bg-cyan-500 text-white'
+                        } disabled:bg-slate-800 disabled:text-slate-600`}
                       >
-                        Join Battle
+                        {room.status === 'IN_GAME' ? 'Join Battle (Live)' : 'Join Battle'}
                       </button>
                     </div>
                   ))

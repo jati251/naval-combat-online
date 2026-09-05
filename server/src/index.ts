@@ -3,7 +3,8 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { RoomManager } from './network/RoomManager.js';
-import type { ClientMessage, ServerMessage } from './types/protocol.js';
+import { SecurityGuard } from './security/SecurityGuard.js';
+import type { ServerMessage } from './types/protocol.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,10 +30,11 @@ try {
 }
 
 const roomManager = new RoomManager(
-  // Broadcast to room topic
-  (roomId: string, message: ServerMessage) => {
+  // Broadcast to room topic or global lobby topic
+  (topic: string, message: ServerMessage) => {
     const payload = JSON.stringify(message);
-    app.publish(`room:${roomId}`, payload, false);
+    const targetTopic = topic === 'lobby' ? 'lobby' : `room:${topic}`;
+    app.publish(targetTopic, payload, false);
   },
   // Send direct to single client
   (clientId: string, message: ServerMessage) => {
@@ -63,8 +65,9 @@ app.ws<SocketUserData>('/ws', {
   open: (ws) => {
     const data = ws.getUserData();
     clientSockets.set(data.id, ws);
-    // Subscribe to client's own direct message topic
+    // Subscribe to client's own direct message topic and global lobby topic
     ws.subscribe(`direct:${data.id}`);
+    ws.subscribe('lobby');
 
     // Send available room list on connection
     ws.send(
@@ -77,24 +80,46 @@ app.ws<SocketUserData>('/ws', {
 
   message: (ws, message, _isBinary) => {
     const data = ws.getUserData();
+
+    // Security & Anti-Cheat: Rate limit incoming packets
+    const rateAction = SecurityGuard.checkMessageRate(data.id);
+    if (rateAction === 'DISCONNECT') {
+      ws.close();
+      return;
+    }
+    if (rateAction === 'DROP') {
+      return;
+    }
+
     try {
       const text = Buffer.from(message).toString('utf-8');
-      const msg = JSON.parse(text) as ClientMessage;
+      const rawMsg = JSON.parse(text);
 
-      // Handle topic subscription if joining/creating room
+      // Security & Anti-Cheat: Validate and sanitize client payload
+      const msg = SecurityGuard.validateAndSanitize(rawMsg);
+      if (!msg) {
+        return; // Drop malformed / tampered packet
+      }
+
+      // Unsubscribe previous room topic if creating/joining another room
       if (msg.type === 'CREATE_ROOM' || msg.type === 'JOIN_ROOM') {
-        // Unsubscribe old room if any
         if (data.subscribedRoom) {
           ws.unsubscribe(`room:${data.subscribedRoom}`);
+          data.subscribedRoom = undefined;
         }
       }
 
-      roomManager.handleClientMessage(data.id, msg);
+      const res = roomManager.handleClientMessage(data.id, msg);
 
-      // If room was joined, subscribe to room topic
-      if (msg.type === 'JOIN_ROOM') {
-        data.subscribedRoom = msg.roomId;
-        ws.subscribe(`room:${msg.roomId}`);
+      // Subscribe socket to room topic for BOTH CREATE_ROOM and JOIN_ROOM!
+      if (res?.joinedRoomId) {
+        data.subscribedRoom = res.joinedRoomId;
+        ws.subscribe(`room:${res.joinedRoomId}`);
+      }
+
+      if (msg.type === 'LEAVE_ROOM' && data.subscribedRoom) {
+        ws.unsubscribe(`room:${data.subscribedRoom}`);
+        data.subscribedRoom = undefined;
       }
     } catch (err) {
       console.error('Error handling websocket message:', err);
@@ -104,6 +129,7 @@ app.ws<SocketUserData>('/ws', {
   close: (ws, _code, _message) => {
     const data = ws.getUserData();
     clientSockets.delete(data.id);
+    SecurityGuard.removeClient(data.id);
     if (data.subscribedRoom) {
       ws.unsubscribe(`room:${data.subscribedRoom}`);
     }

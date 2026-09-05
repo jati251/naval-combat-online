@@ -127,6 +127,7 @@ export type ClientMessage =
   | { type: 'SELECT_SHIP'; shipClass: ShipClass }
   | { type: 'SET_READY'; ready: boolean }
   | { type: 'START_GAME' }
+  | { type: 'GET_ROOMS' }
   | { type: 'INPUT'; seq: number; rudder: number; sail: SailState }
   | { type: 'FIRE_BROADSIDE'; side: 'port' | 'starboard'; angle: number }
   | { type: 'PING'; clientTime: number };

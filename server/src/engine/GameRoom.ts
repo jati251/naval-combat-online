@@ -68,6 +68,52 @@ export class GameRoom {
     return true;
   }
 
+  public addPlayerMidGame(id: string, name: string, shipClass: ShipClass): void {
+    const isHost = this.players.size === 0;
+    this.players.set(id, {
+      id,
+      name,
+      shipClass,
+      isReady: true,
+      isHost,
+      score: 0,
+    });
+
+    const config = SERVER_SHIP_CONFIGS[shipClass];
+    // Spread spawn in safe radius facing center
+    const spawnAngle = Math.random() * Math.PI * 2;
+    const spawnRadius = 80 + Math.random() * 25;
+    const x = Math.sin(spawnAngle) * spawnRadius;
+    const z = Math.cos(spawnAngle) * spawnRadius;
+    const rotationY = spawnAngle + Math.PI;
+
+    this.ships.set(id, {
+      id,
+      name,
+      shipClass,
+      x,
+      y: 0,
+      z,
+      vx: 0,
+      vz: 0,
+      speed: 0,
+      rotationY,
+      pitch: 0,
+      roll: 0,
+      rudder: 0,
+      sail: 'ANCHOR',
+      health: config.maxHealth,
+      maxHealth: config.maxHealth,
+      isSunk: false,
+      score: 0,
+      reloadTimerPort: 0,
+      reloadTimerStarboard: 0,
+    });
+
+    this.broadcastRoomState();
+    this.broadcastSnapshot();
+  }
+
   public removePlayer(id: string): void {
     const wasHost = this.players.get(id)?.isHost ?? false;
     this.players.delete(id);
@@ -84,6 +130,7 @@ export class GameRoom {
     }
 
     if (this.status === 'IN_GAME') {
+      this.broadcastSnapshot();
       this.checkVictoryCondition();
     }
 
@@ -188,9 +235,9 @@ export class GameRoom {
     this.cannonballs = [];
     this.ships.clear();
 
-    // Spawn ships in circle facing center
+    // Spawn ships in perimeter circle facing center with ample maneuvering space
     const playerArray = Array.from(this.players.values());
-    const spawnRadius = Math.max(40, playerArray.length * 25);
+    const spawnRadius = Math.max(75, playerArray.length * 35);
 
     playerArray.forEach((player, idx) => {
       const spawnAngle = (idx / playerArray.length) * Math.PI * 2;
@@ -282,9 +329,13 @@ export class GameRoom {
       }
     );
 
-    // Broadcast world snapshot (compact form)
+    this.broadcastSnapshot();
+  }
+
+  public broadcastSnapshot(): void {
+    const serverTime = (Date.now() - this.startTime) / 1000;
     const shipsPayload = Array.from(this.ships.values()).map(
-      ({ reloadTimerPort, reloadTimerStarboard, ...publicShip }) => publicShip
+      ({ reloadTimerPort: _p, reloadTimerStarboard: _s, ...publicShip }) => publicShip
     );
 
     const cannonballsPayload = this.cannonballs.map((b) => ({
@@ -305,6 +356,10 @@ export class GameRoom {
       ships: shipsPayload,
       cannonballs: cannonballsPayload,
     });
+  }
+
+  public getStartTime(): number {
+    return this.startTime;
   }
 
   private checkVictoryCondition(): void {

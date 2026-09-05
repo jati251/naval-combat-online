@@ -1,4 +1,5 @@
 import { useGameStore } from '@/stores/useGameStore';
+import { useToastStore } from '@/stores/useToastStore';
 import { type ShipClass, type SailState, SHIP_PRESETS } from '@/types/game';
 import { navalAudio } from '@/features/battle/services/navalAudio';
 
@@ -7,6 +8,7 @@ class NetworkClient {
   private pingInterval: NodeJS.Timeout | null = null;
   private reconnectTimer: NodeJS.Timeout | null = null;
   private inputSeq: number = 0;
+  private hasConnectedOnce: boolean = false;
 
   public getWsUrl(): string {
     const customUrl = useGameStore.getState().serverUrl;
@@ -49,6 +51,10 @@ class NetworkClient {
       this.ws.onopen = () => {
         useGameStore.getState().setIsConnected(true);
         this.startPing();
+        if (this.hasConnectedOnce) {
+          useToastStore.getState().success('Koneksi ke armada server berhasil dipulihkan.', 'Server Connected');
+        }
+        this.hasConnectedOnce = true;
       };
 
       this.ws.onmessage = (event) => {
@@ -63,6 +69,9 @@ class NetworkClient {
       this.ws.onclose = () => {
         useGameStore.getState().setIsConnected(false);
         this.stopPing();
+        if (this.hasConnectedOnce) {
+          useToastStore.getState().warning('Koneksi server terputus. Mencoba menghubungkan kembali...', 'Koneksi Terputus');
+        }
         this.scheduleReconnect();
       };
 
@@ -157,7 +166,7 @@ class NetworkClient {
         break;
       }
       case 'ERROR': {
-        alert(msg.message as string);
+        useToastStore.getState().error(msg.message as string, 'Armada Alert');
         break;
       }
     }
@@ -169,11 +178,29 @@ class NetworkClient {
     }
   }
 
+  public refreshRooms(): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      useToastStore.getState().warning('Menghubungkan ke server armada...', 'Server Reconnecting');
+    }
+    this.send({ type: 'GET_ROOMS' });
+  }
+
   public createRoom(roomName: string, maxPlayers: number = 4): void {
     const store = useGameStore.getState();
+
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      useToastStore.getState().error('Tidak dapat membuat fleet: Anda belum terhubung ke server!', 'Koneksi Terputus');
+      return;
+    }
+
+    if (!roomName.trim()) {
+      useToastStore.getState().warning('Nama armada pertempuran tidak boleh kosong!', 'Input Diperlukan');
+      return;
+    }
+
     this.send({
       type: 'CREATE_ROOM',
-      roomName,
+      roomName: roomName.trim(),
       playerName: store.playerName,
       shipClass: store.selectedShip,
       maxPlayers,
@@ -182,6 +209,21 @@ class NetworkClient {
 
   public joinRoom(roomId: string): void {
     const store = useGameStore.getState();
+
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      useToastStore.getState().error('Tidak dapat bergabung: Anda belum terhubung ke server!', 'Koneksi Terputus');
+      return;
+    }
+
+    const targetRoom = store.availableRooms.find((r) => r.id === roomId);
+    if (targetRoom && targetRoom.players.length >= targetRoom.maxPlayers) {
+      useToastStore.getState().warning(
+        `Room "${targetRoom.name}" sudah penuh (${targetRoom.players.length}/${targetRoom.maxPlayers} Captains)! Silakan pilih atau buat room lain.`,
+        'Fleet Penuh'
+      );
+      return;
+    }
+
     this.send({
       type: 'JOIN_ROOM',
       roomId,

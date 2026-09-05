@@ -44,7 +44,7 @@ const ShipEntity: React.FC<ShipEntityProps> = ({ ship, isSelf }) => {
       />
 
       {/* Floating Health Bar and Nameplate */}
-      <Html position={[0, 9.5, 0]} center distanceFactor={45} occlude>
+      <Html position={[0, 9.5, 0]} center distanceFactor={45}>
         <div className="flex flex-col items-center pointer-events-none select-none">
           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-900/90 border border-slate-700/80 shadow text-[10px] font-bold tracking-wide text-slate-200 uppercase">
             <span className={isSelf ? 'text-cyan-400 font-extrabold' : 'text-amber-400'}>
@@ -106,7 +106,8 @@ export const NavalCanvas: React.FC = () => {
       <Canvas
         camera={{ position: [0, 25, -45], fov: 55, near: 0.5, far: 1200 }}
         shadows
-        gl={{ antialias: true, alpha: false }}
+        dpr={[1, 1.5]}
+        gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
       >
         <Environment3D />
         <OceanWater />

@@ -9,21 +9,23 @@ interface OceanWaterProps {
 export const OceanWater: React.FC<OceanWaterProps> = ({ size = 1200 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
 
-  // Custom Gerstner Wave Shader
+  // Custom Gerstner Wave Shader with enhanced ocean visuals & foam
   const shaderMaterial = useMemo(() => {
     return new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
-        uDeepWaterColor: { value: new THREE.Color('#031424') },
-        uShallowWaterColor: { value: new THREE.Color('#0d4261') },
-        uFoamColor: { value: new THREE.Color('#cde5f7') },
-        uLightPosition: { value: new THREE.Vector3(100, 150, 100) },
+        uDeepWaterColor: { value: new THREE.Color('#011627') },
+        uShallowWaterColor: { value: new THREE.Color('#035c6e') },
+        uFoamColor: { value: new THREE.Color('#e0fbfc') },
+        uSunColor: { value: new THREE.Color('#fff3b0') },
+        uLightPosition: { value: new THREE.Vector3(120, 160, 90) },
       },
       vertexShader: `
         uniform float uTime;
         varying vec3 vNormal;
         varying vec3 vWorldPosition;
         varying float vWaveHeight;
+        varying float vFoamFactor;
 
         struct Wave {
           vec2 direction;
@@ -34,10 +36,10 @@ export const OceanWater: React.FC<OceanWaterProps> = ({ size = 1200 }) => {
 
         const int NUM_WAVES = 4;
         const Wave waves[NUM_WAVES] = Wave[NUM_WAVES](
-          Wave(vec2(1.0, 0.3), 0.32, 52.0, 3.4),
-          Wave(vec2(0.6, 0.8), 0.22, 28.0, 2.6),
-          Wave(vec2(-0.3, 0.95), 0.18, 16.0, 2.0),
-          Wave(vec2(-0.7, -0.7), 0.12, 8.0, 1.4)
+          Wave(vec2(1.0, 0.25), 0.28, 55.0, 3.2),
+          Wave(vec2(0.5, 0.85), 0.20, 26.0, 2.4),
+          Wave(vec2(-0.35, 0.93), 0.15, 14.0, 1.8),
+          Wave(vec2(-0.7, -0.7), 0.10, 7.5, 1.3)
         );
 
         void main() {
@@ -69,6 +71,9 @@ export const OceanWater: React.FC<OceanWaterProps> = ({ size = 1200 }) => {
           vNormal = calcNormal;
           vWaveHeight = displaced.y;
 
+          // Wave crest sharpness indicates churning foam
+          vFoamFactor = smoothstep(1.3, 2.2, displaced.y) * 0.85;
+
           vec4 worldPos = modelMatrix * vec4(displaced, 1.0);
           vWorldPosition = worldPos.xyz;
           gl_Position = projectionMatrix * viewMatrix * worldPos;
@@ -78,36 +83,39 @@ export const OceanWater: React.FC<OceanWaterProps> = ({ size = 1200 }) => {
         uniform vec3 uDeepWaterColor;
         uniform vec3 uShallowWaterColor;
         uniform vec3 uFoamColor;
+        uniform vec3 uSunColor;
         uniform vec3 uLightPosition;
         varying vec3 vNormal;
         varying vec3 vWorldPosition;
         varying float vWaveHeight;
+        varying float vFoamFactor;
 
         void main() {
           vec3 normal = normalize(vNormal);
           vec3 lightDir = normalize(uLightPosition - vWorldPosition);
           vec3 viewDir = normalize(cameraPosition - vWorldPosition);
 
-          // Diffuse lighting
+          // Diffuse illumination
           float diff = max(dot(normal, lightDir), 0.0);
 
-          // Specular highlights (sun glitter on waves)
-          vec3 reflectDir = reflect(-lightDir, normal);
-          float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
+          // Specular highlights (brilliant sun glimmer on water surface)
+          vec3 halfVector = normalize(lightDir + viewDir);
+          float spec = pow(max(dot(normal, halfVector), 0.0), 48.0);
 
-          // Height gradient for water depth
-          float heightFactor = clamp((vWaveHeight + 2.5) / 5.0, 0.0, 1.0);
+          // Subsurface scattering gradient
+          float heightFactor = clamp((vWaveHeight + 2.0) / 4.2, 0.0, 1.0);
           vec3 waterColor = mix(uDeepWaterColor, uShallowWaterColor, heightFactor);
 
-          // Foam on wave peaks
-          float foamFactor = smoothstep(1.6, 2.6, vWaveHeight);
-          waterColor = mix(waterColor, uFoamColor, foamFactor * 0.7);
+          // Dynamic foam on wave crests
+          waterColor = mix(waterColor, uFoamColor, vFoamFactor);
 
-          // Fresnel reflection
-          float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 4.0);
-          vec3 finalColor = waterColor + vec3(0.1, 0.2, 0.3) * diff + vec3(1.0, 0.95, 0.8) * (spec * 0.85) + vec3(0.15) * fresnel;
+          // Fresnel reflection (sky reflection at shallow grazing angles)
+          float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 3.5);
+          vec3 skyReflection = vec3(0.08, 0.16, 0.24) * fresnel;
 
-          gl_FragColor = vec4(finalColor, 0.94);
+          vec3 finalColor = waterColor + skyReflection + vec3(0.04, 0.08, 0.12) * diff + uSunColor * (spec * 0.95);
+
+          gl_FragColor = vec4(finalColor, 0.96);
         }
       `,
       transparent: true,
@@ -123,7 +131,7 @@ export const OceanWater: React.FC<OceanWaterProps> = ({ size = 1200 }) => {
 
   return (
     <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]} material={shaderMaterial}>
-      <planeGeometry args={[size, size, 128, 128]} />
+      <planeGeometry args={[size, size, 96, 96]} />
     </mesh>
   );
 };

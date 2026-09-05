@@ -1,7 +1,5 @@
 import { getWaveHeight } from './WaveMath.js';
 import {
-  type ShipClass,
-  type SailState,
   type ShipSimulationState,
   type CannonballSimulationState,
   SERVER_SHIP_CONFIGS,
@@ -59,14 +57,32 @@ export class PhysicsEngine {
     const effectiveTurnSpeed = config.turnSpeed * Math.min(1.0, (ship.speed + 1.5) / config.topSpeed);
     ship.rotationY += ship.rudder * effectiveTurnSpeed * dt;
 
+    // Anti-Cheat: Cap maximum possible speed (prevents speedhack)
+    const absoluteMaxSpeed = config.topSpeed * 1.25;
+    if (ship.speed > absoluteMaxSpeed) {
+      ship.speed = absoluteMaxSpeed;
+    }
+
     // Move along ship heading (yaw)
     // Note: Three.js coordinates: +Z forward or -Z forward depending on orientation
-    // Let's standardise: 0 rad yaw points along +Z, rotation around Y
+    // Standardized: 0 rad yaw points along +Z, rotation around Y
     const moveZ = Math.cos(ship.rotationY) * ship.speed * dt;
     const moveX = Math.sin(ship.rotationY) * ship.speed * dt;
 
     ship.x += moveX;
     ship.z += moveZ;
+
+    // Anti-Cheat: Ocean Arena Boundaries (Radius 500m)
+    const maxRadius = 500;
+    const distFromCenter = Math.hypot(ship.x, ship.z);
+    if (distFromCenter > maxRadius) {
+      // Repel back inside arena boundary
+      const angle = Math.atan2(ship.x, ship.z);
+      ship.x = Math.sin(angle) * maxRadius;
+      ship.z = Math.cos(angle) * maxRadius;
+      ship.speed *= 0.5; // Dampen speed on boundary collision
+    }
+
     ship.vx = moveX / dt;
     ship.vz = moveZ / dt;
 

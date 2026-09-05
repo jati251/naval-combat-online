@@ -1,4 +1,5 @@
 import { GameRoom } from '../engine/GameRoom.js';
+import { SecurityGuard } from '../security/SecurityGuard.js';
 import {
   type ClientMessage,
   type ServerMessage,
@@ -24,9 +25,26 @@ export class RoomManager {
     return Array.from(this.rooms.values()).map((r) => r.getRoomInfo());
   }
 
-  public handleClientMessage(clientId: string, msg: ClientMessage): void {
+  public handleClientMessage(clientId: string, msg: ClientMessage): { joinedRoomId?: string } | void {
     switch (msg.type) {
       case 'CREATE_ROOM': {
+        if (this.rooms.size >= SecurityGuard.MAX_GLOBAL_ROOMS) {
+          this.sendDirect(clientId, {
+            type: 'ERROR',
+            message: 'Kapasitas armada server telah penuh. Silakan bergabung ke pertempuran yang ada!',
+          });
+          return;
+        }
+
+        const canCreate = SecurityGuard.canCreateRoom(clientId);
+        if (!canCreate.allowed) {
+          this.sendDirect(clientId, {
+            type: 'ERROR',
+            message: canCreate.reason || 'Mohon tunggu beberapa detik sebelum membuat room baru!',
+          });
+          return;
+        }
+
         const roomId = 'room-' + Math.random().toString(36).substring(2, 8).toUpperCase();
         const room = new GameRoom(
           roomId,
@@ -44,7 +62,8 @@ export class RoomManager {
           room: room.getRoomInfo(),
           selfId: clientId,
         });
-        break;
+        this.broadcastLobbyUpdate();
+        return { joinedRoomId: roomId };
       }
 
       case 'JOIN_ROOM': {
@@ -59,18 +78,48 @@ export class RoomManager {
           return;
         }
 
-        if (room.status !== 'LOBBY') {
-          this.sendDirect(clientId, { type: 'ERROR', message: 'Pertempuran sudah dimulai!' });
+        if (room.status === 'FINISHED') {
+          this.sendDirect(clientId, { type: 'ERROR', message: 'Pertempuran sudah selesai!' });
           return;
         }
 
         this.clientRoomMap.set(clientId, msg.roomId);
-        room.addPlayer(clientId, msg.playerName, msg.shipClass);
 
+        if (room.status === 'IN_GAME') {
+          // Mid-game join directly into battle!
+          room.addPlayerMidGame(clientId, msg.playerName, msg.shipClass);
+
+          this.sendDirect(clientId, {
+            type: 'ROOM_STATE',
+            room: room.getRoomInfo(),
+            selfId: clientId,
+          });
+
+          this.sendDirect(clientId, {
+            type: 'GAME_STARTED',
+            startTime: room.getStartTime(),
+            windAngle: room.windAngle,
+            windSpeed: room.windSpeed,
+          });
+        } else {
+          // Normal lobby join
+          room.addPlayer(clientId, msg.playerName, msg.shipClass);
+
+          this.sendDirect(clientId, {
+            type: 'ROOM_STATE',
+            room: room.getRoomInfo(),
+            selfId: clientId,
+          });
+        }
+
+        this.broadcastLobbyUpdate();
+        return { joinedRoomId: msg.roomId };
+      }
+
+      case 'GET_ROOMS': {
         this.sendDirect(clientId, {
-          type: 'ROOM_STATE',
-          room: room.getRoomInfo(),
-          selfId: clientId,
+          type: 'ROOM_LIST',
+          rooms: this.getRoomList(),
         });
         break;
       }
@@ -103,6 +152,7 @@ export class RoomManager {
         const player = room?.players.get(clientId);
         if (room && player?.isHost) {
           room.startGame();
+          this.broadcastLobbyUpdate();
         }
         break;
       }
@@ -134,6 +184,13 @@ export class RoomManager {
     }
   }
 
+  public broadcastLobbyUpdate(): void {
+    this.broadcastToTopic('lobby', {
+      type: 'ROOM_LIST',
+      rooms: this.getRoomList(),
+    });
+  }
+
   public handleClientDisconnect(clientId: string): void {
     const roomId = this.clientRoomMap.get(clientId);
     if (!roomId) return;
@@ -147,5 +204,6 @@ export class RoomManager {
         this.rooms.delete(roomId);
       }
     }
+    this.broadcastLobbyUpdate();
   }
 }
