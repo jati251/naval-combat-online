@@ -48,7 +48,7 @@ export const Modal: React.FC<ModalProps> = ({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 select-none pointer-events-auto transition-opacity animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 select-none pointer-events-auto transition-opacity animate-in fade-in duration-200"
       onClick={(e) => {
         if (closeOnBackdropClick && e.target === e.currentTarget) {
           onClose();
@@ -56,34 +56,34 @@ export const Modal: React.FC<ModalProps> = ({
       }}
     >
       <div
-        className={`pirate-parchment border-2 border-amber-500/70 rounded-xl p-5 sm:p-6 w-full ${maxWidth} max-h-[92vh] flex flex-col overflow-y-auto shadow-[0_12px_40px_rgba(0,0,0,0.85),0_0_24px_rgba(245,158,11,0.25)] relative ${className}`}
+        className={`pirate-parchment border-2 border-amber-500/70 rounded-xl p-3.5 sm:p-6 w-full ${maxWidth} max-h-[92dvh] flex flex-col overflow-y-auto shadow-[0_12px_40px_rgba(0,0,0,0.85),0_0_24px_rgba(245,158,11,0.25)] relative ${className}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Ornate Brass/Gold Corner Accents */}
-        <div className="absolute top-1.5 left-1.5 w-3.5 h-3.5 border-t-2 border-l-2 border-amber-400" />
-        <div className="absolute top-1.5 right-1.5 w-3.5 h-3.5 border-t-2 border-r-2 border-amber-400" />
-        <div className="absolute bottom-1.5 left-1.5 w-3.5 h-3.5 border-b-2 border-l-2 border-amber-400" />
-        <div className="absolute bottom-1.5 right-1.5 w-3.5 h-3.5 border-b-2 border-r-2 border-amber-400" />
+        <div className="absolute top-1.5 left-1.5 w-3 h-3 sm:w-3.5 sm:h-3.5 border-t-2 border-l-2 border-amber-400 pointer-events-none" />
+        <div className="absolute top-1.5 right-1.5 w-3 h-3 sm:w-3.5 sm:h-3.5 border-t-2 border-r-2 border-amber-400 pointer-events-none" />
+        <div className="absolute bottom-1.5 left-1.5 w-3 h-3 sm:w-3.5 sm:h-3.5 border-b-2 border-l-2 border-amber-400 pointer-events-none" />
+        <div className="absolute bottom-1.5 right-1.5 w-3 h-3 sm:w-3.5 sm:h-3.5 border-b-2 border-r-2 border-amber-400 pointer-events-none" />
 
         {/* Header (optional) */}
         {(title || icon || showCloseButton) && (
-          <div className="flex items-center justify-between pb-3.5 border-b border-amber-500/30 mb-4 shrink-0">
-            <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center justify-between pb-2 sm:pb-3.5 border-b border-amber-500/30 mb-2.5 sm:mb-4 shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               {icon && (
-                <div className="w-10 h-10 rounded-lg pirate-panel border border-amber-400/60 flex items-center justify-center text-amber-300 shadow-md shrink-0">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg pirate-panel border border-amber-400/60 flex items-center justify-center text-amber-300 shadow-md shrink-0 [&>svg]:w-4 [&>svg]:h-4 sm:[&>svg]:w-5 sm:[&>svg]:h-5">
                   {icon}
                 </div>
               )}
               <div className="min-w-0">
                 {typeof title === 'string' ? (
-                  <h3 className="font-cinzel font-black text-amber-100 text-lg tracking-wider gold-emboss truncate">
+                  <h3 className="font-cinzel font-black text-amber-100 text-sm sm:text-lg tracking-wider gold-emboss truncate">
                     {title}
                   </h3>
                 ) : (
                   title
                 )}
                 {subtitle && (
-                  <p className="text-[10px] font-fell italic text-amber-200/80 truncate">
+                  <p className="text-[9px] sm:text-[10px] font-fell italic text-amber-200/80 truncate">
                     {subtitle}
                   </p>
                 )}
@@ -94,10 +94,10 @@ export const Modal: React.FC<ModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="text-amber-300/80 hover:text-white transition p-1.5 rounded hover:bg-amber-500/10 cursor-pointer shrink-0 ml-2"
+                className="text-amber-300/80 hover:text-white transition p-1 sm:p-1.5 rounded hover:bg-amber-500/10 cursor-pointer shrink-0 ml-2"
                 title="Close (Esc)"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
             )}
           </div>
@@ -110,7 +110,7 @@ export const Modal: React.FC<ModalProps> = ({
 
         {/* Footer (optional) */}
         {footer && (
-          <div className="mt-5 pt-3.5 border-t border-amber-500/30 flex items-center justify-end gap-3 shrink-0">
+          <div className="mt-3.5 sm:mt-5 pt-2.5 sm:pt-3.5 border-t border-amber-500/30 flex items-center justify-end gap-2 sm:gap-3 shrink-0">
             {footer}
           </div>
         )}

@@ -58,7 +58,7 @@ export const ConfirmDialog: React.FC = () => {
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none pointer-events-auto animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2.5 sm:p-4 select-none pointer-events-auto animate-in fade-in duration-150"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           handleCancel();
@@ -66,18 +66,18 @@ export const ConfirmDialog: React.FC = () => {
       }}
     >
       <div
-        className="pirate-parchment max-w-md w-full rounded-xl p-6 sm:p-7 border-2 border-amber-600/70 shadow-[0_16px_50px_rgba(0,0,0,0.9),0_0_30px_rgba(245,158,11,0.25)] flex flex-col items-center text-center gap-5 relative animate-in zoom-in-95 duration-150"
+        className="pirate-parchment max-w-md w-full max-h-[92dvh] overflow-y-auto rounded-xl p-4 sm:p-7 border-2 border-amber-600/70 shadow-[0_16px_50px_rgba(0,0,0,0.9),0_0_30px_rgba(245,158,11,0.25)] flex flex-col items-center text-center gap-3.5 sm:gap-5 relative animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Ornate Corner Accents */}
-        <div className="absolute top-2 left-2 w-3.5 h-3.5 border-t-2 border-l-2 border-amber-400" />
-        <div className="absolute top-2 right-2 w-3.5 h-3.5 border-t-2 border-r-2 border-amber-400" />
-        <div className="absolute bottom-2 left-2 w-3.5 h-3.5 border-b-2 border-l-2 border-amber-400" />
-        <div className="absolute bottom-2 right-2 w-3.5 h-3.5 border-b-2 border-r-2 border-amber-400" />
+        <div className="absolute top-1.5 left-1.5 w-3 h-3 sm:w-3.5 sm:h-3.5 border-t-2 border-l-2 border-amber-400 pointer-events-none" />
+        <div className="absolute top-1.5 right-1.5 w-3 h-3 sm:w-3.5 sm:h-3.5 border-t-2 border-r-2 border-amber-400 pointer-events-none" />
+        <div className="absolute bottom-1.5 left-1.5 w-3 h-3 sm:w-3.5 sm:h-3.5 border-b-2 border-l-2 border-amber-400 pointer-events-none" />
+        <div className="absolute bottom-1.5 right-1.5 w-3 h-3 sm:w-3.5 sm:h-3.5 border-b-2 border-r-2 border-amber-400 pointer-events-none" />
 
         {/* Wax Seal Medallion */}
         <div
-          className={`w-16 h-16 rounded-full flex items-center justify-center border-2 shadow-xl ${
+          className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center border-2 shadow-xl shrink-0 [&>svg]:w-6 [&>svg]:h-6 sm:[&>svg]:w-8 sm:[&>svg]:h-8 ${
             isDanger
               ? 'wax-seal-red text-rose-100'
               : isWarning
@@ -89,25 +89,25 @@ export const ConfirmDialog: React.FC = () => {
         </div>
 
         {/* Title & Body */}
-        <div className="flex flex-col gap-2 w-full">
-          <span className="text-[10px] font-cinzel font-bold uppercase tracking-[0.25em] text-amber-400/90">
+        <div className="flex flex-col gap-1 sm:gap-2 w-full">
+          <span className="text-[9px] sm:text-[10px] font-cinzel font-bold uppercase tracking-[0.25em] text-amber-400/90">
             {isDanger ? 'ADMIRALTY DECREE' : 'FLAGSHIP TRANSMISSION'}
           </span>
-          <h2 className="font-cinzel text-xl sm:text-2xl font-black text-amber-100 tracking-wider gold-emboss">
+          <h2 className="font-cinzel text-lg sm:text-2xl font-black text-amber-100 tracking-wider gold-emboss">
             {title}
           </h2>
-          <div className="font-fell text-amber-200/90 text-sm sm:text-base leading-relaxed px-1">
+          <div className="font-fell text-amber-200/90 text-xs sm:text-base leading-relaxed px-1">
             {currentDialog.message}
           </div>
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-center gap-3 w-full pt-2">
+        <div className="flex items-center justify-center gap-2 sm:gap-3 w-full pt-1.5 sm:pt-2">
           {isConfirmType && (
             <button
               type="button"
               onClick={handleCancel}
-              className="flex-1 py-2.5 px-4 rounded-lg pirate-panel border border-amber-600/50 hover:border-amber-400 text-amber-300 hover:text-white font-cinzel font-bold text-xs sm:text-sm tracking-wider uppercase transition cursor-pointer active:scale-95 shadow-md"
+              className="flex-1 py-2 sm:py-2.5 px-3 sm:px-4 rounded-lg pirate-panel border border-amber-600/50 hover:border-amber-400 text-amber-300 hover:text-white font-cinzel font-bold text-xs sm:text-sm tracking-wider uppercase transition cursor-pointer active:scale-95 shadow-md"
             >
               {cancelLabel}
             </button>
@@ -116,7 +116,7 @@ export const ConfirmDialog: React.FC = () => {
           <button
             type="button"
             onClick={handleConfirm}
-            className={`flex-1 py-2.5 px-4 rounded-lg font-cinzel font-black text-xs sm:text-sm tracking-widest uppercase transition cursor-pointer border shadow-lg active:scale-95 ${
+            className={`flex-1 py-2 sm:py-2.5 px-3 sm:px-4 rounded-lg font-cinzel font-black text-xs sm:text-sm tracking-widest uppercase transition cursor-pointer border shadow-lg active:scale-95 ${
               isDanger
                 ? 'bg-gradient-to-b from-rose-700 via-rose-800 to-red-950 hover:from-rose-600 hover:to-red-900 text-rose-100 border-rose-500/80 shadow-[0_0_20px_rgba(225,29,72,0.4)]'
                 : isWarning

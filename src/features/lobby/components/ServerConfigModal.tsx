@@ -34,9 +34,9 @@ export const ServerConfigModal: React.FC<ServerConfigModalProps> = ({ isOpen, on
       icon={<Compass className="w-5 h-5" />}
     >
 
-        <form onSubmit={handleSave} className="space-y-4">
+        <form onSubmit={handleSave} className="space-y-2.5 sm:space-y-4">
           <div>
-            <label className="block text-[10px] font-cinzel font-bold text-amber-300 uppercase tracking-widest mb-1">
+            <label className="block text-[9px] sm:text-[10px] font-cinzel font-bold text-amber-300 uppercase tracking-widest mb-1">
               WebSocket Beacon URI
             </label>
             <input
@@ -44,49 +44,49 @@ export const ServerConfigModal: React.FC<ServerConfigModalProps> = ({ isOpen, on
               value={inputUrl}
               onChange={(e) => setInputUrl(e.target.value)}
               placeholder="wss://naval-combat.cekcok.my.id/ws"
-              className="w-full bg-stone-950/80 border border-amber-600/40 rounded-md px-3.5 py-2 font-mono text-xs text-amber-200 focus:outline-none focus:border-amber-400 transition"
+              className="w-full bg-stone-950/80 border border-amber-600/40 rounded-md px-3 py-1.5 sm:py-2 font-mono text-xs text-amber-200 focus:outline-none focus:border-amber-400 transition"
             />
           </div>
 
           <div>
-            <label className="block text-[10px] font-cinzel font-bold text-amber-300 uppercase tracking-widest mb-1.5">
+            <label className="block text-[9px] sm:text-[10px] font-cinzel font-bold text-amber-300 uppercase tracking-widest mb-1 sm:mb-1.5">
               Charted Station Presets
             </label>
-            <div className="space-y-2">
+            <div className="space-y-1.5 sm:space-y-2">
               <button
                 type="button"
                 onClick={() => handleSelectPreset('wss://naval-combat.cekcok.my.id/ws')}
-                className="w-full text-left p-2.5 rounded-md pirate-panel border border-amber-600/30 hover:border-amber-400 transition cursor-pointer text-xs flex justify-between items-center group"
+                className="w-full text-left p-2 sm:p-2.5 rounded-md pirate-panel border border-amber-600/30 hover:border-amber-400 transition cursor-pointer text-xs flex justify-between items-center group"
               >
-                <span className="font-cinzel font-bold text-amber-100 group-hover:text-amber-300">
+                <span className="font-cinzel font-bold text-amber-100 group-hover:text-amber-300 text-[11px] sm:text-xs">
                   Admiralty Fleet Realm (Production)
                 </span>
-                <span className="font-mono text-[10px] text-amber-400/80">cekcok.my.id</span>
+                <span className="font-mono text-[9px] sm:text-[10px] text-amber-400/80">cekcok.my.id</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleSelectPreset('ws://localhost:3000/ws')}
-                className="w-full text-left p-2.5 rounded-md pirate-panel border border-amber-600/30 hover:border-amber-400 transition cursor-pointer text-xs flex justify-between items-center group"
+                className="w-full text-left p-2 sm:p-2.5 rounded-md pirate-panel border border-amber-600/30 hover:border-amber-400 transition cursor-pointer text-xs flex justify-between items-center group"
               >
-                <span className="font-cinzel font-bold text-amber-100 group-hover:text-amber-300">
+                <span className="font-cinzel font-bold text-amber-100 group-hover:text-amber-300 text-[11px] sm:text-xs">
                   Local Anchorage (Dev Server)
                 </span>
-                <span className="font-mono text-[10px] text-amber-400/80">localhost:3000</span>
+                <span className="font-mono text-[9px] sm:text-[10px] text-amber-400/80">localhost:3000</span>
               </button>
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-amber-600/30">
+          <div className="flex items-center justify-end gap-2 sm:gap-3 pt-2 sm:pt-3 border-t border-amber-600/30">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-md text-xs font-cinzel font-bold text-amber-200/60 hover:text-amber-200 transition cursor-pointer"
+              className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs font-cinzel font-bold text-amber-200/60 hover:text-amber-200 transition cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-md bg-gradient-to-b from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-stone-950 font-cinzel font-bold text-xs uppercase tracking-wider transition-all duration-200 shadow-[0_0_15px_rgba(212,175,55,0.35)] cursor-pointer border border-amber-300/80 active:scale-95"
+              className="px-4 sm:px-5 py-1.5 sm:py-2 rounded-md bg-gradient-to-b from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-stone-950 font-cinzel font-bold text-xs uppercase tracking-wider transition-all duration-200 shadow-[0_0_15px_rgba(212,175,55,0.35)] cursor-pointer border border-amber-300/80 active:scale-95"
             >
               Signal & Reconnect
             </button>

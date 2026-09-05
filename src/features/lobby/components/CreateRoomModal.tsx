@@ -44,10 +44,10 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
       icon={<Swords className="w-5 h-5" />}
     >
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-2.5 sm:space-y-4">
           {/* Fleet Anchorage Name */}
           <div>
-            <label className="block text-[10px] font-cinzel font-bold text-amber-300 uppercase tracking-widest mb-1">
+            <label className="block text-[9px] sm:text-[10px] font-cinzel font-bold text-amber-300 uppercase tracking-widest mb-1">
               Anchorage Designation
             </label>
             <input
@@ -55,7 +55,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
               value={roomName}
               onChange={(e) => setRoomName(e.target.value)}
               placeholder="e.g. Tortuga Buccaneers"
-              className="w-full bg-[#0e1929] border border-amber-500/40 rounded-md px-3.5 py-2 font-fell text-sm text-amber-100 placeholder:text-stone-500 focus:outline-none focus:border-amber-400 transition"
+              className="w-full bg-[#0e1929] border border-amber-500/40 rounded-md px-3 py-1.5 sm:py-2 font-fell text-xs sm:text-sm text-amber-100 placeholder:text-stone-500 focus:outline-none focus:border-amber-400 transition"
               maxLength={24}
               autoFocus
             />
@@ -63,67 +63,67 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
 
           {/* Battle Engagement Mode */}
           <div>
-            <label className="block text-[10px] font-cinzel font-bold text-amber-300 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+            <label className="block text-[9px] sm:text-[10px] font-cinzel font-bold text-amber-300 uppercase tracking-widest mb-1 sm:mb-1.5 flex items-center gap-1.5">
               <Users className="w-3.5 h-3.5 text-amber-400" />
               <span>Engagement Protocol</span>
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
               <button
                 type="button"
                 onClick={() => setGameMode('FFA')}
-                className={`py-2 px-2.5 rounded-md text-xs font-cinzel font-bold border transition flex flex-col items-center justify-center cursor-pointer ${
+                className={`py-1.5 sm:py-2 px-2 rounded-md text-[11px] sm:text-xs font-cinzel font-bold border transition flex flex-col items-center justify-center cursor-pointer ${
                   gameMode === 'FFA'
                     ? 'bg-gradient-to-b from-amber-600/35 to-amber-950/80 border-2 border-amber-400 text-white shadow-[0_0_10px_rgba(245,158,11,0.3)] ring-1 ring-amber-300'
                     : 'bg-[#142338]/85 border border-amber-500/30 text-amber-100 hover:text-white'
                 }`}
               >
                 <span className="flex items-center gap-1.5">
-                  <Swords className="w-3.5 h-3.5 text-amber-300" />
+                  <Swords className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-300" />
                   <span>Free For All</span>
                 </span>
-                <span className="text-[9px] font-fell italic text-amber-200/70 mt-0.5">Every Captain for Himself</span>
+                <span className="text-[8.5px] sm:text-[9px] font-fell italic text-amber-200/70 mt-0.5">Every Captain for Himself</span>
               </button>
               <button
                 type="button"
                 onClick={() => setGameMode('TEAM')}
-                className={`py-2 px-2.5 rounded-md text-xs font-cinzel font-bold border transition flex flex-col items-center justify-center cursor-pointer ${
+                className={`py-1.5 sm:py-2 px-2 rounded-md text-[11px] sm:text-xs font-cinzel font-bold border transition flex flex-col items-center justify-center cursor-pointer ${
                   gameMode === 'TEAM'
                     ? 'bg-gradient-to-b from-cyan-800/40 to-blue-950/85 border-2 border-cyan-400 text-white shadow-[0_0_10px_rgba(6,182,212,0.3)] ring-1 ring-cyan-300'
                     : 'bg-[#142338]/85 border border-amber-500/30 text-amber-100 hover:text-white'
                 }`}
               >
                 <span className="flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5 text-cyan-400" />
+                  <Shield className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-cyan-400" />
                   <span>Armada Clash</span>
                 </span>
-                <span className="text-[9px] font-fell italic text-cyan-200/70 mt-0.5">Red vs Blue Fleets</span>
+                <span className="text-[8.5px] sm:text-[9px] font-fell italic text-cyan-200/70 mt-0.5">Red vs Blue Fleets</span>
               </button>
             </div>
           </div>
 
           {/* Deathmatch Victory Goal */}
           <div>
-            <label className="block text-[10px] font-cinzel font-bold text-amber-300 uppercase tracking-widest mb-1.5 flex items-center justify-between">
+            <label className="block text-[9px] sm:text-[10px] font-cinzel font-bold text-amber-300 uppercase tracking-widest mb-1 sm:mb-1.5 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <Trophy className="w-3.5 h-3.5 text-amber-400" />
                 <span>Deathmatch Victory Goal</span>
               </span>
-              <span className="text-amber-300 font-mono font-bold">First to {targetKills} Sinks</span>
+              <span className="text-amber-300 font-mono font-bold text-[10px] sm:text-xs">First to {targetKills} Sinks</span>
             </label>
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-4 gap-1 sm:gap-1.5">
               {[3, 5, 8, 10].map((num) => (
                 <button
                   type="button"
                   key={num}
                   onClick={() => setTargetKills(num)}
-                  className={`py-2 rounded-md text-xs font-cinzel font-bold border transition cursor-pointer flex flex-col items-center ${
+                  className={`py-1 sm:py-2 rounded-md text-[11px] sm:text-xs font-cinzel font-bold border transition cursor-pointer flex flex-col items-center ${
                     targetKills === num
                       ? 'bg-gradient-to-b from-amber-600/35 to-amber-950/80 border-2 border-amber-400 text-white shadow-[0_0_10px_rgba(245,158,11,0.4)] ring-1 ring-amber-300'
                       : 'bg-[#142338]/85 border border-amber-500/30 text-amber-100 hover:text-white hover:border-amber-400/60'
                   }`}
                 >
-                  <span className="font-mono text-sm font-black">{num}</span>
-                  <span className="text-[9px] uppercase tracking-wider text-amber-300/80">Sinks</span>
+                  <span className="font-mono text-xs sm:text-sm font-black">{num}</span>
+                  <span className="text-[8px] sm:text-[9px] uppercase tracking-wider text-amber-300/80">Sinks</span>
                 </button>
               ))}
             </div>
@@ -131,44 +131,44 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
 
           {/* Battle Atmosphere */}
           <div>
-            <label className="block text-[10px] font-cinzel font-bold text-amber-300 uppercase tracking-widest mb-1">
+            <label className="block text-[9px] sm:text-[10px] font-cinzel font-bold text-amber-300 uppercase tracking-widest mb-1">
               Battle Atmosphere & Weather
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
               <button
                 type="button"
                 onClick={() => setTimeOfDay('DAY')}
-                className={`py-2 px-2 rounded-md text-xs font-cinzel font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`py-1.5 sm:py-2 px-1.5 rounded-md text-[11px] sm:text-xs font-cinzel font-bold border transition flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer ${
                   timeOfDay === 'DAY'
                     ? 'bg-gradient-to-b from-amber-600/35 to-amber-950/80 border-2 border-amber-400 text-white shadow-[0_0_10px_rgba(245,158,11,0.3)] ring-1 ring-amber-300'
                     : 'bg-[#142338]/85 border border-amber-500/30 text-amber-100 hover:text-white'
                 }`}
               >
-                <Sun className="w-3.5 h-3.5 text-amber-400" />
+                <Sun className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400 shrink-0" />
                 <span>Noon Tide</span>
               </button>
               <button
                 type="button"
                 onClick={() => setTimeOfDay('NIGHT')}
-                className={`py-2 px-2 rounded-md text-xs font-cinzel font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`py-1.5 sm:py-2 px-1.5 rounded-md text-[11px] sm:text-xs font-cinzel font-bold border transition flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer ${
                   timeOfDay === 'NIGHT'
                     ? 'bg-gradient-to-b from-indigo-600/35 to-indigo-950/80 border-2 border-indigo-400 text-white shadow-[0_0_10px_rgba(99,102,241,0.4)] ring-1 ring-indigo-300'
                     : 'bg-[#142338]/85 border border-indigo-500/30 text-indigo-200 hover:text-white'
                 }`}
               >
-                <Moon className="w-3.5 h-3.5 text-indigo-400" />
+                <Moon className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-400 shrink-0" />
                 <span>Moonlit</span>
               </button>
               <button
                 type="button"
                 onClick={() => setTimeOfDay('RANDOM')}
-                className={`py-2 px-2 rounded-md text-xs font-cinzel font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`py-1.5 sm:py-2 px-1.5 rounded-md text-[11px] sm:text-xs font-cinzel font-bold border transition flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer ${
                   timeOfDay === 'RANDOM'
                     ? 'bg-gradient-to-b from-amber-600/35 to-amber-950/80 border-2 border-amber-400 text-white shadow-[0_0_10px_rgba(245,158,11,0.3)] ring-1 ring-amber-300'
                     : 'bg-[#142338]/85 border border-amber-500/30 text-amber-100 hover:text-white'
                 }`}
               >
-                <Dices className="w-3.5 h-3.5 text-amber-300" />
+                <Dices className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-300 shrink-0" />
                 <span>Fortune</span>
               </button>
             </div>
@@ -176,16 +176,16 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
 
           {/* Max Warships */}
           <div>
-            <label className="block text-[10px] font-cinzel font-bold text-amber-300 uppercase tracking-widest mb-1">
+            <label className="block text-[9px] sm:text-[10px] font-cinzel font-bold text-amber-300 uppercase tracking-widest mb-1">
               Armada Warship Capacity
             </label>
-            <div className="grid grid-cols-6 gap-1.5">
+            <div className="grid grid-cols-6 gap-1 sm:gap-1.5">
               {[2, 4, 6, 8, 12, 16].map((num) => (
                 <button
                   type="button"
                   key={num}
                   onClick={() => setMaxPlayers(num)}
-                  className={`py-1.5 rounded-md text-xs font-mono font-bold border transition cursor-pointer ${
+                  className={`py-1 sm:py-1.5 rounded-md text-xs font-mono font-bold border transition cursor-pointer ${
                     maxPlayers === num
                       ? 'bg-amber-600/35 border-2 border-amber-400 text-white shadow-[0_0_8px_rgba(245,158,11,0.3)]'
                       : 'bg-[#142338]/85 border border-amber-500/30 text-amber-100 hover:text-white'
@@ -198,17 +198,17 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-amber-500/30">
+          <div className="flex items-center justify-end gap-2 sm:gap-3 pt-2 sm:pt-3 border-t border-amber-500/30">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-md text-xs font-cinzel font-bold text-amber-200/80 hover:text-white transition cursor-pointer"
+              className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs font-cinzel font-bold text-amber-200/80 hover:text-white transition cursor-pointer"
             >
               Withdraw
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-md bg-gradient-to-b from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-stone-950 font-cinzel font-bold text-xs uppercase tracking-wider transition-all duration-200 shadow-[0_0_15px_rgba(212,175,55,0.35)] cursor-pointer border border-amber-300/80 active:scale-95"
+              className="px-4 sm:px-5 py-1.5 sm:py-2 rounded-md bg-gradient-to-b from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-stone-950 font-cinzel font-bold text-xs uppercase tracking-wider transition-all duration-200 shadow-[0_0_15px_rgba(212,175,55,0.35)] cursor-pointer border border-amber-300/80 active:scale-95"
             >
               Commission Fleet
             </button>
