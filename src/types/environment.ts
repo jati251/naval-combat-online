@@ -7,10 +7,14 @@ export interface GerstnerWaveParams {
 
 // Global deterministic wave definition synchronized with server simulation
 export const GERSTNER_WAVES: GerstnerWaveParams[] = [
-  { direction: [1.0, 0.3], steepness: 0.32, wavelength: 52.0, speed: 3.4 },
-  { direction: [0.6, 0.8], steepness: 0.22, wavelength: 28.0, speed: 2.6 },
-  { direction: [-0.3, 0.95], steepness: 0.18, wavelength: 16.0, speed: 2.0 },
-  { direction: [-0.7, -0.7], steepness: 0.12, wavelength: 8.0, speed: 1.4 },
+  // 1. Dominant gentle Caribbean swell (long rolling crest, ~1.3m amplitude)
+  { direction: [1.0, 0.25], steepness: 0.10, wavelength: 85.0, speed: 2.8 },
+  // 2. Secondary diagonal swell (~0.55m amplitude)
+  { direction: [0.55, 0.85], steepness: 0.08, wavelength: 44.0, speed: 2.2 },
+  // 3. Surface chop wave (~0.2m amplitude)
+  { direction: [-0.35, 0.92], steepness: 0.06, wavelength: 22.0, speed: 1.7 },
+  // 4. Fine capillary ripple (~0.07m amplitude)
+  { direction: [-0.75, -0.65], steepness: 0.04, wavelength: 11.0, speed: 1.3 },
 ];
 
 export interface IslandDefinition {

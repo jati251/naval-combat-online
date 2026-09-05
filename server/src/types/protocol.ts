@@ -1,4 +1,12 @@
-export type ShipClass = 'sloop' | 'brig' | 'frigate';
+export type ShipClass =
+  | 'gunboat'
+  | 'sloop'
+  | 'corvette'
+  | 'brig'
+  | 'carrack'
+  | 'galleon'
+  | 'frigate'
+  | 'man_o_war';
 export type SailState = 'ANCHOR' | 'HALF_SAIL' | 'FULL_SAIL';
 
 export interface ShipConfig {
@@ -16,6 +24,19 @@ export interface ShipConfig {
 }
 
 export const SERVER_SHIP_CONFIGS: Record<ShipClass, ShipConfig> = {
+  gunboat: {
+    id: 'gunboat',
+    name: 'Viper Skiff',
+    maxHealth: 70,
+    topSpeed: 21,
+    acceleration: 5.5,
+    turnSpeed: 1.45,
+    cannonsPerSide: 1,
+    reloadTime: 2.5,
+    cannonDamage: 15,
+    length: 9,
+    width: 3.2,
+  },
   sloop: {
     id: 'sloop',
     name: 'Swift Corsair',
@@ -28,6 +49,19 @@ export const SERVER_SHIP_CONFIGS: Record<ShipClass, ShipConfig> = {
     cannonDamage: 18,
     length: 12,
     width: 4,
+  },
+  corvette: {
+    id: 'corvette',
+    name: 'Royal Vanguard',
+    maxHealth: 140,
+    topSpeed: 16,
+    acceleration: 3.8,
+    turnSpeed: 1.0,
+    cannonsPerSide: 3,
+    reloadTime: 3.8,
+    cannonDamage: 20,
+    length: 15,
+    width: 4.8,
   },
   brig: {
     id: 'brig',
@@ -42,6 +76,32 @@ export const SERVER_SHIP_CONFIGS: Record<ShipClass, ShipConfig> = {
     length: 18,
     width: 5.5,
   },
+  carrack: {
+    id: 'carrack',
+    name: 'Ghost Carrack',
+    maxHealth: 200,
+    topSpeed: 15,
+    acceleration: 3.5,
+    turnSpeed: 0.95,
+    cannonsPerSide: 4,
+    reloadTime: 4.0,
+    cannonDamage: 25,
+    length: 19,
+    width: 6.0,
+  },
+  galleon: {
+    id: 'galleon',
+    name: 'Imperial Galleon',
+    maxHealth: 220,
+    topSpeed: 12,
+    acceleration: 2.6,
+    turnSpeed: 0.7,
+    cannonsPerSide: 5,
+    reloadTime: 5.0,
+    cannonDamage: 24,
+    length: 21,
+    width: 6.5,
+  },
   frigate: {
     id: 'frigate',
     name: 'Leviathan Dreadnought',
@@ -54,6 +114,19 @@ export const SERVER_SHIP_CONFIGS: Record<ShipClass, ShipConfig> = {
     cannonDamage: 26,
     length: 24,
     width: 7.2,
+  },
+  man_o_war: {
+    id: 'man_o_war',
+    name: 'Behemoth Man-of-War',
+    maxHealth: 350,
+    topSpeed: 9.0,
+    acceleration: 1.6,
+    turnSpeed: 0.42,
+    cannonsPerSide: 8,
+    reloadTime: 6.2,
+    cannonDamage: 30,
+    length: 28,
+    width: 8.5,
   },
 };
 

@@ -201,10 +201,20 @@ export class SecurityGuard {
   }
 
   private static validateShipClass(val: unknown): ShipClass {
-    if (val === 'sloop' || val === 'brig' || val === 'frigate') {
-      return val;
+    const validClasses: ShipClass[] = [
+      'gunboat',
+      'sloop',
+      'corvette',
+      'brig',
+      'carrack',
+      'galleon',
+      'frigate',
+      'man_o_war',
+    ];
+    if (typeof val === 'string' && validClasses.includes(val as ShipClass)) {
+      return val as ShipClass;
     }
-    return 'sloop';
+    return 'brig';
   }
 
   private static validateSailState(val: unknown): SailState {

@@ -13,7 +13,7 @@ import { OceanAtmosphereParticles3D } from './OceanAtmosphereParticles3D';
 import { useGameStore } from '@/stores/useGameStore';
 import { useBattleCamera } from '../../hooks/useBattleCamera';
 import { CONTROL_CONFIG } from '../../utils/controls';
-import type { ShipSnapshot } from '@/types/game';
+import { type ShipSnapshot, SHIP_PRESETS } from '@/types/game';
 
 function lerpAngle(current: number, target: number, alpha: number): number {
   let diff = (target - current) % (Math.PI * 2);
@@ -149,6 +149,8 @@ const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf }) => {
   });
 
   const hpPercent = Math.max(0, Math.min(100, (ship.health / ship.maxHealth) * 100));
+  const shipLen = SHIP_PRESETS[ship.shipClass]?.length || 18;
+  const nameplateY = shipLen * 0.76 + 3.6;
 
   return (
     // Note: Do not pass dynamic position={...} to avoid React Three Fiber resetting group transform during useFrame lerping
@@ -162,7 +164,7 @@ const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf }) => {
 
       {/* Floating Health Bar and Nameplate (Culled beyond 110m for enemy ships) */}
       {showNameplate && (
-        <Html position={[0, 14.5, 0]} center distanceFactor={45}>
+        <Html position={[0, nameplateY, 0]} center distanceFactor={45}>
           <div className="flex flex-col items-center pointer-events-none select-none">
             <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-900/90 border border-slate-700/80 shadow text-[10px] font-bold tracking-wide text-slate-200 uppercase">
               <span className={isSelf ? 'text-cyan-400 font-extrabold' : 'text-amber-400'}>
