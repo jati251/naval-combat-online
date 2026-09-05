@@ -5,6 +5,7 @@ class NavalAudioController {
   private ctx: AudioContext | null = null;
   private isMuted: boolean = false;
   private masterVolume: number = 0.85;
+  private cachedNoiseBuffer: AudioBuffer | null = null;
 
   public init(): void {
     if (typeof window === 'undefined') return;
@@ -19,6 +20,21 @@ class NavalAudioController {
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume().catch(() => {});
     }
+  }
+
+  private getNoiseBuffer(): AudioBuffer | null {
+    if (!this.ctx) return null;
+    if (!this.cachedNoiseBuffer || this.cachedNoiseBuffer.sampleRate !== this.ctx.sampleRate) {
+      // Pre-compute 1.0s of white noise once, re-use infinitely across all cannon shots & splashes
+      const bufferSize = Math.floor(this.ctx.sampleRate * 1.0);
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const output = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+      this.cachedNoiseBuffer = buffer;
+    }
+    return this.cachedNoiseBuffer;
   }
 
   public setMuted(muted: boolean): void {
@@ -37,6 +53,9 @@ class NavalAudioController {
     this.init();
     if (!this.ctx) return;
 
+    const noiseBuffer = this.getNoiseBuffer();
+    if (!noiseBuffer) return;
+
     const t = this.ctx.currentTime;
 
     // 1. Heavy low-frequency punch oscillator (140Hz -> 32Hz)
@@ -54,14 +73,7 @@ class NavalAudioController {
     osc.start(t);
     osc.stop(t + 0.6);
 
-    // 2. Gunpowder explosion burst (Noise buffer filtered through lowpass sweep)
-    const bufferSize = Math.floor(this.ctx.sampleRate * 0.5);
-    const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const output = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      output[i] = Math.random() * 2 - 1;
-    }
-
+    // 2. Gunpowder explosion burst (Cached noise buffer filtered through lowpass sweep)
     const whiteNoise = this.ctx.createBufferSource();
     whiteNoise.buffer = noiseBuffer;
 
@@ -79,6 +91,7 @@ class NavalAudioController {
     noiseGain.connect(this.ctx.destination);
 
     whiteNoise.start(t);
+    whiteNoise.stop(t + 0.6);
   }
 
   // Alias for backward compatibility
@@ -124,14 +137,10 @@ class NavalAudioController {
     this.init();
     if (!this.ctx) return;
 
-    const t = this.ctx.currentTime;
-    const bufferSize = Math.floor(this.ctx.sampleRate * 0.35);
-    const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const output = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      output[i] = Math.random() * 2 - 1;
-    }
+    const noiseBuffer = this.getNoiseBuffer();
+    if (!noiseBuffer) return;
 
+    const t = this.ctx.currentTime;
     const noise = this.ctx.createBufferSource();
     noise.buffer = noiseBuffer;
 
@@ -148,6 +157,7 @@ class NavalAudioController {
     filter.connect(gain);
     gain.connect(this.ctx.destination);
     noise.start(t);
+    noise.stop(t + 0.38);
   }
 
   /**

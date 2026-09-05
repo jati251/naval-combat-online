@@ -107,8 +107,10 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
   };
 
   const currentBallIds = useRef<Set<string>>(new Set());
+  const frameCounter = useRef(0);
 
   useFrame((_, delta) => {
+    frameCounter.current++;
     const { cannonballs, fireEvents } = useGameStore.getState();
 
     // 1. Check & Dispatch Fire Events (Instant Local & Network Firing Feedback)
@@ -132,6 +134,8 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
 
     // 2. Track Ball Flight Smoke Trails & Detect Impacts (Zero-Allocation Loop)
     currentBallIds.current.clear();
+    const shouldSpawnBallSmoke = !isMobile || (frameCounter.current % 2 === 0);
+
     for (const b of cannonballs) {
       currentBallIds.current.add(b.id);
       let ballPos = knownBallIds.current.get(b.id);
@@ -144,17 +148,19 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
         ballPos.z = b.z;
       }
 
-      // Persistent smoke ribbon following each flying cannonball
-      spawnSmoke(
-        smokePool.current,
-        b.x - (b.vx ?? 0) * 0.03,
-        b.y - (b.vy ?? 0) * 0.03,
-        b.z - (b.vz ?? 0) * 0.03,
-        (Math.random() - 0.5) * 0.3,
-        0.2 + (Math.random() - 0.5) * 0.2,
-        (Math.random() - 0.5) * 0.3,
-        1.5 + Math.random() * 0.8
-      );
+      // Persistent smoke ribbon following each flying cannonball (throttled on mobile)
+      if (shouldSpawnBallSmoke) {
+        spawnSmoke(
+          smokePool.current,
+          b.x - (b.vx ?? 0) * 0.03,
+          b.y - (b.vy ?? 0) * 0.03,
+          b.z - (b.vz ?? 0) * 0.03,
+          (Math.random() - 0.5) * 0.3,
+          0.2 + (Math.random() - 0.5) * 0.2,
+          (Math.random() - 0.5) * 0.3,
+          1.5 + Math.random() * 0.8
+        );
+      }
     }
 
     // Check vanished balls (impact with water or hit target)
@@ -164,7 +170,8 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
           spawnWaterImpact(plumePool.current, smokePool.current, lastPos.x, lastPos.z);
         } else {
           spawnFlash(flashPool.current, lastPos.x, lastPos.y, lastPos.z, 5.0);
-          for (let sp = 0; sp < 14; sp++) {
+          const hitSmokeCount = isMobile ? 4 : 12;
+          for (let sp = 0; sp < hitSmokeCount; sp++) {
             spawnSmoke(
               smokePool.current,
               lastPos.x,

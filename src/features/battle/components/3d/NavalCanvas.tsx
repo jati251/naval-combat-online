@@ -36,10 +36,9 @@ const FleetEntities: React.FC = React.memo(() => {
 });
 
 const CannonEntities: React.FC<{ isMobile: boolean }> = React.memo(({ isMobile }) => {
-  const cannonballs = useGameStore((s) => s.cannonballs);
   return (
     <>
-      <CannonSystem3D cannonballs={cannonballs} />
+      <CannonSystem3D />
       <CannonFX2D isMobile={isMobile} />
     </>
   );

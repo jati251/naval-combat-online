@@ -15,9 +15,9 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
   const timeOfDay = useGameStore((s) => s.timeOfDay);
   const isNight = timeOfDay === 'NIGHT';
 
-  // Responsive vertex grid density: 96x96 on mobile (9,216 quads) balanced performance/fidelity,
+  // Responsive vertex grid density: 64x64 on mobile (4,096 quads) for high-framerate mobile rendering,
   // 160x160 on desktop (25,600 quads) for maximum geometric fidelity.
-  const segments = isMobile ? 96 : 160;
+  const segments = isMobile ? 64 : 160;
   const geometry = useMemo(() => {
     const geo = new THREE.PlaneGeometry(size, size, segments, segments);
     geo.rotateX(-Math.PI / 2);

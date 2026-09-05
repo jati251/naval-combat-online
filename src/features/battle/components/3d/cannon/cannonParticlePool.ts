@@ -51,6 +51,11 @@ export function createParticlePool(size: number): FXParticle[] {
   return list;
 }
 
+let smokeCursor = 0;
+let flashCursor = 0;
+let sparkCursor = 0;
+let plumeCursor = 0;
+
 export function spawnSmoke(
   pool: FXParticle[],
   x: number,
@@ -61,16 +66,28 @@ export function spawnSmoke(
   vz: number,
   size: number
 ): void {
+  const len = pool.length;
+  if (len === 0) return;
+
+  // Fast circular search for free slot, bounded to 16 steps to eliminate frame hitch
   let slot = -1;
-  for (let i = 0; i < MAX_SMOKE; i++) {
-    if (pool[i].life <= 0) {
-      slot = i;
+  for (let i = 0; i < 16; i++) {
+    const idx = (smokeCursor + i) % len;
+    if (pool[idx] && pool[idx].life <= 0) {
+      slot = idx;
+      smokeCursor = (idx + 1) % len;
       break;
     }
   }
-  if (slot === -1) slot = Math.floor(Math.random() * MAX_SMOKE);
+  // If all tested are active, cycle oldest particle
+  if (slot === -1) {
+    slot = smokeCursor;
+    smokeCursor = (smokeCursor + 1) % len;
+  }
 
   const p = pool[slot];
+  if (!p) return;
+
   p.x = x;
   p.y = y;
   p.z = z;
@@ -91,16 +108,26 @@ export function spawnFlash(
   z: number,
   size: number
 ): void {
+  const len = pool.length;
+  if (len === 0) return;
+
   let slot = -1;
-  for (let i = 0; i < MAX_FLASH; i++) {
-    if (pool[i].life <= 0) {
-      slot = i;
+  for (let i = 0; i < 12; i++) {
+    const idx = (flashCursor + i) % len;
+    if (pool[idx] && pool[idx].life <= 0) {
+      slot = idx;
+      flashCursor = (idx + 1) % len;
       break;
     }
   }
-  if (slot === -1) slot = Math.floor(Math.random() * MAX_FLASH);
+  if (slot === -1) {
+    slot = flashCursor;
+    flashCursor = (flashCursor + 1) % len;
+  }
 
   const p = pool[slot];
+  if (!p) return;
+
   p.x = x;
   p.y = y;
   p.z = z;
@@ -122,18 +149,17 @@ export function spawnSparks(
   dirX: number,
   dirZ: number
 ): void {
-  const sparkCount = 14 + Math.floor(Math.random() * 10);
+  const len = pool.length;
+  if (len === 0) return;
+
+  const sparkCount = 10 + Math.floor(Math.random() * 6);
   for (let s = 0; s < sparkCount; s++) {
-    let slot = -1;
-    for (let i = 0; i < MAX_SPARKS; i++) {
-      if (pool[i].life <= 0) {
-        slot = i;
-        break;
-      }
-    }
-    if (slot === -1) break;
+    const slot = sparkCursor;
+    sparkCursor = (sparkCursor + 1) % len;
 
     const p = pool[slot];
+    if (!p) continue;
+
     p.x = x;
     p.y = y;
     p.z = z;
@@ -155,29 +181,40 @@ export function spawnWaterImpact(
   x: number,
   z: number
 ): void {
-  let slot = -1;
-  for (let i = 0; i < MAX_WATER_PLUMES; i++) {
-    if (plumePool[i].life <= 0) {
-      slot = i;
-      break;
+  const plumeLen = plumePool.length;
+  if (plumeLen > 0) {
+    let slot = -1;
+    for (let i = 0; i < 8; i++) {
+      const idx = (plumeCursor + i) % plumeLen;
+      if (plumePool[idx] && plumePool[idx].life <= 0) {
+        slot = idx;
+        plumeCursor = (idx + 1) % plumeLen;
+        break;
+      }
+    }
+    if (slot === -1) {
+      slot = plumeCursor;
+      plumeCursor = (plumeCursor + 1) % plumeLen;
+    }
+
+    const p = plumePool[slot];
+    if (p) {
+      p.x = x;
+      p.y = 1.6;
+      p.z = z;
+      p.vx = 0;
+      p.vy = 2.4;
+      p.vz = 0;
+      p.maxLife = 0.85 + Math.random() * 0.3;
+      p.life = p.maxLife;
+      p.size = 4.0 + Math.random() * 2.0;
+      p.growth = 2.0;
+      p.opacity = 0.9;
     }
   }
-  if (slot === -1) slot = Math.floor(Math.random() * MAX_WATER_PLUMES);
 
-  const p = plumePool[slot];
-  p.x = x;
-  p.y = 1.6;
-  p.z = z;
-  p.vx = 0;
-  p.vy = 2.4;
-  p.vz = 0;
-  p.maxLife = 0.85 + Math.random() * 0.3;
-  p.life = p.maxLife;
-  p.size = 4.0 + Math.random() * 2.0;
-  p.growth = 2.0;
-  p.opacity = 0.9;
-
-  for (let d = 0; d < 6; d++) {
+  // Reduced water plume froth on impact
+  for (let d = 0; d < 4; d++) {
     const angle = Math.random() * Math.PI * 2;
     const speed = 3.0 + Math.random() * 5.0;
     spawnSmoke(

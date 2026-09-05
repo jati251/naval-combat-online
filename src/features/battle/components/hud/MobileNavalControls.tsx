@@ -1,16 +1,15 @@
 import React, { useRef, useState, useCallback } from 'react';
-import { Anchor, Flame, Crosshair } from 'lucide-react';
+import { Anchor, Flame } from 'lucide-react';
 import { useGameStore } from '@/stores/useGameStore';
 import { useShipActions } from '../../hooks/useShipActions';
 
 export const MobileNavalControls: React.FC = () => {
-  const { changeSail, setRudder, setAim, fireBattery } = useShipActions();
+  const { changeSail, setRudder, fireBattery } = useShipActions();
 
   const localSail = useGameStore((s) => s.localSail);
   const localRudder = useGameStore((s) => s.localRudder);
   const portProgress = useGameStore((s) => s.portReloadProgress);
   const stbdProgress = useGameStore((s) => s.starboardReloadProgress);
-  const aimDirection = useGameStore((s) => s.aimDirection);
 
   const joystickRef = useRef<HTMLDivElement | null>(null);
   const [isDraggingWheel, setIsDraggingWheel] = useState(false);
@@ -20,10 +19,6 @@ export const MobileNavalControls: React.FC = () => {
 
   const isPortReady = portProgress >= 1.0;
   const isStbdReady = stbdProgress >= 1.0;
-  const isAimingPort = aimDirection === 'port';
-  const isAimingStbd = aimDirection === 'starboard';
-
-  const canFire = (isAimingPort && isPortReady) || (isAimingStbd && isStbdReady) || (aimDirection === 'none' && (isPortReady || isStbdReady));
 
   // --- Left Thumb: Virtual Helm Steering Touch Handlers ---
   const handleTouchStartWheel = useCallback((e: React.TouchEvent) => {
@@ -69,46 +64,43 @@ export const MobileNavalControls: React.FC = () => {
     setRudder(0);
   }, [setRudder]);
 
-  // Anti-double-fire timestamp debounce
-  const lastFireTimestamp = useRef<number>(0);
+  // Anti-double-tap timestamp debounces for independent broadsides
+  const lastPortFireTimestamp = useRef<number>(0);
+  const lastStbdFireTimestamp = useRef<number>(0);
 
-  // Handle Salvo Fire (Guaranteed single side per user action)
-  const handleFireSalvo = useCallback((e?: React.TouchEvent | React.MouseEvent) => {
+  // Direct Left / Port Broadside Fire
+  const handleFirePort = useCallback((e?: React.TouchEvent | React.MouseEvent) => {
     if (e) {
       e.stopPropagation();
       if ('preventDefault' in e && e.cancelable) e.preventDefault();
     }
-
     const now = performance.now();
-    // Guard against synthetic click events or rapid double-tap (minimum 350ms cooldown)
-    if (now - lastFireTimestamp.current < 350) return;
-    lastFireTimestamp.current = now;
+    if (now - lastPortFireTimestamp.current < 250) return;
+    lastPortFireTimestamp.current = now;
 
-    if (aimDirection === 'port') {
-      if (isPortReady) fireBattery('port');
-    } else if (aimDirection === 'starboard') {
-      if (isStbdReady) fireBattery('starboard');
-    } else {
-      // Default: Fire whichever single battery is ready (never both!)
-      if (isStbdReady) {
-        fireBattery('starboard');
-      } else if (isPortReady) {
-        fireBattery('port');
-      }
+    if (isPortReady) {
+      fireBattery('port');
     }
-  }, [aimDirection, fireBattery, isPortReady, isStbdReady]);
+  }, [fireBattery, isPortReady]);
 
-  // Handle Aim Toggle (Safe touch / click single dispatch)
-  const handleToggleAim = useCallback((targetSide: 'port' | 'starboard', e: React.TouchEvent | React.MouseEvent) => {
-    e.stopPropagation();
-    if ('preventDefault' in e && e.cancelable) e.preventDefault();
-    const isCurrentlyAiming = aimDirection === targetSide;
-    setAim(isCurrentlyAiming ? 'none' : targetSide, !isCurrentlyAiming);
-  }, [aimDirection, setAim]);
+  // Direct Right / Starboard Broadside Fire
+  const handleFireStarboard = useCallback((e?: React.TouchEvent | React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+      if ('preventDefault' in e && e.cancelable) e.preventDefault();
+    }
+    const now = performance.now();
+    if (now - lastStbdFireTimestamp.current < 250) return;
+    lastStbdFireTimestamp.current = now;
 
-  // Progress for radial cooldown ring (0 to 1)
-  const activeCooldownProgress = isAimingPort ? portProgress : isAimingStbd ? stbdProgress : Math.max(portProgress, stbdProgress);
-  const ringDashOffset = 188 - 188 * Math.min(1, activeCooldownProgress);
+    if (isStbdReady) {
+      fireBattery('starboard');
+    }
+  }, [fireBattery, isStbdReady]);
+
+  // Progress for radial cooldown rings (0 to 188)
+  const portDashOffset = 188 - 188 * Math.min(1, portProgress);
+  const stbdDashOffset = 188 - 188 * Math.min(1, stbdProgress);
 
   return (
     <div className="fixed inset-x-0 bottom-0 pointer-events-none z-30 flex items-end justify-between p-2.5 sm:p-4 select-none touch-none">
@@ -123,7 +115,9 @@ export const MobileNavalControls: React.FC = () => {
           onTouchMove={handleTouchMoveWheel}
           onTouchEnd={handleTouchEndWheel}
           onTouchCancel={handleTouchEndWheel}
-          className={`relative w-24 h-24 sm:w-28 sm:h-28 rounded-full pirate-panel border-2 ${isDraggingWheel ? 'border-amber-400 ring-2 ring-amber-400/50' : 'border-amber-500/60'} shadow-2xl flex items-center justify-center cursor-grab active:cursor-grabbing touch-none select-none`}
+          className={`relative w-24 h-24 sm:w-28 sm:h-28 rounded-full pirate-panel border-2 ${
+            isDraggingWheel ? 'border-amber-400 ring-2 ring-amber-400/50' : 'border-amber-500/60'
+          } shadow-2xl flex items-center justify-center cursor-grab active:cursor-grabbing touch-none select-none`}
         >
           {/* Outer Brass Ring with Cardinal Guides */}
           <div className="absolute inset-1 rounded-full border border-amber-400/30 pointer-events-none" />
@@ -200,61 +194,17 @@ export const MobileNavalControls: React.FC = () => {
       </div>
 
       {/* =========================================================================
-          RIGHT THUMB: ARTILLERY SALVO & BROADSIDE AIM (Mobile Legends Skill Style)
+          RIGHT THUMB: DIRECT BROADSIDE SHOOTING (LEFT & RIGHT FIRE BUTTONS)
           ========================================================================= */}
-      <div className="relative flex items-end justify-end pointer-events-auto select-none touch-none">
-        {/* Aim Port Battery (Skill 1 position) */}
-        <button
-          onTouchStart={(e) => handleToggleAim('port', e)}
-          onClick={(e) => handleToggleAim('port', e)}
-          className={`absolute -top-12 sm:-top-14 right-16 sm:right-22 w-11 h-11 sm:w-13 sm:h-13 rounded-full border-2 flex flex-col items-center justify-center transition-all shadow-xl touch-none active:scale-95 cursor-pointer ${
-            isAimingPort
-              ? 'bg-amber-500 text-stone-950 border-amber-200 shadow-[0_0_15px_rgba(245,158,11,0.6)] scale-105'
-              : isPortReady
-              ? 'pirate-panel border-amber-400 text-amber-200 shadow-md'
-              : 'bg-stone-950/80 border-stone-800 text-stone-500'
-          }`}
-          title="Aim Port Battery (Q)"
-        >
-          <Crosshair className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-          <span className="text-[7px] sm:text-[8px] font-cinzel font-bold uppercase tracking-wider mt-0.5">
-            PORT
-          </span>
-          <span className="text-[6px] sm:text-[7px] font-mono opacity-80">
-            {isPortReady ? 'READY' : `${Math.round(portProgress * 100)}%`}
-          </span>
-        </button>
-
-        {/* Aim Starboard Battery (Skill 2 position) */}
-        <button
-          onTouchStart={(e) => handleToggleAim('starboard', e)}
-          onClick={(e) => handleToggleAim('starboard', e)}
-          className={`absolute -top-20 sm:-top-24 right-3 sm:right-5 w-11 h-11 sm:w-13 sm:h-13 rounded-full border-2 flex flex-col items-center justify-center transition-all shadow-xl touch-none active:scale-95 cursor-pointer ${
-            isAimingStbd
-              ? 'bg-amber-500 text-stone-950 border-amber-200 shadow-[0_0_15px_rgba(245,158,11,0.6)] scale-105'
-              : isStbdReady
-              ? 'pirate-panel border-amber-400 text-amber-200 shadow-md'
-              : 'bg-stone-950/80 border-stone-800 text-stone-500'
-          }`}
-          title="Aim Starboard Battery (E)"
-        >
-          <Crosshair className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-          <span className="text-[7px] sm:text-[8px] font-cinzel font-bold uppercase tracking-wider mt-0.5">
-            STBD
-          </span>
-          <span className="text-[6px] sm:text-[7px] font-mono opacity-80">
-            {isStbdReady ? 'READY' : `${Math.round(stbdProgress * 100)}%`}
-          </span>
-        </button>
-
-        {/* Main Fire Salvo Action Button (Attack Button Position) */}
+      <div className="flex items-end gap-3 sm:gap-4 pointer-events-auto select-none touch-none">
+        {/* DIRECT SHOOT LEFT: PORT BROADSIDE BATTERY */}
         <div className="relative flex items-center justify-center">
           {/* Radial Reload Ring SVG */}
-          <svg className="absolute w-20 h-20 sm:w-24 sm:h-24 -rotate-90 pointer-events-none">
+          <svg className="absolute w-18 h-18 sm:w-22 sm:h-22 -rotate-90 pointer-events-none">
             <circle
               cx="50%"
               cy="50%"
-              r="27"
+              r="30"
               fill="none"
               stroke="#291c13"
               strokeWidth="3.5"
@@ -262,30 +212,83 @@ export const MobileNavalControls: React.FC = () => {
             <circle
               cx="50%"
               cy="50%"
-              r="27"
+              r="30"
               fill="none"
-              stroke={canFire ? '#fbbf24' : '#ef4444'}
+              stroke={isPortReady ? '#fbbf24' : '#ef4444'}
               strokeWidth="3.5"
               strokeDasharray="188"
-              strokeDashoffset={ringDashOffset}
+              strokeDashoffset={portDashOffset}
               strokeLinecap="round"
               className="transition-all duration-75"
             />
           </svg>
 
           <button
-            onTouchStart={handleFireSalvo}
-            onClick={handleFireSalvo}
-            className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 transition-all flex flex-col items-center justify-center shadow-2xl touch-none active:scale-90 cursor-pointer ${
-              canFire
-                ? 'bg-gradient-to-b from-rose-600 via-red-700 to-stone-950 border-amber-400 text-amber-100 ember-glow animate-pulse'
-                : 'pirate-panel border-amber-600/40 text-stone-500'
+            onTouchStart={handleFirePort}
+            onClick={handleFirePort}
+            disabled={!isPortReady}
+            className={`w-15 h-15 sm:w-18 sm:h-18 rounded-full border-2 transition-all flex flex-col items-center justify-center shadow-2xl touch-none active:scale-90 cursor-pointer ${
+              isPortReady
+                ? 'bg-gradient-to-b from-rose-600 via-red-700 to-stone-950 border-amber-400 text-amber-100 shadow-[0_0_15px_rgba(239,68,68,0.6)] animate-pulse'
+                : 'pirate-panel border-stone-800 text-stone-500 opacity-80 cursor-not-allowed'
             }`}
-            title="Discharge Salvo (Space / LMB)"
+            title="Shoot Left Broadside (PORT)"
+            aria-label="Shoot Port Battery"
           >
-            <Flame className={`w-5 h-5 sm:w-6 sm:h-6 ${canFire ? 'text-amber-300' : 'text-stone-500'}`} />
-            <span className="text-[8px] sm:text-[9px] font-cinzel font-black uppercase tracking-wider mt-0.5 gold-emboss">
-              FIRE
+            <Flame className={`w-4 h-4 sm:w-5 sm:h-5 ${isPortReady ? 'text-amber-300' : 'text-stone-500'}`} />
+            <span className="text-[7.5px] sm:text-[9px] font-cinzel font-black uppercase tracking-wider mt-0.5 gold-emboss">
+              ◄ PORT
+            </span>
+            <span className="text-[6px] sm:text-[7px] font-mono font-bold opacity-90">
+              {isPortReady ? 'READY' : `${Math.round(portProgress * 100)}%`}
+            </span>
+          </button>
+        </div>
+
+        {/* DIRECT SHOOT RIGHT: STARBOARD BROADSIDE BATTERY */}
+        <div className="relative flex items-center justify-center">
+          {/* Radial Reload Ring SVG */}
+          <svg className="absolute w-18 h-18 sm:w-22 sm:h-22 -rotate-90 pointer-events-none">
+            <circle
+              cx="50%"
+              cy="50%"
+              r="30"
+              fill="none"
+              stroke="#291c13"
+              strokeWidth="3.5"
+            />
+            <circle
+              cx="50%"
+              cy="50%"
+              r="30"
+              fill="none"
+              stroke={isStbdReady ? '#fbbf24' : '#ef4444'}
+              strokeWidth="3.5"
+              strokeDasharray="188"
+              strokeDashoffset={stbdDashOffset}
+              strokeLinecap="round"
+              className="transition-all duration-75"
+            />
+          </svg>
+
+          <button
+            onTouchStart={handleFireStarboard}
+            onClick={handleFireStarboard}
+            disabled={!isStbdReady}
+            className={`w-15 h-15 sm:w-18 sm:h-18 rounded-full border-2 transition-all flex flex-col items-center justify-center shadow-2xl touch-none active:scale-90 cursor-pointer ${
+              isStbdReady
+                ? 'bg-gradient-to-b from-rose-600 via-red-700 to-stone-950 border-amber-400 text-amber-100 shadow-[0_0_15px_rgba(239,68,68,0.6)] animate-pulse'
+                : 'pirate-panel border-stone-800 text-stone-500 opacity-80 cursor-not-allowed'
+            }`}
+            title="Shoot Right Broadside (STBD)"
+            aria-label="Shoot Starboard Battery"
+          >
+            <Flame className={`w-4 h-4 sm:w-5 sm:h-5 ${isStbdReady ? 'text-amber-300' : 'text-stone-500'}`} />
+            <span className="text-[7.5px] sm:text-[9px] font-cinzel font-black uppercase tracking-wider mt-0.5 gold-emboss">
+              STBD ►
+            </span>
+            <span className="text-[6px] sm:text-[7px] font-mono font-bold opacity-90">
+              {isStbdReady ? 'READY' : `${Math.round(stbdProgress * 100)}%`}
             </span>
           </button>
         </div>

@@ -5,7 +5,7 @@ import { useGameStore } from '@/stores/useGameStore';
 import type { CannonballSnapshot } from '@/types/game';
 
 interface CannonSystem3DProps {
-  cannonballs: CannonballSnapshot[];
+  cannonballs?: CannonballSnapshot[];
 }
 
 // Procedural 2D Cast-Iron Black Roundshot Billboard Texture (Ultra Lightweight & Crisp)
@@ -121,7 +121,8 @@ export const CannonSystem3D: React.FC<CannonSystem3DProps> = React.memo(({ canno
     const serverMap = new Map<string, CannonballSnapshot>();
 
     // 1. Sync from server snapshots
-    for (const b of cannonballs) {
+    const activeBalls = cannonballs ?? useGameStore.getState().cannonballs;
+    for (const b of activeBalls) {
       serverMap.set(b.id, b);
       const existing = clientBalls.current.get(b.id);
       if (!existing) {
