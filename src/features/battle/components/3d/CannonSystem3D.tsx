@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import React, { useMemo } from 'react';
 import { useGameStore } from '@/stores/useGameStore';
 import type { CannonballSnapshot } from '@/types/game';
@@ -6,7 +7,17 @@ interface CannonSystem3DProps {
   cannonballs: CannonballSnapshot[];
 }
 
-export const CannonSystem3D: React.FC<CannonSystem3DProps> = ({ cannonballs }) => {
+// Shared Cannonball Geometry & Radiant Emissive Material (0 allocation in render loop)
+const cannonballGeo = new THREE.SphereGeometry(0.34, 10, 10);
+const cannonballMat = new THREE.MeshStandardMaterial({
+  color: '#111827',
+  roughness: 0.35,
+  metalness: 0.9,
+  emissive: '#ea580c',
+  emissiveIntensity: 0.85,
+});
+
+export const CannonSystem3D: React.FC<CannonSystem3DProps> = React.memo(({ cannonballs }) => {
   const selfId = useGameStore((s) => s.selfId);
   const ships = useGameStore((s) => s.ships);
   const isAiming = useGameStore((s) => s.isAiming);
@@ -47,23 +58,15 @@ export const CannonSystem3D: React.FC<CannonSystem3DProps> = ({ cannonballs }) =
 
   return (
     <group>
-      {/* Active Cannonballs in Flight */}
+      {/* Active Cannonballs in Flight (Using Shared GPU Geometry & Material) */}
       {cannonballs.map((ball) => (
-        <group key={ball.id} position={[ball.x, ball.y, ball.z]}>
-          {/* Iron Cannonball Mesh */}
-          <mesh castShadow>
-            <sphereGeometry args={[0.34, 12, 12]} />
-            <meshStandardMaterial
-              color="#111827"
-              roughness={0.4}
-              metalness={0.9}
-              emissive="#ea580c"
-              emissiveIntensity={0.6}
-            />
-          </mesh>
-          {/* Flame & Smoke Trail glow */}
-          <pointLight color="#f97316" intensity={1.5} distance={8} decay={2} />
-        </group>
+        <mesh
+          key={ball.id}
+          position={[ball.x, ball.y, ball.z]}
+          castShadow
+          geometry={cannonballGeo}
+          material={cannonballMat}
+        />
       ))}
 
       {/* Ballistic Aiming Arc Projector Line */}
@@ -80,5 +83,5 @@ export const CannonSystem3D: React.FC<CannonSystem3DProps> = ({ cannonballs }) =
       )}
     </group>
   );
-};
+});
 

@@ -28,12 +28,20 @@ function createParticleTexture(): THREE.CanvasTexture {
   return texture;
 }
 
+let cachedParticleTexture: THREE.CanvasTexture | null = null;
+function getParticleTexture(): THREE.CanvasTexture {
+  if (!cachedParticleTexture) {
+    cachedParticleTexture = createParticleTexture();
+  }
+  return cachedParticleTexture;
+}
+
 /**
  * Ultra-Lightweight Ambient Sea Spray & Sunlit Marine Particles
  * 200 sparkling water droplets & golden sun motes floating around the ship.
  */
-export const OceanAtmosphereParticles3D: React.FC = () => {
-  const texture = useMemo(() => createParticleTexture(), []);
+export const OceanAtmosphereParticles3D: React.FC = React.memo(() => {
+  const texture = useMemo(() => getParticleTexture(), []);
   const pointsRef = useRef<THREE.Points>(null);
   const count = 180;
 
@@ -100,4 +108,4 @@ export const OceanAtmosphereParticles3D: React.FC = () => {
       />
     </points>
   );
-};
+});

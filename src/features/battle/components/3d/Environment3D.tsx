@@ -202,7 +202,7 @@ const CaribbeanSkyDome: React.FC = () => {
   );
 };
 
-export const Environment3D: React.FC = () => {
+export const Environment3D: React.FC = React.memo(() => {
   const sunPos: [number, number, number] = [70, 140, -50];
 
   return (
@@ -238,6 +238,6 @@ export const Environment3D: React.FC = () => {
       <CaribbeanClouds2D />
     </>
   );
-};
+});
 
 

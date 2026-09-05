@@ -80,35 +80,56 @@ export const ARENA_ISLANDS: IslandDefinition[] = [
   },
 ];
 
+// Shared Static Geometries & Materials for Palm Trees (Zero Per-Frame Allocation)
+const palmTrunkLowerGeo = new THREE.CylinderGeometry(0.3, 0.52, 3.8, 7);
+const palmTrunkUpperGeo = new THREE.CylinderGeometry(0.22, 0.32, 3.6, 7);
+const coconutGeo = new THREE.SphereGeometry(0.2, 6, 6);
+const frondGeo = new THREE.ConeGeometry(1.5, 4.2, 4);
+
+const palmTrunkLowerMat = new THREE.MeshStandardMaterial({ color: '#4a2e18', roughness: 0.92 });
+const palmTrunkUpperMat = new THREE.MeshStandardMaterial({ color: '#382013', roughness: 0.9 });
+const coconutMat = new THREE.MeshStandardMaterial({ color: '#3b1d0e', roughness: 0.8 });
+const frondMatEven = new THREE.MeshStandardMaterial({ color: '#15803d', roughness: 0.75, side: THREE.DoubleSide });
+const frondMatOdd = new THREE.MeshStandardMaterial({ color: '#16a34a', roughness: 0.75, side: THREE.DoubleSide });
+
 /**
  * Realistic Procedural Caribbean Coconut Palm Tree
- * Curved segmented trunk, coconut cluster, and arching fronds.
+ * Uses shared GPU buffers - 0ms overhead, 0 garbage collection pressure.
  */
-const PalmTree: React.FC<{ position: [number, number, number]; scale?: number }> = ({
+const PalmTree: React.FC<{ position: [number, number, number]; scale?: number }> = React.memo(({
   position,
   scale = 1,
 }) => {
   return (
     <group position={position} scale={scale}>
       {/* Lower Curved Trunk */}
-      <mesh position={[0, 1.8, 0]} rotation={[0.06, 0, 0.08]} castShadow>
-        <cylinderGeometry args={[0.3, 0.52, 3.8, 7]} />
-        <meshStandardMaterial color="#4a2e18" roughness={0.92} />
-      </mesh>
+      <mesh
+        position={[0, 1.8, 0]}
+        rotation={[0.06, 0, 0.08]}
+        castShadow
+        geometry={palmTrunkLowerGeo}
+        material={palmTrunkLowerMat}
+      />
 
       {/* Upper Leaning Trunk with rings */}
-      <mesh position={[0.2, 4.8, 0.15]} rotation={[0.16, 0, 0.12]} castShadow>
-        <cylinderGeometry args={[0.22, 0.32, 3.6, 7]} />
-        <meshStandardMaterial color="#382013" roughness={0.9} />
-      </mesh>
+      <mesh
+        position={[0.2, 4.8, 0.15]}
+        rotation={[0.16, 0, 0.12]}
+        castShadow
+        geometry={palmTrunkUpperGeo}
+        material={palmTrunkUpperMat}
+      />
 
       {/* Coconuts Cluster */}
       <group position={[0.38, 6.4, 0.28]}>
         {[-0.2, 0.15, 0.05].map((cx, i) => (
-          <mesh key={`nut-${i}`} position={[cx, -0.15, (i - 1) * 0.2]} castShadow>
-            <sphereGeometry args={[0.2, 6, 6]} />
-            <meshStandardMaterial color="#3b1d0e" roughness={0.8} />
-          </mesh>
+          <mesh
+            key={`nut-${i}`}
+            position={[cx, -0.15, (i - 1) * 0.2]}
+            castShadow
+            geometry={coconutGeo}
+            material={coconutMat}
+          />
         ))}
       </group>
 
@@ -118,18 +139,20 @@ const PalmTree: React.FC<{ position: [number, number, number]; scale?: number }>
           const angle = (i / 8) * Math.PI * 2;
           return (
             <group key={`frond-${i}`} rotation={[0, angle, 0]}>
-              {/* Arching stem and leafy fan */}
-              <mesh position={[1.4, -0.4, 0]} rotation={[0.42, 0, -0.22]} castShadow>
-                <coneGeometry args={[1.5, 4.2, 4]} />
-                <meshStandardMaterial color={i % 2 === 0 ? '#15803d' : '#16a34a'} roughness={0.75} side={THREE.DoubleSide} />
-              </mesh>
+              <mesh
+                position={[1.4, -0.4, 0]}
+                rotation={[0.42, 0, -0.22]}
+                castShadow
+                geometry={frondGeo}
+                material={i % 2 === 0 ? frondMatEven : frondMatOdd}
+              />
             </group>
           );
         })}
       </group>
     </group>
   );
-};
+});
 
 interface IslandEntityProps {
   island: IslandDefinition;
@@ -144,7 +167,7 @@ interface IslandEntityProps {
 /**
  * Optimized Island Entity with Game Dev Distance Culling & Level of Detail (LOD)
  */
-const IslandEntity: React.FC<IslandEntityProps> = ({ island, materials }) => {
+const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, materials }) => {
   const groupRef = useRef<THREE.Group>(null);
   const palmsRef = useRef<THREE.Group>(null);
   const frameCount = useRef(Math.floor(Math.random() * 6));
@@ -230,9 +253,9 @@ const IslandEntity: React.FC<IslandEntityProps> = ({ island, materials }) => {
       </group>
     </group>
   );
-};
+});
 
-export const Islands3D: React.FC = () => {
+export const Islands3D: React.FC = React.memo(() => {
   const rockTexture = useMemo(() => createCliffRockTexture(), []);
   const sandTexture = useMemo(() => createBeachSandTexture(), []);
 
@@ -268,4 +291,4 @@ export const Islands3D: React.FC = () => {
       ))}
     </group>
   );
-};
+});

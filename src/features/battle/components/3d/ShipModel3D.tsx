@@ -13,7 +13,7 @@ interface ShipModel3DProps {
   isEnemy?: boolean;
 }
 
-export const ShipModel3D: React.FC<ShipModel3DProps> = ({
+export const ShipModel3D: React.FC<ShipModel3DProps> = React.memo(({
   config: propConfig,
   shipClass = 'brig',
   sailState = 'HALF_SAIL',
@@ -252,4 +252,11 @@ export const ShipModel3D: React.FC<ShipModel3DProps> = ({
       })}
     </group>
   );
-};
+}, (prev, next) => {
+  return (
+    prev.shipClass === next.shipClass &&
+    prev.sailState === next.sailState &&
+    prev.isEnemy === next.isEnemy &&
+    Math.abs((prev.rudderAngle ?? 0) - (next.rudderAngle ?? 0)) < 0.05
+  );
+});

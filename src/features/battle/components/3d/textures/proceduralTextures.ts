@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 
+const textureCache = new Map<string, THREE.CanvasTexture>();
+
 /**
  * Generates an in-memory high-res weathered naval oak plank texture.
  */
@@ -8,6 +10,10 @@ export function createWoodPlankTexture(
   grooveColorHex = '#27160c',
   plankCount = 6
 ): THREE.CanvasTexture {
+  const cacheKey = `wood_${baseColorHex}_${grooveColorHex}_${plankCount}`;
+  const cached = textureCache.get(cacheKey);
+  if (cached) return cached;
+
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 512;
@@ -59,6 +65,7 @@ export function createWoodPlankTexture(
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
   texture.needsUpdate = true;
+  textureCache.set(cacheKey, texture);
   return texture;
 }
 
@@ -66,6 +73,10 @@ export function createWoodPlankTexture(
  * Generates an in-memory canvas sailcloth texture with vertical stitching and fabric weave.
  */
 export function createSailClothTexture(baseColorHex = '#f8fafc'): THREE.CanvasTexture {
+  const cacheKey = `sail_${baseColorHex}`;
+  const cached = textureCache.get(cacheKey);
+  if (cached) return cached;
+
   const canvas = document.createElement('canvas');
   canvas.width = 256;
   canvas.height = 256;
@@ -119,6 +130,10 @@ export function createSailClothTexture(baseColorHex = '#f8fafc'): THREE.CanvasTe
  * Generates an in-memory limestone cliff rock texture with layered geological strata and moss.
  */
 export function createCliffRockTexture(): THREE.CanvasTexture {
+  const cacheKey = 'cliff_rock';
+  const cached = textureCache.get(cacheKey);
+  if (cached) return cached;
+
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 512;
@@ -171,6 +186,7 @@ export function createCliffRockTexture(): THREE.CanvasTexture {
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
   texture.needsUpdate = true;
+  textureCache.set(cacheKey, texture);
   return texture;
 }
 
@@ -178,6 +194,10 @@ export function createCliffRockTexture(): THREE.CanvasTexture {
  * Generates an in-memory golden Caribbean beach sand texture with shoreline wave ripples.
  */
 export function createBeachSandTexture(): THREE.CanvasTexture {
+  const cacheKey = 'beach_sand';
+  const cached = textureCache.get(cacheKey);
+  if (cached) return cached;
+
   const canvas = document.createElement('canvas');
   canvas.width = 256;
   canvas.height = 256;
@@ -208,5 +228,6 @@ export function createBeachSandTexture(): THREE.CanvasTexture {
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
   texture.needsUpdate = true;
+  textureCache.set(cacheKey, texture);
   return texture;
 }

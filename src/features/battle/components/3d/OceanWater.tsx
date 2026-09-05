@@ -7,7 +7,7 @@ interface OceanWaterProps {
   size?: number;
 }
 
-export const OceanWater: React.FC<OceanWaterProps> = ({ size = 1600 }) => {
+export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
 
   // Expansive 50x50 vertex grid across 1600m (flawless seamless horizon, zero edge artifacts)
@@ -182,6 +182,6 @@ export const OceanWater: React.FC<OceanWaterProps> = ({ size = 1600 }) => {
   return (
     <mesh ref={meshRef} geometry={geometry} material={shaderMaterial} position={[0, -0.05, 0]} />
   );
-};
+});
 
 

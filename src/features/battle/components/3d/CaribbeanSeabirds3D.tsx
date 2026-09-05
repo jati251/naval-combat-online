@@ -55,6 +55,14 @@ function createSeagullTexture(): THREE.CanvasTexture {
   return texture;
 }
 
+let cachedSeagullTexture: THREE.CanvasTexture | null = null;
+function getSeagullTexture(): THREE.CanvasTexture {
+  if (!cachedSeagullTexture) {
+    cachedSeagullTexture = createSeagullTexture();
+  }
+  return cachedSeagullTexture;
+}
+
 interface BirdData {
   id: number;
   orbitCenter: [number, number];
@@ -70,8 +78,8 @@ interface BirdData {
  * Ultra-Lightweight 2D Animated Caribbean Seabirds Flock
  * Soaring gulls circling islands and ocean swells with procedural wing flaps.
  */
-export const CaribbeanSeabirds3D: React.FC = () => {
-  const texture = useMemo(() => createSeagullTexture(), []);
+export const CaribbeanSeabirds3D: React.FC = React.memo(() => {
+  const texture = useMemo(() => getSeagullTexture(), []);
   const groupRef = useRef<THREE.Group>(null);
 
   // 12 Birds organized in 3 localized tropical flocks
@@ -139,4 +147,4 @@ export const CaribbeanSeabirds3D: React.FC = () => {
       ))}
     </group>
   );
-};
+});

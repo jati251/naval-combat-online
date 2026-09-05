@@ -8,7 +8,7 @@ export const ARENA_RADIUS = 500;
  * Assassin's Creed IV: Black Flag Shimmering Naval Map Boundary
  * An ethereal oceanic energy barrier and floating beacon buoys at R = 500m.
  */
-export const MapBoundary3D: React.FC = () => {
+export const MapBoundary3D: React.FC = React.memo(() => {
   const boundaryShader = useMemo(() => {
     return new THREE.ShaderMaterial({
       uniforms: {
@@ -108,19 +108,18 @@ export const MapBoundary3D: React.FC = () => {
               <meshStandardMaterial color="#d97706" metalness={0.8} roughness={0.3} />
             </mesh>
 
-            {/* Flashing Warning Beacon */}
+            {/* Flashing Warning Beacon (Luminous emissive material without forward light pass penalty) */}
             <mesh position={[0, 3.2, 0]}>
-              <sphereGeometry args={[0.35, 8, 8]} />
+              <sphereGeometry args={[0.38, 8, 8]} />
               <meshStandardMaterial
-                color="#f59e0b"
+                color="#fef08a"
                 emissive="#f59e0b"
-                emissiveIntensity={1.8}
+                emissiveIntensity={2.5}
               />
             </mesh>
-            <pointLight color="#f59e0b" intensity={1.5} distance={25} decay={2} position={[0, 3.2, 0]} />
           </group>
         ))}
       </group>
     </group>
   );
-};
+});
