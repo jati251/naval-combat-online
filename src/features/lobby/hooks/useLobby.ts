@@ -3,6 +3,8 @@ import { useGameStore } from '@/stores/useGameStore';
 import { useToastStore } from '@/stores/useToastStore';
 import { networkClient } from '@/services/networkClient';
 
+import type { MapId } from '@/types';
+
 export const useLobby = () => {
   const currentRoom = useGameStore((s) => s.currentRoom);
   const selfId = useGameStore((s) => s.selfId);
@@ -63,7 +65,8 @@ export const useLobby = () => {
       maxPlayers: number,
       timeOfDay: 'DAY' | 'NIGHT' | 'RANDOM' = 'DAY',
       targetKills: number = 5,
-      gameMode: 'FFA' | 'TEAM' = 'FFA'
+      gameMode: 'FFA' | 'TEAM' = 'FFA',
+      mapId: MapId = 'caribbean'
     ) => {
       if (!roomName.trim()) {
         useToastStore
@@ -80,7 +83,7 @@ export const useLobby = () => {
           );
         return false;
       }
-      networkClient.createRoom(roomName.trim(), maxPlayers, timeOfDay, targetKills, gameMode);
+      networkClient.createRoom(roomName.trim(), maxPlayers, timeOfDay, targetKills, gameMode, mapId);
       setShowCreateModal(false);
       return true;
     },

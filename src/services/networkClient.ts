@@ -1,7 +1,7 @@
 import { useGameStore } from '@/stores/useGameStore';
 import { useToastStore } from '@/stores/useToastStore';
 import { type ShipClass, type SailState, SHIP_PRESETS } from '@/types/game';
-import type { GameMode } from '@/types/room';
+import type { GameMode, MapId } from '@/types/room';
 import { navalAudio } from '@/features/battle/services/navalAudio';
 
 class NetworkClient {
@@ -179,7 +179,7 @@ class NetworkClient {
         break;
       }
       case 'ROOM_STATE': {
-        const room = msg.room as { id?: string; timeOfDay?: 'DAY' | 'NIGHT'; status?: string; players?: Array<{ id: string }> } | undefined;
+        const room = msg.room as { id?: string; timeOfDay?: 'DAY' | 'NIGHT'; status?: string; mapId?: MapId; players?: Array<{ id: string }> } | undefined;
         const currentSelfId = store.selfId;
         const targetSelfId = (msg.selfId as string) || currentSelfId;
         const isInRoom = room?.players?.some((p) => p.id === targetSelfId);
@@ -195,6 +195,9 @@ class NetworkClient {
         if (room?.timeOfDay) {
           store.setTimeOfDay(room.timeOfDay);
         }
+        if (room?.mapId) {
+          store.setMapId(room.mapId);
+        }
         if (room?.status === 'LOBBY' && (store.stage === 'DEBRIEF' || store.stage === 'BATTLE')) {
           store.setStage('LOBBY');
         }
@@ -206,6 +209,9 @@ class NetworkClient {
         store.setStage('BATTLE');
         if (msg.timeOfDay === 'DAY' || msg.timeOfDay === 'NIGHT') {
           store.setTimeOfDay(msg.timeOfDay);
+        }
+        if (msg.mapId) {
+          store.setMapId(msg.mapId as MapId);
         }
         if (typeof msg.windAngle === 'number' && typeof msg.windSpeed === 'number') {
           store.setWind(msg.windAngle, msg.windSpeed);
@@ -310,7 +316,8 @@ class NetworkClient {
     maxPlayers: number = 4,
     timeOfDay: 'DAY' | 'NIGHT' | 'RANDOM' = 'DAY',
     targetKills: number = 5,
-    gameMode: GameMode = 'FFA'
+    gameMode: GameMode = 'FFA',
+    mapId: MapId = 'caribbean'
   ): void {
     const store = useGameStore.getState();
 
@@ -333,8 +340,13 @@ class NetworkClient {
       targetKills,
       timeOfDay,
       gameMode,
+      mapId,
       sessionToken: this.sessionToken,
     });
+  }
+
+  public setMap(mapId: MapId): void {
+    this.send({ type: 'SET_MAP', mapId });
   }
 
   public switchTeam(): void {

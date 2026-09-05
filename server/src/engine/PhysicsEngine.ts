@@ -2,46 +2,19 @@ import { getWaveHeight } from './WaveMath.js';
 import {
   type ShipSimulationState,
   type CannonballSimulationState,
+  type MapId,
   SERVER_SHIP_CONFIGS,
 } from '../types/protocol.js';
+import {
+  type ServerIsland,
+  type ServerWreck,
+  getServerMap,
+  SERVER_MAPS,
+} from '../maps/mapConfigs.js';
 
-export interface ServerIsland {
-  id: string;
-  x: number;
-  z: number;
-  radius: number;
-  sandRadius: number;
-  elongation?: {
-    scaleX: number;
-    scaleZ: number;
-    angle: number;
-  };
-}
-
-export const SERVER_ISLANDS: ServerIsland[] = [
-  {
-    id: 'isla-larga',
-    x: -40,
-    z: -10,
-    radius: 28,
-    sandRadius: 38,
-    elongation: { scaleX: 0.52, scaleZ: 2.3, angle: 0.45 },
-  },
-  { id: 'dead-mans-cay', x: -330, z: 180, radius: 44, sandRadius: 60 },
-  { id: 'isla-de-la-muerte', x: 290, z: -260, radius: 46, sandRadius: 62 },
-  { id: 'smugglers-reef', x: 320, z: 160, radius: 34, sandRadius: 48 },
-  { id: 'isla-verde', x: 260, z: -30, radius: 40, sandRadius: 55 },
-  { id: 'tortuga-atoll', x: -280, z: -250, radius: 36, sandRadius: 50 },
-  { id: 'verdant-ridge', x: -80, z: 340, radius: 45, sandRadius: 60 },
-  { id: 'cayo-de-la-selva', x: -360, z: -30, radius: 40, sandRadius: 54 },
-  { id: 'black-sand-atoll', x: 70, z: -340, radius: 35, sandRadius: 48 },
-];
-
-export const SERVER_WRECKS = [
-  { id: 'wreck-el-cazador', x: 40, z: 110, radius: 14, height: 8 },
-  { id: 'wreck-queen-anne', x: -140, z: -80, radius: 12, height: 7 },
-  { id: 'wreck-royal-fortune', x: 130, z: -100, radius: 13, height: 8 },
-];
+export type { ServerIsland, ServerWreck };
+export const SERVER_ISLANDS = SERVER_MAPS.caribbean.islands;
+export const SERVER_WRECKS = SERVER_MAPS.caribbean.wrecks;
 
 export class PhysicsEngine {
   /**
@@ -50,8 +23,11 @@ export class PhysicsEngine {
   public static findSafeSpawnPoint(
     playerIndex: number,
     totalPlayers: number,
-    existingShips: Array<{ x: number; z: number }> = []
+    existingShips: Array<{ x: number; z: number }> = [],
+    mapId: MapId = 'caribbean'
   ): { x: number; z: number; rotationY: number } {
+    const { islands, wrecks } = getServerMap(mapId);
+
     // Dynamic randomized spawn distribution:
     // 1. Give each match a randomized angular rotation offset so spawns are never in identical locations
     const randomAngleOffset = Math.random() * Math.PI * 2;
@@ -59,24 +35,24 @@ export class PhysicsEngine {
     const sectorAngle = (Math.PI * 2) / Math.max(1, totalPlayers);
     const playerSector = randomAngleOffset + playerIndex * sectorAngle;
 
-    // 3. Multi-tier distance bands from dynamic channels (130m) to open ocean (240m)
-    const distanceBands = [145, 185, 215, 160, 235, 135];
+    // 3. Multi-tier distance bands from dynamic channels (140m) to open ocean (320m)
+    const distanceBands = [160, 210, 260, 310, 180, 240];
     distanceBands.sort(() => Math.random() - 0.5);
 
     for (const radius of distanceBands) {
-      for (let attempt = 0; attempt < 24; attempt++) {
+      for (let attempt = 0; attempt < 28; attempt++) {
         // Sector jitter and radial jitter
-        const angleJitter = (Math.random() - 0.5) * (sectorAngle * 0.7);
-        const radiusJitter = (Math.random() - 0.5) * 22;
+        const angleJitter = (Math.random() - 0.5) * (sectorAngle * 0.75);
+        const radiusJitter = (Math.random() - 0.5) * 30;
         const angle = playerSector + angleJitter;
-        const r = Math.max(115, Math.min(255, radius + radiusJitter));
+        const r = Math.max(120, Math.min(340, radius + radiusJitter));
 
         const x = Math.sin(angle) * r;
         const z = Math.cos(angle) * r;
 
         let safe = true;
         // Realistic island clearance (tight to visible beach, leaving open water free for spawning)
-        for (const isl of SERVER_ISLANDS) {
+        for (const isl of islands) {
           if (isl.elongation) {
             const rx = x - isl.x;
             const rz = z - isl.z;
@@ -103,7 +79,7 @@ export class PhysicsEngine {
 
         if (safe) {
           // Check wrecks clearance
-          for (const wreck of SERVER_WRECKS) {
+          for (const wreck of wrecks) {
             if (Math.hypot(x - wreck.x, z - wreck.z) < wreck.radius + 20) {
               safe = false;
               break;
@@ -148,8 +124,10 @@ export class PhysicsEngine {
    * - Selects the candidate that maximizes distance to the nearest opponent
    */
   public static findRandomSafeRespawnPoint(
-    existingAliveShips: Array<{ x: number; z: number }> = []
+    existingAliveShips: Array<{ x: number; z: number }> = [],
+    mapId: MapId = 'caribbean'
   ): { x: number; z: number; rotationY: number } {
+    const { islands, wrecks } = getServerMap(mapId);
     let bestCandidate: { x: number; z: number; rotationY: number; minOppDist: number } | null = null;
 
     // Generate up to 48 randomized candidates sampled across the arena
@@ -162,7 +140,7 @@ export class PhysicsEngine {
       let safe = true;
 
       // 1. Island collision check
-      for (const isl of SERVER_ISLANDS) {
+      for (const isl of islands) {
         if (isl.elongation) {
           const rx = x - isl.x;
           const rz = z - isl.z;
@@ -189,7 +167,7 @@ export class PhysicsEngine {
       if (!safe) continue;
 
       // 2. Wreck clearance
-      for (const wreck of SERVER_WRECKS) {
+      for (const wreck of wrecks) {
         if (Math.hypot(x - wreck.x, z - wreck.z) < wreck.radius + 25) {
           safe = false;
           break;
@@ -240,7 +218,8 @@ export class PhysicsEngine {
     dt: number,
     serverTime: number,
     windAngle: number,
-    windSpeed: number
+    windSpeed: number,
+    mapId: MapId = 'caribbean'
   ): void {
     if (ship.isSunk) {
       // Sinking animation: ship sinks downwards and tilts
@@ -317,8 +296,10 @@ export class PhysicsEngine {
     const fwdX = Math.sin(ship.rotationY);
     const fwdZ = Math.cos(ship.rotationY);
 
-    // Tactical Caribbean Islands Collision & Run-Aground Deceleration
-    for (const isl of SERVER_ISLANDS) {
+    const { islands, wrecks } = getServerMap(mapId);
+
+    // Tactical Islands Collision & Run-Aground Deceleration
+    for (const isl of islands) {
       if (isl.elongation) {
         // Elliptical island shoreline: reduced from sandRadius * 1.2 to 0.76 to match real beach waterline
         const relX = ship.x - isl.x;
@@ -372,7 +353,7 @@ export class PhysicsEngine {
     }
 
     // Floating Shipwrecks Collision: reduced from wreck.radius + 8.5m to wreck.radius * 0.65 + shipRadius
-    for (const wreck of SERVER_WRECKS) {
+    for (const wreck of wrecks) {
       const dx = ship.x - wreck.x;
       const dz = ship.z - wreck.z;
       const dist = Math.hypot(dx, dz);
@@ -437,10 +418,12 @@ export class PhysicsEngine {
     dt: number,
     serverTime: number,
     onHit: (ball: CannonballSimulationState, hitShip: ShipSimulationState) => void,
-    isFriendly?: (ownerId: string, targetId: string) => boolean
+    isFriendly?: (ownerId: string, targetId: string) => boolean,
+    mapId: MapId = 'caribbean'
   ): CannonballSimulationState[] {
     const activeBalls: CannonballSimulationState[] = [];
     const gravity = -9.81;
+    const { islands, wrecks } = getServerMap(mapId);
 
     for (const ball of cannonballs) {
       // Age check
@@ -463,7 +446,7 @@ export class PhysicsEngine {
 
       // Island terrain obstruction check (cannonball hits island rock/sand)
       let hitObstacle = false;
-      for (const isl of SERVER_ISLANDS) {
+      for (const isl of islands) {
         // Fast AABB early rejection
         if (Math.abs(ball.x - isl.x) > 85 || Math.abs(ball.z - isl.z) > 85) {
           continue;
@@ -496,7 +479,7 @@ export class PhysicsEngine {
       }
 
       // Shipwreck collision check (cannonball hits floating wreck hull/mast)
-      for (const wreck of SERVER_WRECKS) {
+      for (const wreck of wrecks) {
         // Fast AABB early rejection
         if (Math.abs(ball.x - wreck.x) > 25 || Math.abs(ball.z - wreck.z) > 25) {
           continue;

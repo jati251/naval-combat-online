@@ -1,7 +1,8 @@
 import React from 'react';
-import { CheckCircle, LogOut, Loader2, Hourglass, Anchor, Shield, Bot, Trash2, Users } from 'lucide-react';
+import { CheckCircle, LogOut, Loader2, Hourglass, Anchor, Shield, Bot, Trash2, Users, Compass } from 'lucide-react';
 import { networkClient } from '@/services/networkClient';
 import type { RoomInfo, RoomPlayer } from '@/types';
+import { getMapConfig, MAP_LIST } from '@/features/battle/maps';
 
 interface RoomLobbyProps {
   room: RoomInfo;
@@ -94,6 +95,78 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Charted Waters & Naval Theater Selector */}
+      {(() => {
+        const activeMap = getMapConfig(room.mapId);
+        return (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 sm:p-2.5 rounded-lg bg-[#0a1626]/80 border border-amber-600/30 my-2 shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-7 h-7 rounded-md bg-amber-950/80 border border-amber-500/50 flex items-center justify-center text-amber-300 shrink-0">
+                <Compass className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] sm:text-xs font-cinzel font-bold text-amber-100">
+                    Theater: {activeMap.name}
+                  </span>
+                  <span
+                    className={`text-[8px] font-cinzel font-bold px-1.5 py-0.2 rounded border ${
+                      activeMap.id === 'kingston'
+                        ? 'bg-sky-950/80 text-sky-300 border-sky-600/60'
+                        : activeMap.id === 'mexico'
+                        ? 'bg-emerald-950/80 text-emerald-300 border-emerald-600/60'
+                        : 'bg-amber-950/80 text-amber-300 border-amber-600/60'
+                    }`}
+                  >
+                    {activeMap.tacticalTag}
+                  </span>
+                </div>
+                <p className="text-[9px] sm:text-[10px] font-fell italic text-amber-200/70 truncate">
+                  {activeMap.subtitle} • {activeMap.islands.length} Islands, {activeMap.shipwrecks.length} Shipwrecks
+                </p>
+              </div>
+            </div>
+
+            {/* Map Selection Controls for Host */}
+            {isHost ? (
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 self-end sm:self-auto">
+                <span className="text-[9px] font-cinzel font-bold text-amber-300/70 mr-1 hidden md:inline uppercase">
+                  Change Map:
+                </span>
+                {MAP_LIST.map((m) => {
+                  const isActive = (room.mapId || 'caribbean') === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => networkClient.setMap(m.id)}
+                      disabled={isDeploying}
+                      className={`px-2 py-1 rounded text-[9px] sm:text-[10px] font-cinzel font-bold transition-all cursor-pointer border ${
+                        isActive
+                          ? m.id === 'kingston'
+                            ? 'bg-sky-900/90 border-sky-400 text-white shadow-[0_0_10px_rgba(56,189,248,0.4)] ring-1 ring-sky-300'
+                            : m.id === 'mexico'
+                            ? 'bg-emerald-900/90 border-emerald-400 text-white shadow-[0_0_10px_rgba(52,211,153,0.4)] ring-1 ring-emerald-300'
+                            : 'bg-amber-900/90 border-amber-400 text-white shadow-[0_0_10px_rgba(245,158,11,0.4)] ring-1 ring-amber-300'
+                          : 'bg-[#121f30] border-amber-500/30 text-amber-200/80 hover:text-white hover:border-amber-400/60'
+                      }`}
+                      title={`Switch theater to ${m.name}`}
+                    >
+                      {m.id === 'caribbean' && '⚓ Caribbean'}
+                      {m.id === 'kingston' && '🛡 Kingston'}
+                      {m.id === 'mexico' && '🏛 Mexico'}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-[9px] font-fell italic text-amber-300/60 self-end sm:self-auto">
+                Commodore's Chart
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Captains Roster Grid (Scrolls internally within wardroom parchment) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 my-2.5 sm:my-4 flex-1 min-h-0 overflow-y-auto pr-0.5 sm:pr-2">

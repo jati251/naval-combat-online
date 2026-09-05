@@ -1,8 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Wind } from 'lucide-react';
 import type { ShipSnapshot } from '@/types';
-import { ARENA_ISLANDS } from '../3d/Islands3D';
-import { ARENA_SHIPWRECKS } from '../3d/Shipwrecks3D';
+import { getMapConfig } from '../../maps';
 import { CONTROL_CONFIG } from '../../utils/controls';
 import { useGameStore } from '@/stores/useGameStore';
 
@@ -133,9 +132,14 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(() => {
       ctx.stroke();
       ctx.setLineDash([]);
 
+      const { currentMapId, currentRoom } = useGameStore.getState();
+      const activeMap = getMapConfig(currentMapId || currentRoom?.mapId || 'caribbean');
+      const activeIslands = activeMap.islands;
+      const activeWrecks = activeMap.shipwrecks;
+
       // 3. Islands (Vintage Cartography styling with golden sand and green interior)
-      for (let i = 0; i < ARENA_ISLANDS.length; i++) {
-        const isl = ARENA_ISLANDS[i];
+      for (let i = 0; i < activeIslands.length; i++) {
+        const isl = activeIslands[i];
         const dx = isl.x - curSelf.x;
         const dz = isl.z - curSelf.z;
         const fwd = dx * sinH + dz * cosH;
@@ -179,8 +183,8 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(() => {
       }
 
       // 4. Shipwrecks (Sunken Prize crossed bones / markers)
-      for (let i = 0; i < ARENA_SHIPWRECKS.length; i++) {
-        const wreck = ARENA_SHIPWRECKS[i];
+      for (let i = 0; i < activeWrecks.length; i++) {
+        const wreck = activeWrecks[i];
         const dx = wreck.x - curSelf.x;
         const dz = wreck.z - curSelf.z;
         const fwd = dx * sinH + dz * cosH;

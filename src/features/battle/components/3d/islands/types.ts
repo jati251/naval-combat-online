@@ -28,8 +28,10 @@ export interface IslandDefinition {
 }
 
 export interface IslandSettlement {
-  type: 'pirate-haven' | 'colonial-fort';
+  type: 'pirate-haven' | 'colonial-fort' | 'kingston-city' | 'mayan-temple' | 'sea-arch';
   x: number; // relative local X offset
   z: number; // relative local Z offset
   rotationY: number; // facing angle
+  terraceElevation?: number; // target elevation for the settlement plateau/terrace
+  terraceRadius?: number; // flattening radius in meters
 }

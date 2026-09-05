@@ -13,6 +13,9 @@ import {
   createDarkRockTexture,
 } from './textures/proceduralTextures';
 
+import { useGameStore } from '@/stores/useGameStore';
+import { getMapConfig } from '../../maps';
+
 export type { IslandDefinition };
 export { ARENA_ISLANDS };
 
@@ -23,9 +26,13 @@ interface Islands3DProps {
 /**
  * Islands3D Root Component
  * Sets up shared standard materials with procedural textures and renders
- * all 8 unique Caribbean arena islands.
+ * all islands for the currently active battle map.
  */
 export const Islands3D: React.FC<Islands3DProps> = React.memo(({ isMobile = false }) => {
+  const currentMapId = useGameStore((s) => s.currentMapId || s.currentRoom?.mapId || 'caribbean');
+  const activeMap = useMemo(() => getMapConfig(currentMapId), [currentMapId]);
+  const islands = activeMap.islands;
+
   const rockTexture = useMemo(() => createCliffRockTexture(), []);
   const sandTexture = useMemo(() => createBeachSandTexture(), []);
   const vegTexture = useMemo(() => createVegetationTexture(), []);
@@ -70,7 +77,7 @@ export const Islands3D: React.FC<Islands3DProps> = React.memo(({ isMobile = fals
 
   return (
     <group>
-      {ARENA_ISLANDS.map((island) => (
+      {islands.map((island) => (
         <IslandEntity key={island.id} island={island} materials={materials} isMobile={isMobile} />
       ))}
     </group>

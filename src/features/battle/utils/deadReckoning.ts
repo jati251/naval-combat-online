@@ -1,5 +1,5 @@
-import { ARENA_ISLANDS } from '../components/3d/Islands3D';
-import { ARENA_SHIPWRECKS } from '../components/3d/Shipwrecks3D';
+import { getMapConfig } from '../maps';
+import { useGameStore } from '@/stores/useGameStore';
 
 export interface DeadReckoningBuffer {
   snapX: number;
@@ -81,16 +81,20 @@ export function extrapolatePosition(
   // Cap extrapolation window to 80ms (smoothly bridges 33ms server ticks)
   const elapsed = Math.min(0.08, (now - buffer.packetTime) / 1000);
 
-  // Extrapolate forward with real-time server velocity
   let targetX = buffer.snapX + buffer.vx * elapsed;
   let targetZ = buffer.snapZ + buffer.vz * elapsed;
   const targetY = isSunk ? buffer.snapY : buffer.snapY + 0.85;
   const targetHeading = buffer.snapHeading + buffer.turnRate * elapsed;
 
+  const { currentMapId, currentRoom } = useGameStore.getState();
+  const activeMap = getMapConfig(currentMapId || currentRoom?.mapId || 'caribbean');
+  const activeIslands = activeMap.islands;
+  const activeWrecks = activeMap.shipwrecks;
+
   // Shoreline and Shipwreck client collision clamping
   const shipColRadius = 2.5;
-  for (let i = 0; i < ARENA_ISLANDS.length; i++) {
-    const isl = ARENA_ISLANDS[i];
+  for (let i = 0; i < activeIslands.length; i++) {
+    const isl = activeIslands[i];
     const bound = (isl.sandRadius + 15) * (isl.elongation ? Math.max(isl.elongation.scaleX, isl.elongation.scaleZ) : 1);
     if (Math.abs(targetX - isl.x) > bound || Math.abs(targetZ - isl.z) > bound) {
       continue;
@@ -131,8 +135,8 @@ export function extrapolatePosition(
     }
   }
 
-  for (let i = 0; i < ARENA_SHIPWRECKS.length; i++) {
-    const wreck = ARENA_SHIPWRECKS[i];
+  for (let i = 0; i < activeWrecks.length; i++) {
+    const wreck = activeWrecks[i];
     const bound = wreck.radius + 10;
     if (Math.abs(targetX - wreck.x) > bound || Math.abs(targetZ - wreck.z) > bound) {
       continue;

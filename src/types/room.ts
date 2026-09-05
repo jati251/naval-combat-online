@@ -2,6 +2,7 @@ import type { ShipClass } from './ship';
 
 export type GameStage = 'LOBBY' | 'BATTLE' | 'DEBRIEF';
 export type TimeOfDay = 'DAY' | 'NIGHT';
+export type MapId = 'caribbean' | 'kingston' | 'mexico';
 export type GameMode = 'FFA' | 'TEAM';
 export type Team = 'red' | 'blue';
 
@@ -32,4 +33,5 @@ export interface RoomInfo {
   windAngle: number;
   windSpeed: number;
   timeOfDay: TimeOfDay;
+  mapId: MapId;
 }

@@ -91,7 +91,36 @@ export function createIslandTerrainGeometry(
     dz += Math.sin(angle) * combinedNoise;
     dy += combinedNoise * 0.4;
 
-    pos.setXYZ(i, x + dx, y + dy, z + dz);
+    const finalX = x + dx;
+    let finalY = y + dy;
+    const finalZ = z + dz;
+
+    // Coastal & Plateau Terrace Flattening for Settlements
+    if (island.settlement && island.settlement.type !== 'sea-arch') {
+      const sx = island.settlement.x;
+      const sz = island.settlement.z;
+      const targetTerrace = island.settlement.terraceElevation ?? (
+        island.settlement.type === 'kingston-city' ? 1.6 :
+        island.settlement.type === 'mayan-temple' ? 12.0 :
+        island.settlement.type === 'pirate-haven' ? 1.5 : 3.0
+      );
+      const terraceRad = island.settlement.terraceRadius ?? (
+        island.settlement.type === 'kingston-city' ? 44.0 :
+        island.settlement.type === 'mayan-temple' ? 36.0 : 24.0
+      );
+
+      const distSettlement = Math.sqrt((finalX - sx) ** 2 + (finalZ - sz) ** 2);
+      if (distSettlement < terraceRad) {
+        const u = distSettlement / terraceRad;
+        const blend = (1 - u) * (1 - u) * (3 - 2 * (1 - u));
+        const elevOffset = getIslandElevation(island) + 2.0;
+        const currentWorldY = finalY + elevOffset;
+        const blendedWorldY = currentWorldY * (1 - blend) + targetTerrace * blend;
+        finalY = blendedWorldY - elevOffset;
+      }
+    }
+
+    pos.setXYZ(i, finalX, finalY, finalZ);
   }
 
   geo.computeVertexNormals();
@@ -198,7 +227,19 @@ export function createBeachGeometry(island: IslandDefinition): THREE.BufferGeome
 
     const dx = Math.cos(angle) * coastNoise * (1 - t * 0.5);
     const dz = Math.sin(angle) * coastNoise * (1 - t * 0.5);
-    const dy = Math.sin(angle * 7 + y * 2) * 0.15;
+    let dy = Math.sin(angle * 7 + y * 2) * 0.15;
+
+    // Waterfront harbor cutout for Kingston City:
+    // Lowers beach sand below sea-level around docks so stone quay and jetty plunge directly into the ocean
+    if (island.settlement && island.settlement.type === 'kingston-city') {
+      const sx = island.settlement.x;
+      const sz = island.settlement.z;
+      const distHarbor = Math.sqrt((x + dx - sx) ** 2 + (z + dz - sz) ** 2);
+      if (distHarbor < 45) {
+        const blend = (1 - distHarbor / 45);
+        dy -= blend * blend * 2.8;
+      }
+    }
 
     pos.setXYZ(i, x + dx, y + dy, z + dz);
   }
@@ -216,4 +257,118 @@ export function getIslandElevation(island: IslandDefinition): number {
     case 'verdant-hills': return island.height * 0.35;
     case 'dense-jungle': return island.height * 0.38;
   }
+}
+
+/**
+ * Calculates the exact terrain surface height Y at any (relX, relZ) coordinate
+ * on the island, matching both the procedural mountain profile, terrace flattening,
+ * and coastal beach transitions.
+ */
+export function getTerrainSurfaceY(
+  island: IslandDefinition,
+  relX: number,
+  relZ: number
+): number {
+  const { settlement } = island;
+
+  // Check terrace blend first if a settlement exists
+  if (settlement && settlement.type !== 'sea-arch') {
+    const sx = settlement.x;
+    const sz = settlement.z;
+    const targetTerrace = settlement.terraceElevation ?? (
+      settlement.type === 'kingston-city' ? 1.6 :
+      settlement.type === 'mayan-temple' ? 12.0 :
+      settlement.type === 'pirate-haven' ? 1.5 : 3.0
+    );
+    const terraceRad = settlement.terraceRadius ?? (
+      settlement.type === 'kingston-city' ? 44.0 :
+      settlement.type === 'mayan-temple' ? 36.0 : 24.0
+    );
+
+    const distSettlement = Math.sqrt((relX - sx) ** 2 + (relZ - sz) ** 2);
+    if (distSettlement < terraceRad * 0.7) {
+      return targetTerrace;
+    }
+    if (distSettlement < terraceRad) {
+      const u = (distSettlement - terraceRad * 0.7) / (terraceRad * 0.3);
+      const naturalY = computeNaturalSlopeY(island, relX, relZ);
+      return targetTerrace * (1 - u) + naturalY * u;
+    }
+  }
+
+  return computeNaturalSlopeY(island, relX, relZ);
+}
+
+function computeNaturalSlopeY(
+  island: IslandDefinition,
+  relX: number,
+  relZ: number
+): number {
+  const { radius, height, sandRadius, type, seed } = island;
+
+  // 1. Account for elongation transformation (matches terrain mesh geometry)
+  let nx = relX;
+  let nz = relZ;
+  if (island.elongation) {
+    const cos = Math.cos(-island.elongation.angle);
+    const sin = Math.sin(-island.elongation.angle);
+    const rx = relX * cos - relZ * sin;
+    const rz = relX * sin + relZ * cos;
+    nx = rx / (island.elongation.scaleX || 1);
+    nz = rz / (island.elongation.scaleZ || 1);
+  }
+
+  const r = Math.sqrt(nx * nx + nz * nz);
+  const angle = Math.atan2(nz, nx);
+
+  // 2. Deep in ocean water
+  if (r >= sandRadius * 1.12) {
+    return 0.1;
+  }
+
+  // 3. Sandy Shoreline / Coastal Beach zone (beyond mountain base r > radius * 1.15)
+  if (r >= radius * 1.15) {
+    const beachT = Math.max(0, Math.min(1, (sandRadius * 1.12 - r) / (sandRadius * 1.12 - radius * 1.15)));
+    return 0.4 + beachT * 1.8;
+  }
+
+  // 4. Exact Mathematical Terrain Mesh Elevation
+  // The terrain mesh is a CylinderGeometry(radius * 0.1, radius * 1.15, height)
+  // placed at y = getIslandElevation(island) + 2.0.
+  const elevOffset = getIslandElevation(island) + 2.0;
+
+  // Fractional height t on the truncated cone: r(t) = radius * (1.15 - 1.05 * t)
+  const t = Math.max(0, Math.min(1, (radius * 1.15 - r) / (radius * 1.05)));
+  const yCyl = (t - 0.5) * height;
+
+  // Exact vertical displacement (dy) matching createIslandTerrainGeometry
+  let dy = 0;
+  if (type === 'volcanic') {
+    dy = Math.sin(angle * 11 + yCyl * 0.3) * 0.8 * t +
+         Math.sin(angle * 19 + yCyl * 0.7) * 0.4 * t;
+  } else if (type === 'sea-stack') {
+    const peakBias = Math.max(0, Math.cos(angle * 2 - 1.0)) * height * 0.15 * t * t;
+    dy = peakBias + Math.sin(angle * 9 + yCyl * 0.4) * 1.2 * t;
+  } else if (type === 'atoll') {
+    dy = -t * t * height * 0.3 + Math.sin(angle * 7 + yCyl * 0.5) * 0.3;
+  } else if (type === 'lush-flat') {
+    dy = Math.sin(angle * 3 + 0.8) * Math.sin(t * Math.PI) * height * 0.12 +
+         Math.cos(angle * 5 - 1.2) * height * 0.06 * t;
+  } else if (type === 'verdant-hills') {
+    const rollingDome = Math.sin(t * Math.PI * 0.95) * height * 0.24;
+    const saddle = Math.cos(angle * 2 + 1.1) * height * 0.14 * t;
+    dy = rollingDome + saddle;
+  } else if (type === 'dense-jungle') {
+    const terracing = Math.sin(t * Math.PI * 3.0) * 0.6 * (1 - t);
+    dy = terracing + Math.sin(angle * 5 + seed * 0.5) * height * 0.12 * t;
+  }
+
+  // Organic micro-noise displacement
+  const noise1 = Math.sin(angle * 13 + yCyl * 0.5 + seed * 0.1) * 0.6;
+  const noise2 = Math.sin(angle * 23 + yCyl * 1.1 + seed * 0.3) * 0.25;
+  dy += (noise1 + noise2) * (1 - t * 0.4) * 0.4;
+
+  // Add a clean +0.4m resting surface elevation so roots and boulders sit securely ON TOP of the terrain
+  const surfaceY = elevOffset + yCyl + dy + 0.4;
+  return Math.max(1.2, surfaceY);
 }

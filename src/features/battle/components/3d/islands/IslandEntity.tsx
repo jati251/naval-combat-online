@@ -2,10 +2,13 @@ import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import type { IslandDefinition } from './types';
-import { createIslandTerrainGeometry, createBeachGeometry, getIslandElevation } from './islandGeometries';
+import { createIslandTerrainGeometry, createBeachGeometry, getIslandElevation, getTerrainSurfaceY } from './islandGeometries';
 import { PalmTree, JungleTree, TropicalBush } from './IslandVegetation';
 import { RockFormation } from './RockFormation';
 import { CoastalSettlement } from './CoastalSettlement';
+import { KingstonCity } from './KingstonCity';
+import { MayanPyramid } from './MayanPyramid';
+import { SeaArch } from './SeaArch';
 
 export interface IslandMaterials {
   sand: THREE.Material;
@@ -69,167 +72,216 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
       if (showSec) secondaryRef.current.scale.set(secT, secT, secT);
     }
 
-    // 3. Tree Canopy Foliage Staging (Smoothly scales up from canopy - ZERO pop-in)
-    const treeFar = (isMobile ? 140 : 230) + islandRadius * 0.4;
-    const treeNear = (isMobile ? 80 : 140) + islandRadius * 0.4;
-    const treeT = THREE.MathUtils.clamp((treeFar - dist) / (treeFar - treeNear), 0, 1);
+    // 3. Tree Canopy Foliage Staging (Visible across entire battle sea, smooth vertical emergence at far horizon)
+    const treeFar = (isMobile ? 400 : 780) + islandRadius * 0.6;
+    const treeNear = (isMobile ? 260 : 520) + islandRadius * 0.6;
     if (treesRef.current) {
-      const showTrees = treeT > 0.005;
-      if (treesRef.current.visible !== showTrees) treesRef.current.visible = showTrees;
-      if (showTrees) treesRef.current.scale.set(treeT, treeT, treeT);
+      const isVisible = dist < treeFar;
+      if (treesRef.current.visible !== isVisible) treesRef.current.visible = isVisible;
+      if (isVisible) {
+        if (dist > treeNear) {
+          const t = (treeFar - dist) / (treeFar - treeNear);
+          treesRef.current.scale.set(1, Math.max(0.08, t), 1);
+        } else if (treesRef.current.scale.y !== 1 || treesRef.current.scale.x !== 1) {
+          treesRef.current.scale.set(1, 1, 1);
+        }
+      }
     }
 
-    // 4. Coastal Boulders, Rocks & Undergrowth Bushes Staging (Smoothly scales up - ZERO pop-in)
-    const detailFar = (isMobile ? 75 : 130) + islandRadius * 0.3;
-    const detailNear = (isMobile ? 40 : 75) + islandRadius * 0.3;
-    const detailT = THREE.MathUtils.clamp((detailFar - dist) / (detailFar - detailNear), 0, 1);
+    // 4. Coastal Boulders, Rocks & Undergrowth Bushes Staging
+    const detailFar = (isMobile ? 180 : 420) + islandRadius * 0.4;
+    const detailNear = (isMobile ? 110 : 260) + islandRadius * 0.4;
     if (detailRef.current) {
-      const showDetail = detailT > 0.005;
-      if (detailRef.current.visible !== showDetail) detailRef.current.visible = showDetail;
-      if (showDetail) detailRef.current.scale.set(detailT, detailT, detailT);
+      const isVisible = dist < detailFar;
+      if (detailRef.current.visible !== isVisible) detailRef.current.visible = isVisible;
+      if (isVisible) {
+        if (dist > detailNear) {
+          const t = (detailFar - dist) / (detailFar - detailNear);
+          detailRef.current.scale.set(1, Math.max(0.08, t), 1);
+        } else if (detailRef.current.scale.y !== 1 || detailRef.current.scale.x !== 1) {
+          detailRef.current.scale.set(1, 1, 1);
+        }
+      }
     }
   });
 
   const scaleX = island.elongation?.scaleX ?? 1;
   const scaleZ = island.elongation?.scaleZ ?? 1;
   const rotY = island.elongation?.angle ?? 0;
+  const isSeaArch = island.settlement?.type === 'sea-arch';
 
   return (
     <group position={[island.x, 0, island.z]} rotation={[0, rotY, 0]}>
-      {/* Scaled Island Mass (Terrain, Beach, Shallows) */}
-      <group scale={[scaleX, 1, scaleZ]}>
-        {/* Tier 1: Core Geological Mountain Mass (Always rendered as horizon landmark) */}
-        <mesh
-          position={[0, getIslandElevation(island) + 2.0, 0]}
-          castShadow
-          receiveShadow
-          material={materials.rock}
-          geometry={terrainGeo}
-        />
-
-        {/* Tier 2: Organic Sandy Beach Shoreline (Staged LOD) */}
-        <group ref={beachRef}>
-          <mesh position={[0, 0.6, 0]} receiveShadow material={materials.sand} geometry={beachGeo} />
-        </group>
-      </group>
-
-      {/* Tier 3: Secondary Rock Outcrops & Corals (Staged LOD) */}
-      <group ref={secondaryRef}>
-        {island.type === 'volcanic' && (
-          <>
-            <mesh
-              position={[island.radius * 0.3, island.height * 0.3 + 1.5, -island.radius * 0.2]}
-              castShadow
-              receiveShadow
-              material={materials.darkRock}
-            >
-              <dodecahedronGeometry args={[island.radius * 0.22, 3]} />
-            </mesh>
-            <mesh
-              position={[-island.radius * 0.35, island.height * 0.25, island.radius * 0.3]}
-              castShadow
-              receiveShadow
-              material={materials.darkRock}
-            >
-              <dodecahedronGeometry args={[island.radius * 0.18, 3]} />
-            </mesh>
-          </>
-        )}
-
-      {island.type === 'sea-stack' && (
-        <>
+      {/* Scaled Island Mass (Terrain, Beach, Shallows) - Not rendered for sea-arch formations */}
+      {!isSeaArch && (
+        <group scale={[scaleX, 1, scaleZ]}>
+          {/* Tier 1: Core Geological Mountain Mass (Always rendered as horizon landmark) */}
           <mesh
-            position={[island.radius * 0.4, island.height * 0.5, -island.radius * 0.3]}
-            castShadow
-            receiveShadow
-            material={materials.darkRock}
-          >
-            <coneGeometry args={[island.radius * 0.2, island.height * 0.6, 32]} />
-          </mesh>
-          <mesh
-            position={[-island.radius * 0.5, 2.0, island.radius * 0.4]}
+            position={[0, getIslandElevation(island) + 2.0, 0]}
             castShadow
             receiveShadow
             material={materials.rock}
-          >
-            <dodecahedronGeometry args={[island.radius * 0.15, 3]} />
-          </mesh>
-        </>
+            geometry={terrainGeo}
+          />
+
+          {/* Tier 2: Organic Sandy Beach Shoreline (Staged LOD) */}
+          <group ref={beachRef}>
+            <mesh position={[0, 0.6, 0]} receiveShadow material={materials.sand} geometry={beachGeo} />
+          </group>
+        </group>
       )}
 
-      {island.type === 'atoll' && (
-        <>
-          {[0, 1, 2, 3, 4].map((i) => {
-            const a = (i / 5) * Math.PI * 2 + island.seed * 0.3;
-            const d = island.radius * 0.55 + Math.sin(a + island.seed) * island.radius * 0.1;
-            return (
+      {/* Tier 3: Secondary Rock Outcrops & Corals (Staged LOD) - Skipped for sea-arch */}
+      {!isSeaArch && (
+        <group ref={secondaryRef}>
+          {island.type === 'volcanic' && (
+            <>
               <mesh
-                key={`coral-${i}`}
-                position={[Math.cos(a) * d, 1.8, Math.sin(a) * d]}
+                position={[island.radius * 0.3, island.height * 0.3 + 1.5, -island.radius * 0.2]}
                 castShadow
-                material={materials.lushVeg}
+                receiveShadow
+                material={materials.darkRock}
               >
-                <dodecahedronGeometry args={[1.2 + Math.sin(i * 2.3) * 0.4, 2]} />
+                <dodecahedronGeometry args={[island.radius * 0.22, 3]} />
               </mesh>
+              <mesh
+                position={[-island.radius * 0.35, island.height * 0.25, island.radius * 0.3]}
+                castShadow
+                receiveShadow
+                material={materials.darkRock}
+              >
+                <dodecahedronGeometry args={[island.radius * 0.18, 3]} />
+              </mesh>
+            </>
+          )}
+
+          {island.type === 'sea-stack' && (
+            <>
+              <mesh
+                position={[island.radius * 0.4, island.height * 0.5, -island.radius * 0.3]}
+                castShadow
+                receiveShadow
+                material={materials.darkRock}
+              >
+                <coneGeometry args={[island.radius * 0.2, island.height * 0.6, 32]} />
+              </mesh>
+              <mesh
+                position={[-island.radius * 0.5, 2.0, island.radius * 0.4]}
+                castShadow
+                receiveShadow
+                material={materials.rock}
+              >
+                <dodecahedronGeometry args={[island.radius * 0.15, 3]} />
+              </mesh>
+            </>
+          )}
+
+          {island.type === 'atoll' && (
+            <>
+              {[0, 1, 2, 3, 4].map((i) => {
+                const a = (i / 5) * Math.PI * 2 + island.seed * 0.3;
+                const d = island.radius * 0.55 + Math.sin(a + island.seed) * island.radius * 0.1;
+                return (
+                  <mesh
+                    key={`coral-${i}`}
+                    position={[Math.cos(a) * d, 1.8, Math.sin(a) * d]}
+                    castShadow
+                    material={materials.lushVeg}
+                  >
+                    <dodecahedronGeometry args={[1.2 + Math.sin(i * 2.3) * 0.4, 2]} />
+                  </mesh>
+                );
+              })}
+            </>
+          )}
+
+          {island.type === 'lush-flat' && (
+            <mesh position={[0, 2.6, 0]} material={materials.lushVeg}>
+              <cylinderGeometry args={[island.radius * 0.8, island.radius * 0.9, 1.0, 48]} />
+            </mesh>
+          )}
+        </group>
+      )}
+
+      {/* Coastal Rock Formations (High-Detail LOD) - Skipped for sea-arch */}
+      {!isSeaArch && (
+        <group ref={detailRef}>
+          {island.rocks.map(([rx, rz, rScale, rRot], rIdx) => {
+            const y = getTerrainSurfaceY(island, rx, rz);
+            return (
+              <RockFormation
+                key={`rock-${rIdx}`}
+                position={[rx, y, rz]}
+                scale={rScale}
+                rotation={rRot}
+              />
             );
           })}
-        </>
+
+          {/* Tropical Undergrowth Bushes */}
+          {island.bushes.map(([bx, bz, bScale], bIdx) => {
+            const y = getTerrainSurfaceY(island, bx, bz);
+            return (
+              <TropicalBush
+                key={`bush-${bIdx}`}
+                position={[bx, y, bz]}
+                scale={bScale}
+                seed={bIdx + island.seed}
+              />
+            );
+          })}
+        </group>
       )}
 
-      {island.type === 'lush-flat' && (
-        <mesh position={[0, 2.6, 0]} material={materials.lushVeg}>
-          <cylinderGeometry args={[island.radius * 0.8, island.radius * 0.9, 1.0, 48]} />
-        </mesh>
+      {/* Scattered Coconut Palms & Jungle Canopy Trees - Skipped for sea-arch */}
+      {!isSeaArch && (
+        <group ref={treesRef}>
+          {island.palms.map(([px, pz, pScale], pIdx) => {
+            const y = getTerrainSurfaceY(island, px, pz);
+            return (
+              <PalmTree
+                key={`palm-${pIdx}`}
+                position={[px, y, pz]}
+                scale={pScale}
+                seed={pIdx + island.seed}
+              />
+            );
+          })}
+
+          {island.jungleTrees?.map(([jx, jz, jScale], jIdx) => {
+            const y = getTerrainSurfaceY(island, jx, jz);
+            return (
+              <JungleTree
+                key={`jtree-${jIdx}`}
+                position={[jx, y, jz]}
+                scale={jScale}
+                seed={jIdx + island.seed * 3}
+              />
+            );
+          })}
+        </group>
       )}
-      </group>
 
-      {/* Coastal Rock Formations (High-Detail LOD) */}
-      <group ref={detailRef}>
-        {island.rocks.map(([rx, rz, rScale, rRot], rIdx) => (
-          <RockFormation
-            key={`rock-${rIdx}`}
-            position={[rx, 1.8, rz]}
-            scale={rScale}
-            rotation={rRot}
-          />
-        ))}
-
-        {/* Tropical Undergrowth Bushes */}
-        {island.bushes.map(([bx, bz, bScale], bIdx) => (
-          <TropicalBush
-            key={`bush-${bIdx}`}
-            position={[bx, 2.8, bz]}
-            scale={bScale}
-            seed={bIdx + island.seed}
-          />
-        ))}
-      </group>
-
-      {/* Scattered Coconut Palms & Jungle Canopy Trees */}
-      <group ref={treesRef}>
-        {island.palms.map(([px, pz, pScale], pIdx) => (
-          <PalmTree
-            key={`palm-${pIdx}`}
-            position={[px, 2.6, pz]}
-            scale={pScale}
-            seed={pIdx + island.seed}
-          />
-        ))}
-
-        {island.jungleTrees?.map(([jx, jz, jScale], jIdx) => (
-          <JungleTree
-            key={`jtree-${jIdx}`}
-            position={[jx, 2.8, jz]}
-            scale={jScale}
-            seed={jIdx + island.seed * 3}
-          />
-        ))}
-      </group>
-
-      {/* Coastal Pirate Haven / Colonial Settlement */}
-      {island.settlement && (
-        <CoastalSettlement settlement={island.settlement} isMobile={isMobile} />
-      )}
+      {/* Dynamic 3D Settlement & Architectural Wonders (Seated flush on terrain terrace or ocean level) */}
+      {island.settlement && (() => {
+        const settlementY = isSeaArch ? 0 : getTerrainSurfaceY(island, island.settlement.x, island.settlement.z);
+        return (
+          <group position={[0, settlementY, 0]}>
+            {island.settlement.type === 'kingston-city' && (
+              <KingstonCity settlement={island.settlement} isMobile={isMobile} />
+            )}
+            {island.settlement.type === 'mayan-temple' && (
+              <MayanPyramid settlement={island.settlement} isMobile={isMobile} />
+            )}
+            {island.settlement.type === 'sea-arch' && (
+              <SeaArch settlement={island.settlement} isMobile={isMobile} />
+            )}
+            {(island.settlement.type === 'pirate-haven' || island.settlement.type === 'colonial-fort') && (
+              <CoastalSettlement settlement={island.settlement} isMobile={isMobile} />
+            )}
+          </group>
+        );
+      })()}
     </group>
   );
 });

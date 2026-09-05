@@ -199,6 +199,7 @@ export interface RoomPlayer {
 }
 
 export type TimeOfDay = 'DAY' | 'NIGHT';
+export type MapId = 'caribbean' | 'kingston' | 'mexico';
 
 export interface RoomInfo {
   id: string;
@@ -211,16 +212,18 @@ export interface RoomInfo {
   windAngle: number;
   windSpeed: number;
   timeOfDay: TimeOfDay;
+  mapId: MapId;
 }
 
 // Client to Server Message
 export type ClientMessage =
-  | { type: 'CREATE_ROOM'; roomName: string; playerName: string; shipClass: ShipClass; maxPlayers?: number; targetKills?: number; timeOfDay?: TimeOfDay | 'RANDOM'; gameMode?: GameMode; sessionToken?: string }
+  | { type: 'CREATE_ROOM'; roomName: string; playerName: string; shipClass: ShipClass; maxPlayers?: number; targetKills?: number; timeOfDay?: TimeOfDay | 'RANDOM'; gameMode?: GameMode; mapId?: MapId; sessionToken?: string }
   | { type: 'JOIN_ROOM'; roomId: string; playerName: string; shipClass: ShipClass; sessionToken?: string }
   | { type: 'RECONNECT'; roomId: string; sessionToken: string }
   | { type: 'LEAVE_ROOM' }
   | { type: 'SELECT_SHIP'; shipClass: ShipClass }
   | { type: 'SWITCH_TEAM' }
+  | { type: 'SET_MAP'; mapId: MapId }
   | { type: 'SET_READY'; ready: boolean }
   | { type: 'START_GAME' }
   | { type: 'ADD_BOT' }
@@ -235,7 +238,7 @@ export type ServerMessage =
   | { type: 'ROOM_LIST'; rooms: RoomInfo[] }
   | { type: 'ROOM_STATE'; room: RoomInfo; selfId: string }
   | { type: 'ERROR'; message: string }
-  | { type: 'GAME_STARTED'; startTime: number; windAngle: number; windSpeed: number; timeOfDay: TimeOfDay }
+  | { type: 'GAME_STARTED'; startTime: number; windAngle: number; windSpeed: number; timeOfDay: TimeOfDay; mapId: MapId }
   | {
       type: 'WORLD_SNAPSHOT';
       tick: number;

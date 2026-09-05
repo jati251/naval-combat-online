@@ -244,14 +244,21 @@ const ShipwreckEntity: React.FC<{ wreck: ShipwreckDefinition }> = React.memo(({ 
   );
 });
 
+import { useGameStore } from '@/stores/useGameStore';
+import { getMapConfig } from '../../maps';
+
 /**
- * Shipwrecks3D Component: Renders the Caribbean floating shipwrecks and flotsam
- * with collision matching server physics.
+ * Shipwrecks3D Component: Renders floating shipwrecks and flotsam
+ * for the currently active battle map with collision matching server physics.
  */
 export const Shipwrecks3D: React.FC<{ isMobile?: boolean }> = React.memo((_props) => {
+  const currentMapId = useGameStore((s) => s.currentMapId || s.currentRoom?.mapId || 'caribbean');
+  const activeMap = useMemo(() => getMapConfig(currentMapId), [currentMapId]);
+  const shipwrecks = activeMap.shipwrecks;
+
   return (
     <group>
-      {ARENA_SHIPWRECKS.map((wreck) => (
+      {shipwrecks.map((wreck) => (
         <ShipwreckEntity key={wreck.id} wreck={wreck} />
       ))}
     </group>

@@ -31,6 +31,25 @@ export const RoomCard: React.FC<RoomCardProps> = ({ room, onJoin }) => {
             <span>{isPlaying ? 'CANVASES ENGAGED' : 'HARBOR ANCHORAGE'}</span>
           </span>
 
+          {/* Naval Theater Map */}
+          <span
+            className={`text-[9px] font-cinzel font-bold px-2 py-0.5 rounded border flex items-center gap-1 ${
+              room.mapId === 'kingston'
+                ? 'bg-sky-950/80 text-sky-300 border-sky-600/60'
+                : room.mapId === 'mexico'
+                ? 'bg-emerald-950/80 text-emerald-300 border-emerald-600/60'
+                : 'bg-amber-950/80 text-amber-300 border-amber-600/60'
+            }`}
+          >
+            <span>
+              {room.mapId === 'kingston'
+                ? '🛡 KINGSTON STRAITS'
+                : room.mapId === 'mexico'
+                ? '🏛 GULF OF MEXICO'
+                : '⚓ CARIBBEAN'}
+            </span>
+          </span>
+
           {/* Maritime Atmosphere */}
           <span
             className={`text-[9px] font-cinzel font-bold px-2 py-0.5 rounded border flex items-center gap-1 ${

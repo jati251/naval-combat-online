@@ -1,5 +1,5 @@
-import { SERVER_ISLANDS, SERVER_WRECKS } from './PhysicsEngine.js';
-import type { ShipSimulationState, SailState } from '../types/protocol.js';
+import type { ShipSimulationState, SailState, MapId } from '../types/protocol.js';
+import { getServerMap } from '../maps/mapConfigs.js';
 import type { GameRoom } from './GameRoom.js';
 
 export class BotAI {
@@ -17,14 +17,16 @@ export class BotAI {
    * Evaluates if a given world coordinate is inside or dangerously close to an island,
    * shipwreck, or the arena boundary.
    */
-  public static isHazard(x: number, z: number, margin: number = 28): boolean {
+  public static isHazard(x: number, z: number, margin: number = 28, mapId: MapId = 'caribbean'): boolean {
     // 1. Arena Boundary check (radius ~420m)
     if (Math.hypot(x, z) > 420 - margin) {
       return true;
     }
 
+    const { islands, wrecks } = getServerMap(mapId);
+
     // 2. Island collision check
-    for (const isl of SERVER_ISLANDS) {
+    for (const isl of islands) {
       if (isl.elongation) {
         const rx = x - isl.x;
         const rz = z - isl.z;
@@ -48,7 +50,7 @@ export class BotAI {
     }
 
     // 3. Wreck collision check
-    for (const wreck of SERVER_WRECKS) {
+    for (const wreck of wrecks) {
       if (Math.hypot(x - wreck.x, z - wreck.z) < wreck.radius + margin) {
         return true;
       }
@@ -95,11 +97,12 @@ export class BotAI {
     const wideRightX = bot.x + Math.sin(heading + 1.1) * (lookDist * 0.65);
     const wideRightZ = bot.z + Math.cos(heading + 1.1) * (lookDist * 0.65);
 
-    const hitAhead = this.isHazard(aheadX, aheadZ, 22);
-    const hitLeft = this.isHazard(leftX, leftZ, 20);
-    const hitRight = this.isHazard(rightX, rightZ, 20);
-    const hitWideLeft = this.isHazard(wideLeftX, wideLeftZ, 18);
-    const hitWideRight = this.isHazard(wideRightX, wideRightZ, 18);
+    const mapId = room.mapId;
+    const hitAhead = this.isHazard(aheadX, aheadZ, 22, mapId);
+    const hitLeft = this.isHazard(leftX, leftZ, 20, mapId);
+    const hitRight = this.isHazard(rightX, rightZ, 20, mapId);
+    const hitWideLeft = this.isHazard(wideLeftX, wideLeftZ, 18, mapId);
+    const hitWideRight = this.isHazard(wideRightX, wideRightZ, 18, mapId);
 
     const hasObstacleAhead = hitAhead || hitLeft || hitRight || hitWideLeft || hitWideRight;
 

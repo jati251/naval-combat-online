@@ -2,6 +2,7 @@ import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
+import { getMapConfig } from '../../maps';
 
 export const FOG_COLOR = '#70b2db';
 export const NIGHT_FOG_COLOR = '#0d2444';
@@ -34,9 +35,9 @@ export const FOG_FAR = FOG_FAR_DESKTOP;
 export const MAX_VIEW_DISTANCE = MAX_VIEW_DISTANCE_DESKTOP;
 export const ISLAND_LOD_DISTANCE = ISLAND_DETAIL_DISTANCE_DESKTOP;
 
-export function getFogConfig(isMobile: boolean, isNight: boolean) {
+export function getFogConfig(isMobile: boolean, isNight: boolean, customFogColor?: string) {
   return {
-    color: isNight ? NIGHT_FOG_COLOR : FOG_COLOR,
+    color: customFogColor || (isNight ? NIGHT_FOG_COLOR : FOG_COLOR),
     density: isMobile
       ? (isNight ? FOG_DENSITY_MOBILE_NIGHT : FOG_DENSITY_MOBILE)
       : (isNight ? FOG_DENSITY_DESKTOP_NIGHT : FOG_DENSITY_DESKTOP),
@@ -280,14 +281,21 @@ const CaribbeanClouds2D: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({
  */
 const CaribbeanSkyDome: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({ isNight, isMobile = false }) => {
   const meshRef = useRef<THREE.Mesh>(null);
+  const currentMapId = useGameStore((s) => s.currentMapId || s.currentRoom?.mapId || 'caribbean');
+  const activeMap = useMemo(() => getMapConfig(currentMapId), [currentMapId]);
+  const atmosphere = activeMap.atmosphere;
 
   const shaderMaterial = useMemo(() => {
+    const topCol = isNight ? atmosphere.skyTopNight : atmosphere.skyTopDay;
+    const midCol = isNight ? atmosphere.skyMidNight : atmosphere.skyMidDay;
+    const horizCol = isNight ? atmosphere.skyHorizonNight : atmosphere.skyHorizonDay;
+
     const mat = new THREE.ShaderMaterial({
       uniforms: {
         uIsNight: { value: isNight ? 1.0 : 0.0 },
-        uTopColor: { value: new THREE.Color(isNight ? '#050d1e' : '#0284c7') },
-        uMidColor: { value: new THREE.Color(isNight ? '#0d2042' : '#38bdf8') },
-        uHorizonColor: { value: new THREE.Color(isNight ? NIGHT_FOG_COLOR : FOG_COLOR) },
+        uTopColor: { value: new THREE.Color(topCol) },
+        uMidColor: { value: new THREE.Color(midCol) },
+        uHorizonColor: { value: new THREE.Color(horizCol) },
         uCelestialPos: { value: new THREE.Vector3(70, 140, -50).normalize() },
       },
       vertexShader: `
@@ -317,36 +325,36 @@ const CaribbeanSkyDome: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({ 
           vec3 dir = normalize(vWorldPosition);
           float h = max(0.0, dir.y);
 
-        // Rayleigh atmospheric gradient - smooth bright Caribbean daytime sky
-        vec3 skyLower = mix(uHorizonColor, uMidColor, smoothstep(0.0, 0.45, h));
-        vec3 sky = mix(skyLower, uTopColor, smoothstep(0.28, 0.95, h));
+          // Rayleigh atmospheric gradient - smooth bright Caribbean daytime sky
+          vec3 sky = mix(uHorizonColor, uMidColor, smoothstep(0.0, 0.35, h));
+          sky = mix(sky, uTopColor, smoothstep(0.35, 1.0, h));
 
+          // Celestial body (Sun / Moon)
           float celestialDot = max(0.0, dot(dir, uCelestialPos));
 
           if (uIsNight > 0.5) {
             // ──────────────── NIGHT BATTLE SKY ────────────────
-            // 1. Procedural High-Altitude Star Field (skipped on mobile for GPU savings)
             #ifndef MOBILE_MODE
-            if (h > 0.12) {
-              vec3 starCoord = floor(dir * 180.0);
-              float starVal = starHash(starCoord);
-              if (starVal > 0.985) {
-                float starIntensity = pow((starVal - 0.985) / 0.015, 3.0) * smoothstep(0.12, 0.45, h);
-                sky += vec3(0.85, 0.92, 1.0) * starIntensity * 1.6;
-              }
+            // High-density procedural glittering star field
+            float starVal = starHash(floor(dir * 280.0));
+            if (starVal > 0.988) {
+              float starIntensity = pow((starVal - 0.988) / 0.012, 6.0) * (0.6 + 0.4 * sin(dir.x * 40.0 + dir.z * 30.0));
+              sky += vec3(0.85, 0.92, 1.0) * starIntensity * smoothstep(0.05, 0.35, h);
             }
             #endif
 
-            // 2. Glowing Silver Moon Disc
-            float moonDisc = smoothstep(0.9984, 0.9996, celestialDot) * 2.8;
-
-            // 3. Soft Cool Lunar Corona & Night Sheen
-            float innerLunarCorona = pow(celestialDot, 36.0) * 0.95;
-            float broadLunarGlow = pow(celestialDot, 5.0) * 0.28;
+            // 1. Crisp glowing silver moon disc
+            float moonDisc = smoothstep(0.9984, 0.9996, celestialDot) * 3.5;
+            
+            // 2. Ethereal moon corona bloom
+            float moonGlow = pow(celestialDot, 28.0) * 0.95;
+            
+            // 3. Wide celestial indigo night sheen
+            float moonAmbient = pow(celestialDot, 6.0) * 0.22;
 
             vec3 moonLight = vec3(0.92, 0.96, 1.0) * moonDisc +
-                            vec3(0.72, 0.85, 1.0) * innerLunarCorona +
-                            vec3(0.55, 0.72, 0.95) * broadLunarGlow;
+                             vec3(0.55, 0.72, 0.98) * moonGlow +
+                             vec3(0.20, 0.35, 0.65) * moonAmbient;
 
             sky += moonLight;
           } else {
@@ -388,7 +396,7 @@ const CaribbeanSkyDome: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({ 
       mat.defines = { MOBILE_MODE: '' };
     }
     return mat;
-  }, [isNight, isMobile]);
+  }, [isNight, isMobile, atmosphere]);
 
   useFrame((state) => {
     if (meshRef.current) {
@@ -406,10 +414,13 @@ const CaribbeanSkyDome: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({ 
 export const Environment3D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobile = false }) => {
   const timeOfDay = useGameStore((s) => s.timeOfDay);
   const isNight = timeOfDay === 'NIGHT';
+  const currentMapId = useGameStore((s) => s.currentMapId || s.currentRoom?.mapId || 'caribbean');
+  const activeMap = useMemo(() => getMapConfig(currentMapId), [currentMapId]);
+  const atmosphere = activeMap.atmosphere;
 
   const lightPos: [number, number, number] = [70, 140, -50];
 
-  const fogCfg = getFogConfig(isMobile, isNight);
+  const fogCfg = getFogConfig(isMobile, isNight, isNight ? atmosphere.fogColorNight : atmosphere.fogColorDay);
 
   return (
     <>
@@ -423,7 +434,7 @@ export const Environment3D: React.FC<{ isMobile?: boolean }> = React.memo(({ isM
       <directionalLight
         position={lightPos}
         intensity={isNight ? 1.75 : 2.85}
-        color={isNight ? '#d8e8ff' : '#fffbeb'}
+        color={isNight ? atmosphere.moonColorNight : atmosphere.sunColorDay}
         castShadow={!isMobile}
         shadow-mapSize-width={isMobile ? 0 : 1024}
         shadow-mapSize-height={isMobile ? 0 : 1024}
@@ -439,15 +450,15 @@ export const Environment3D: React.FC<{ isMobile?: boolean }> = React.memo(({ isM
       {/* Ambient Fill Lighting - Rich atmospheric moonlight wash */}
       <ambientLight
         intensity={isNight ? 1.20 : 1.25}
-        color={isNight ? '#466694' : '#dbeafe'}
+        color={isNight ? atmosphere.ambientNight : atmosphere.ambientDay}
       />
 
       {/* Ocean Reflection Hemisphere Fill */}
       <hemisphereLight
         args={
           isNight
-            ? ['#355687', '#132847', 1.05]
-            : ['#60a5fa', '#0369a1', 1.15]
+            ? [atmosphere.hemiSkyNight, atmosphere.hemiGroundNight, 1.05]
+            : [atmosphere.hemiSkyDay, atmosphere.hemiGroundDay, 1.15]
         }
       />
 
@@ -456,4 +467,3 @@ export const Environment3D: React.FC<{ isMobile?: boolean }> = React.memo(({ isM
     </>
   );
 });
-

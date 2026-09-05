@@ -102,6 +102,7 @@ export class RoomManager {
           msg.targetKills || 5,
           resolvedTimeOfDay,
           msg.gameMode || 'FFA',
+          msg.mapId || 'caribbean',
           (topic, payload) => this.broadcastToTopic(topic, payload),
           (cid, payload) => this.sendDirect(cid, payload),
           (rid) => {
@@ -172,6 +173,7 @@ export class RoomManager {
             windAngle: room.windAngle,
             windSpeed: room.windSpeed,
             timeOfDay: room.timeOfDay,
+            mapId: room.mapId,
           });
         } else {
           // Normal lobby join
@@ -240,6 +242,19 @@ export class RoomManager {
         if (!roomId) return;
         const room = this.rooms.get(roomId);
         if (room) room.switchTeam(clientId);
+        break;
+      }
+
+      case 'SET_MAP': {
+        const roomId = this.clientRoomMap.get(clientId);
+        if (!roomId) return;
+        const room = this.rooms.get(roomId);
+        if (room) {
+          const updated = room.setMap(msg.mapId, clientId);
+          if (updated) {
+            this.broadcastLobbyUpdate();
+          }
+        }
         break;
       }
 

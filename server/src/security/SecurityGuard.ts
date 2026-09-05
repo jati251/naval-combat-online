@@ -1,4 +1,4 @@
-import type { ClientMessage, ShipClass, SailState } from '../types/protocol.js';
+import type { ClientMessage, ShipClass, SailState, MapId } from '../types/protocol.js';
 
 interface ClientRateLimitState {
   count: number;
@@ -129,6 +129,7 @@ export class SecurityGuard {
         }
 
         const gameMode = raw.gameMode === 'TEAM' ? 'TEAM' : 'FFA';
+        const mapId = this.validateMapId(raw.mapId);
 
         const sessionToken = typeof raw.sessionToken === 'string' ? this.sanitizeString(raw.sessionToken, 64) : undefined;
 
@@ -141,6 +142,7 @@ export class SecurityGuard {
           targetKills,
           timeOfDay,
           gameMode,
+          mapId,
           sessionToken,
         };
       }
@@ -178,7 +180,15 @@ export class SecurityGuard {
       case 'GET_ROOMS':
       case 'ADD_BOT':
       case 'SWITCH_TEAM':
-        return { type: raw.type };
+        return { type: raw.type } as ClientMessage;
+
+      case 'SET_MAP': {
+        const mapId = this.validateMapId(raw.mapId);
+        return {
+          type: 'SET_MAP',
+          mapId,
+        };
+      }
 
       case 'REMOVE_BOT': {
         const botId = typeof raw.botId === 'string' ? this.sanitizeString(raw.botId, 40) : undefined;
@@ -252,6 +262,13 @@ export class SecurityGuard {
       return val as ShipClass;
     }
     return 'brig';
+  }
+
+  public static validateMapId(mapId: unknown): MapId {
+    if (mapId === 'kingston' || mapId === 'mexico') {
+      return mapId;
+    }
+    return 'caribbean';
   }
 
   private static validateSailState(val: unknown): SailState {

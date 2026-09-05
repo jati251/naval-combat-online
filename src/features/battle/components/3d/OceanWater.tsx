@@ -1,9 +1,8 @@
 import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
-import { FOG_COLOR, NIGHT_FOG_COLOR } from './Environment3D';
-import { ARENA_ISLANDS } from './Islands3D';
 import { useGameStore } from '@/stores/useGameStore';
+import { getMapConfig } from '../../maps';
 
 interface OceanWaterProps {
   size?: number;
@@ -15,6 +14,10 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
   const timeOfDay = useGameStore((s) => s.timeOfDay);
   const isNight = timeOfDay === 'NIGHT';
 
+  const currentMapId = useGameStore((s) => s.currentMapId || s.currentRoom?.mapId || 'caribbean');
+  const activeMap = useMemo(() => getMapConfig(currentMapId), [currentMapId]);
+  const islands = activeMap.islands;
+
   // Responsive vertex grid density: 120x120 on mobile (14,400 quads) for crisp wave crests,
   // 220x220 on desktop (48,400 quads) for rich geometric Gerstner swell curves.
   const segments = isMobile ? 120 : 220;
@@ -24,33 +27,51 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
     return geo;
   }, [size, segments]);
 
-  // Pack arena islands data into uniform arrays: position/seed and elongation params
+  // Pack arena islands data into uniform arrays: position/seed and elongation params (supports up to 12 islands)
   const islandPositions = useMemo(() => {
-    return ARENA_ISLANDS.map((isl) => new THREE.Vector4(isl.x, isl.z, isl.sandRadius, isl.seed));
-  }, []);
+    const list: THREE.Vector4[] = [];
+    for (let i = 0; i < 12; i++) {
+      if (i < islands.length) {
+        const isl = islands[i];
+        list.push(new THREE.Vector4(isl.x, isl.z, isl.sandRadius, isl.seed));
+      } else {
+        list.push(new THREE.Vector4(9999, 9999, 0, 0));
+      }
+    }
+    return list;
+  }, [islands]);
 
   const islandParams = useMemo(() => {
-    return ARENA_ISLANDS.map((isl) =>
-      isl.elongation
-        ? new THREE.Vector4(isl.elongation.scaleX, isl.elongation.scaleZ, isl.elongation.angle, 1.0)
-        : new THREE.Vector4(1.0, 1.0, 0.0, 0.0)
-    );
-  }, []);
+    const list: THREE.Vector4[] = [];
+    for (let i = 0; i < 12; i++) {
+      if (i < islands.length) {
+        const isl = islands[i];
+        list.push(
+          isl.elongation
+            ? new THREE.Vector4(isl.elongation.scaleX, isl.elongation.scaleZ, isl.elongation.angle, 1.0)
+            : new THREE.Vector4(1.0, 1.0, 0.0, 0.0)
+        );
+      } else {
+        list.push(new THREE.Vector4(1.0, 1.0, 0.0, 0.0));
+      }
+    }
+    return list;
+  }, [islands]);
 
   // Assassin's Creed IV: Black Flag & Sea of Thieves AAA Ocean Shader
   const shaderMaterial = useMemo(() => {
     return new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
-        uDeepWaterColor: { value: new THREE.Color(isNight ? '#082040' : '#014f86') },
-        uMidWaterColor: { value: new THREE.Color(isNight ? '#0f3566' : '#0077b6') },
-        uShallowColor: { value: new THREE.Color(isNight ? '#154c8a' : '#0096c7') },
-        uLagoonColor: { value: new THREE.Color(isNight ? '#185880' : '#059669') },
-        uCrestGlowColor: { value: new THREE.Color(isNight ? '#3f78b8' : '#00b4d8') },
-        uSubsurfaceColor: { value: new THREE.Color(isNight ? '#18548a' : '#00e5ff') },
-        uFoamColor: { value: new THREE.Color(isNight ? '#769ec9' : '#ffffff') },
-        uSunColor: { value: new THREE.Color(isNight ? '#c2d8f5' : '#fffbeb') },
-        uSkyHorizonColor: { value: new THREE.Color(isNight ? NIGHT_FOG_COLOR : FOG_COLOR) },
+        uDeepWaterColor: { value: new THREE.Color(isNight ? '#082040' : activeMap.water.deepWaterColor) },
+        uMidWaterColor: { value: new THREE.Color(isNight ? '#0f3566' : activeMap.water.midWaterColor) },
+        uShallowColor: { value: new THREE.Color(isNight ? '#154c8a' : activeMap.water.shallowColor) },
+        uLagoonColor: { value: new THREE.Color(isNight ? '#185880' : activeMap.water.lagoonColor) },
+        uCrestGlowColor: { value: new THREE.Color(isNight ? '#3f78b8' : activeMap.water.crestGlowColor) },
+        uSubsurfaceColor: { value: new THREE.Color(isNight ? '#18548a' : activeMap.water.subsurfaceColor) },
+        uFoamColor: { value: new THREE.Color(isNight ? '#769ec9' : activeMap.water.foamColor) },
+        uSunColor: { value: new THREE.Color(isNight ? activeMap.atmosphere.moonColorNight : activeMap.atmosphere.sunColorDay) },
+        uSkyHorizonColor: { value: new THREE.Color(isNight ? activeMap.atmosphere.fogColorNight : activeMap.atmosphere.fogColorDay) },
         uLightDir: { value: new THREE.Vector3(70, 140, -50).normalize() },
         uIslandPos: { value: islandPositions },
         uIslandParams: { value: islandParams },
@@ -154,8 +175,8 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
         uniform vec3 uSunColor;
         uniform vec3 uSkyHorizonColor;
         uniform vec3 uLightDir;
-        uniform vec4 uIslandPos[9];
-        uniform vec4 uIslandParams[9];
+        uniform vec4 uIslandPos[12];
+        uniform vec4 uIslandParams[12];
         uniform vec3 uShipPos;
         uniform float uShipHeading;
         uniform float uShipSpeed;
@@ -254,7 +275,8 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
           float minDistToShore = 9999.0;
           float maxInfluenceDist = uIsMobile > 0.5 ? 260.0 : 420.0;
           if (camDist < maxInfluenceDist) {
-            for (int i = 0; i < 9; i++) {
+            for (int i = 0; i < 12; i++) {
+              if (uIslandPos[i].z <= 0.0) continue;
               vec2 relPos = vWorldPosition.xz - uIslandPos[i].xy;
               float sandR = uIslandPos[i].z;
 
@@ -441,7 +463,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
       transparent: false,
       wireframe: false,
     });
-  }, [isNight, islandPositions, islandParams]);
+  }, [isNight, activeMap, islandPositions, islandParams]);
 
   // Smoothed real-time ship state refs to prevent 30Hz server-tick wake stutter
   const smoothShipPos = useRef(new THREE.Vector3(0, 0, 0));

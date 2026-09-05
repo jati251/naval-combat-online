@@ -12,6 +12,7 @@ import {
   type BroadsideFireCommand,
   type GameMode,
   type Team,
+  type MapId,
   SERVER_SHIP_CONFIGS,
 } from '../types/protocol.js';
 
@@ -36,6 +37,7 @@ export class GameRoom {
   public timeOfDay: 'DAY' | 'NIGHT';
   public targetKills: number = 5;
   public gameMode: GameMode = 'FFA';
+  public mapId: MapId = 'caribbean';
 
   public players: Map<string, RoomPlayer> = new Map();
   public ships: Map<string, ShipSimulationState> = new Map();
@@ -67,6 +69,7 @@ export class GameRoom {
     targetKills: number = 5,
     timeOfDay: 'DAY' | 'NIGHT' = 'DAY',
     gameMode: GameMode = 'FFA',
+    mapId: MapId = 'caribbean',
     broadcast: (roomId: string, message: ServerMessage) => void,
     sendDirect: (clientId: string, message: ServerMessage) => void,
     onDestroy?: (roomId: string) => void
@@ -77,9 +80,20 @@ export class GameRoom {
     this.targetKills = targetKills;
     this.timeOfDay = timeOfDay;
     this.gameMode = gameMode;
+    this.mapId = mapId;
     this.broadcast = broadcast;
     this.sendDirect = sendDirect;
     this.onDestroy = onDestroy;
+  }
+
+  public setMap(mapId: MapId, requestingClientId: string): boolean {
+    const player = this.players.get(requestingClientId);
+    if (!player || !player.isHost || this.status !== 'LOBBY') {
+      return false;
+    }
+    this.mapId = mapId;
+    this.broadcastRoomState();
+    return true;
   }
 
   public getHumanPlayerCount(): number {
@@ -208,7 +222,7 @@ export class GameRoom {
 
     const config = SERVER_SHIP_CONFIGS[shipClass];
     const existingShips = Array.from(this.ships.values()).map((s) => ({ x: s.x, z: s.z }));
-    const spawn = PhysicsEngine.findSafeSpawnPoint(this.players.size, 4, existingShips);
+    const spawn = PhysicsEngine.findSafeSpawnPoint(this.players.size, 4, existingShips, this.mapId);
 
     this.ships.set(id, {
       id,
@@ -346,6 +360,7 @@ export class GameRoom {
         windAngle: this.windAngle,
         windSpeed: this.windSpeed,
         timeOfDay: this.timeOfDay,
+        mapId: this.mapId,
       });
     }
 
@@ -516,7 +531,7 @@ export class GameRoom {
     const playerArray = Array.from(this.players.values());
     const placedSpawns: Array<{ x: number; z: number }> = [];
     playerArray.forEach((player, idx) => {
-      const spawn = PhysicsEngine.findSafeSpawnPoint(idx, playerArray.length, placedSpawns);
+      const spawn = PhysicsEngine.findSafeSpawnPoint(idx, playerArray.length, placedSpawns, this.mapId);
       placedSpawns.push({ x: spawn.x, z: spawn.z });
       const config = SERVER_SHIP_CONFIGS[player.shipClass];
 
@@ -550,6 +565,7 @@ export class GameRoom {
       windAngle: this.windAngle,
       windSpeed: this.windSpeed,
       timeOfDay: this.timeOfDay,
+      mapId: this.mapId,
     };
 
     // 1. Broadcast to room pub/sub topic
@@ -591,7 +607,7 @@ export class GameRoom {
 
       // Update each ship's physics with deterministic FIXED_DT
       for (const ship of this.ships.values()) {
-        PhysicsEngine.updateShip(ship, this.FIXED_DT, serverTime, this.windAngle, this.windSpeed);
+        PhysicsEngine.updateShip(ship, this.FIXED_DT, serverTime, this.windAngle, this.windSpeed, this.mapId);
       }
 
       // Update cannonballs & check impacts
@@ -689,7 +705,8 @@ export class GameRoom {
           const p1 = this.players.get(ownerId);
           const p2 = this.players.get(targetId);
           return Boolean(p1?.team && p2?.team && p1.team === p2.team);
-        }
+        },
+        this.mapId
       );
     }
 
@@ -715,7 +732,7 @@ export class GameRoom {
         .filter((s) => s.id !== shipId && !s.isSunk)
         .map((s) => ({ x: s.x, z: s.z }));
 
-      const spawn = PhysicsEngine.findRandomSafeRespawnPoint(existingAliveShips);
+      const spawn = PhysicsEngine.findRandomSafeRespawnPoint(existingAliveShips, this.mapId);
       const config = SERVER_SHIP_CONFIGS[ship.shipClass];
 
       ship.x = spawn.x;
@@ -864,6 +881,7 @@ export class GameRoom {
       windAngle: this.windAngle,
       windSpeed: this.windSpeed,
       timeOfDay: this.timeOfDay,
+      mapId: this.mapId,
     };
   }
 
