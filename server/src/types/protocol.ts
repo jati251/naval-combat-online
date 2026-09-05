@@ -9,6 +9,12 @@ export type ShipClass =
   | 'man_o_war';
 export type SailState = 'ANCHOR' | 'HALF_SAIL' | 'FULL_SAIL';
 
+export interface BroadsideFireCommand {
+  playerId: string;
+  side: 'port' | 'starboard';
+  angle: number;
+}
+
 export interface ShipConfig {
   id: ShipClass;
   name: string;

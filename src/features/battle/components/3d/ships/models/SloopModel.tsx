@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import * as THREE from 'three';
+
 import type { SubModelProps } from '../types';
 import { createBillowedSailGeometry, createJibSailGeometry } from '../common/shipGeometries';
 import { RudderBlade } from '../common/RudderBlade';
@@ -7,6 +7,7 @@ import { BroadsideCannons } from '../common/BroadsideCannons';
 import { BowCatheadAnchors } from '../common/BowCatheadAnchors';
 import { ShipHelm } from '../common/ShipHelm';
 import { ShipFlag } from '../common/ShipFlag';
+import { ShipSail } from '../common/ShipSail';
 
 export const SloopModel: React.FC<SubModelProps> = React.memo(({
   config,
@@ -18,7 +19,6 @@ export const SloopModel: React.FC<SubModelProps> = React.memo(({
   sailTexture,
 }) => {
   const { length, width, trimColor } = config;
-  const sailScale = sailState === 'ANCHOR' ? 0.18 : sailState === 'HALF_SAIL' ? 0.65 : 1.0;
   const mastHeight = length * 0.88;
 
   const gaffSailGeo = useMemo(() => createBillowedSailGeometry(width * 1.35, mastHeight * 0.38, 0.4), [width, mastHeight]);
@@ -61,9 +61,13 @@ export const SloopModel: React.FC<SubModelProps> = React.memo(({
         <meshStandardMaterial color="#382013" roughness={0.8} />
       </mesh>
       <group position={[0, 3.0, length * 0.35]} rotation={[0, -Math.PI / 2, 0]}>
-        <mesh geometry={jibGeo} scale={[1, sailScale, 1]} castShadow receiveShadow>
-          <meshStandardMaterial map={sailTexture} side={THREE.DoubleSide} roughness={0.85} />
-        </mesh>
+        <ShipSail
+          geometry={jibGeo}
+          texture={sailTexture}
+          sailState={sailState}
+          height={mastHeight * 0.34}
+          type="jib"
+        />
       </group>
 
       {/* Compact Companionway Cabin at Stern */}
@@ -98,15 +102,15 @@ export const SloopModel: React.FC<SubModelProps> = React.memo(({
             <cylinderGeometry args={[0.07, 0.07, width * 1.35, 8]} />
             <meshStandardMaterial color="#2d1c12" />
           </mesh>
-          <mesh
+          <ShipSail
             geometry={gaffSailGeo}
-            position={[0, -mastHeight * 0.18 * sailScale, 0.2]}
-            scale={[1, sailScale, 1]}
-            castShadow
-            receiveShadow
-          >
-            <meshStandardMaterial map={sailTexture} side={THREE.DoubleSide} roughness={0.85} />
-          </mesh>
+            texture={sailTexture}
+            sailState={sailState}
+            height={mastHeight * 0.38}
+            depthOffset={0.2}
+            type="square"
+            mastIndex={1}
+          />
         </group>
         {/* Square Topsail */}
         <group position={[0, mastHeight * 0.82, 0]}>
@@ -114,15 +118,15 @@ export const SloopModel: React.FC<SubModelProps> = React.memo(({
             <cylinderGeometry args={[0.06, 0.06, width * 1.05, 8]} />
             <meshStandardMaterial color="#2d1c12" />
           </mesh>
-          <mesh
+          <ShipSail
             geometry={topsailGeo}
-            position={[0, -mastHeight * 0.11 * sailScale, 0.15]}
-            scale={[1, sailScale, 1]}
-            castShadow
-            receiveShadow
-          >
-            <meshStandardMaterial map={sailTexture} side={THREE.DoubleSide} roughness={0.85} />
-          </mesh>
+            texture={sailTexture}
+            sailState={sailState}
+            height={mastHeight * 0.24}
+            depthOffset={0.15}
+            type="square"
+            mastIndex={2}
+          />
         </group>
         <mesh position={[0, mastHeight * 0.65, 0]} castShadow>
           <cylinderGeometry args={[0.48, 0.38, 0.42, 8]} />

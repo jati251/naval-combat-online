@@ -1,0 +1,190 @@
+import { navalAudio } from '../../../services/navalAudio';
+
+export const MAX_FLASH = 80;
+export const MAX_SMOKE = 240;
+export const MAX_SPARKS = 180;
+export const MAX_WATER_PLUMES = 50;
+
+export interface FXParticle {
+  x: number;
+  y: number;
+  z: number;
+  vx: number;
+  vy: number;
+  vz: number;
+  life: number;
+  maxLife: number;
+  size: number;
+  growth: number;
+  colorR: number;
+  colorG: number;
+  colorB: number;
+  opacity: number;
+}
+
+export function createParticlePool(size: number): FXParticle[] {
+  const list: FXParticle[] = [];
+  for (let i = 0; i < size; i++) {
+    list.push({
+      x: 0,
+      y: -500,
+      z: 0,
+      vx: 0,
+      vy: 0,
+      vz: 0,
+      life: 0,
+      maxLife: 1.0,
+      size: 1.0,
+      growth: 0,
+      colorR: 1,
+      colorG: 1,
+      colorB: 1,
+      opacity: 0,
+    });
+  }
+  return list;
+}
+
+export function spawnSmoke(
+  pool: FXParticle[],
+  x: number,
+  y: number,
+  z: number,
+  vx: number,
+  vy: number,
+  vz: number,
+  size: number
+): void {
+  let slot = -1;
+  for (let i = 0; i < MAX_SMOKE; i++) {
+    if (pool[i].life <= 0) {
+      slot = i;
+      break;
+    }
+  }
+  if (slot === -1) slot = Math.floor(Math.random() * MAX_SMOKE);
+
+  const p = pool[slot];
+  p.x = x;
+  p.y = y;
+  p.z = z;
+  p.vx = vx;
+  p.vy = vy;
+  p.vz = vz;
+  p.maxLife = 1.4 + Math.random() * 1.1;
+  p.life = p.maxLife;
+  p.size = size;
+  p.growth = 2.8 + Math.random() * 2.2;
+  p.opacity = 0.85;
+}
+
+export function spawnFlash(
+  pool: FXParticle[],
+  x: number,
+  y: number,
+  z: number,
+  size: number
+): void {
+  let slot = -1;
+  for (let i = 0; i < MAX_FLASH; i++) {
+    if (pool[i].life <= 0) {
+      slot = i;
+      break;
+    }
+  }
+  if (slot === -1) slot = Math.floor(Math.random() * MAX_FLASH);
+
+  const p = pool[slot];
+  p.x = x;
+  p.y = y;
+  p.z = z;
+  p.vx = 0;
+  p.vy = 0;
+  p.vz = 0;
+  p.maxLife = 0.09 + Math.random() * 0.05;
+  p.life = p.maxLife;
+  p.size = size;
+  p.growth = 1.5;
+  p.opacity = 1.0;
+}
+
+export function spawnSparks(
+  pool: FXParticle[],
+  x: number,
+  y: number,
+  z: number,
+  dirX: number,
+  dirZ: number
+): void {
+  const sparkCount = 8 + Math.floor(Math.random() * 6);
+  for (let s = 0; s < sparkCount; s++) {
+    let slot = -1;
+    for (let i = 0; i < MAX_SPARKS; i++) {
+      if (pool[i].life <= 0) {
+        slot = i;
+        break;
+      }
+    }
+    if (slot === -1) break;
+
+    const p = pool[slot];
+    p.x = x;
+    p.y = y;
+    p.z = z;
+    const speed = 12.0 + Math.random() * 16.0;
+    p.vx = dirX * speed + (Math.random() - 0.5) * 8.0;
+    p.vy = 3.0 + Math.random() * 7.0;
+    p.vz = dirZ * speed + (Math.random() - 0.5) * 8.0;
+    p.maxLife = 0.35 + Math.random() * 0.35;
+    p.life = p.maxLife;
+    p.size = 0.7 + Math.random() * 0.8;
+    p.growth = -0.5;
+    p.opacity = 1.0;
+  }
+}
+
+export function spawnWaterImpact(
+  plumePool: FXParticle[],
+  smokePool: FXParticle[],
+  x: number,
+  z: number
+): void {
+  let slot = -1;
+  for (let i = 0; i < MAX_WATER_PLUMES; i++) {
+    if (plumePool[i].life <= 0) {
+      slot = i;
+      break;
+    }
+  }
+  if (slot === -1) slot = Math.floor(Math.random() * MAX_WATER_PLUMES);
+
+  const p = plumePool[slot];
+  p.x = x;
+  p.y = 1.6;
+  p.z = z;
+  p.vx = 0;
+  p.vy = 2.4;
+  p.vz = 0;
+  p.maxLife = 0.85 + Math.random() * 0.3;
+  p.life = p.maxLife;
+  p.size = 4.0 + Math.random() * 2.0;
+  p.growth = 2.0;
+  p.opacity = 0.9;
+
+  for (let d = 0; d < 6; d++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 3.0 + Math.random() * 5.0;
+    spawnSmoke(
+      smokePool,
+      x,
+      0.4,
+      z,
+      Math.cos(angle) * speed,
+      2.5 + Math.random() * 3.0,
+      Math.sin(angle) * speed,
+      1.6
+    );
+  }
+
+  navalAudio.playWaterSplash();
+}

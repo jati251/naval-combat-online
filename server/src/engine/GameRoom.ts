@@ -7,14 +7,11 @@ import {
   type RoomInfo,
   type RoomPlayer,
   type ServerMessage,
+  type BroadsideFireCommand,
   SERVER_SHIP_CONFIGS,
 } from '../types/protocol.js';
 
-export interface BroadsideFireCommand {
-  playerId: string;
-  side: 'port' | 'starboard';
-  angle: number;
-}
+export type { BroadsideFireCommand };
 
 export class GameRoom {
   public id: string;

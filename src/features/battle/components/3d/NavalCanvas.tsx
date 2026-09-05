@@ -5,8 +5,12 @@ import { Html } from '@react-three/drei';
 import { OceanWater } from './OceanWater';
 import { ShipModel3D } from './ShipModel3D';
 import { CannonSystem3D } from './CannonSystem3D';
+import { CannonFX2D } from './CannonFX2D';
 import { Environment3D, FOG_COLOR, MAX_VIEW_DISTANCE, NAMEPLATE_CULL_DISTANCE } from './Environment3D';
-import { Islands3D } from './Islands3D';
+import { Islands3D, ARENA_ISLANDS } from './Islands3D';
+import { Shipwrecks3D, ARENA_SHIPWRECKS } from './Shipwrecks3D';
+import { JumpingFish3D } from './JumpingFish3D';
+import { ShipWakeSplash3D } from './ShipWakeSplash3D';
 import { MapBoundary3D } from './MapBoundary3D';
 import { CaribbeanSeabirds3D } from './CaribbeanSeabirds3D';
 import { OceanAtmosphereParticles3D } from './OceanAtmosphereParticles3D';
@@ -97,9 +101,56 @@ const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf }) => {
       const elapsed = Math.min(0.1, (now - lastPacketTime.current) / 1000);
       const vx = curShip.vx ?? 0;
       const vz = curShip.vz ?? 0;
-      const targetX = snapshotPos.current.x + vx * elapsed;
-      const targetZ = snapshotPos.current.z + vz * elapsed;
+      let targetX = snapshotPos.current.x + vx * elapsed;
+      let targetZ = snapshotPos.current.z + vz * elapsed;
       const targetY = snapshotPos.current.y;
+
+      // Real-time client collision clamping prevents visual clipping into land/wrecks
+      const shipColRadius = 8.5;
+      for (const isl of ARENA_ISLANDS) {
+        if (isl.elongation) {
+          const relX = targetX - isl.x;
+          const relZ = targetZ - isl.z;
+          const cosA = Math.cos(-isl.elongation.angle);
+          const sinA = Math.sin(-isl.elongation.angle);
+          const localX = relX * cosA - relZ * sinA;
+          const localZ = relX * sinA + relZ * cosA;
+          const halfRidge = isl.sandRadius * (isl.elongation.scaleZ - isl.elongation.scaleX);
+          const clampedZ = Math.max(-halfRidge, Math.min(halfRidge, localZ));
+          const spineDx = localX;
+          const spineDz = localZ - clampedZ;
+          const dist = Math.hypot(spineDx, spineDz);
+          const minSafe = isl.sandRadius * isl.elongation.scaleX * 1.05 + shipColRadius;
+          if (dist < minSafe && dist > 0.0001) {
+            const pushLocalX = (spineDx / dist) * minSafe;
+            const pushLocalZ = clampedZ + (spineDz / dist) * minSafe;
+            const cosInv = Math.cos(isl.elongation.angle);
+            const sinInv = Math.sin(isl.elongation.angle);
+            targetX = isl.x + (pushLocalX * cosInv - pushLocalZ * sinInv);
+            targetZ = isl.z + (pushLocalX * sinInv + pushLocalZ * cosInv);
+          }
+        } else {
+          const dx = targetX - isl.x;
+          const dz = targetZ - isl.z;
+          const dist = Math.hypot(dx, dz);
+          const minSafe = isl.sandRadius * 1.04 + shipColRadius;
+          if (dist < minSafe && dist > 0.001) {
+            targetX = isl.x + (dx / dist) * minSafe;
+            targetZ = isl.z + (dz / dist) * minSafe;
+          }
+        }
+      }
+
+      for (const wreck of ARENA_SHIPWRECKS) {
+        const dx = targetX - wreck.x;
+        const dz = targetZ - wreck.z;
+        const dist = Math.hypot(dx, dz);
+        const minSafe = wreck.radius + shipColRadius;
+        if (dist < minSafe && dist > 0.001) {
+          targetX = wreck.x + (dx / dist) * minSafe;
+          targetZ = wreck.z + (dz / dist) * minSafe;
+        }
+      }
 
       // High-precision smooth transform interpolation
       const posAlpha = Math.min(1.0, 22 * delta);
@@ -149,7 +200,9 @@ const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf }) => {
   });
 
   const hpPercent = Math.max(0, Math.min(100, (ship.health / ship.maxHealth) * 100));
-  const shipLen = SHIP_PRESETS[ship.shipClass]?.length || 18;
+  const shipConfig = SHIP_PRESETS[ship.shipClass] || SHIP_PRESETS.brig;
+  const shipLen = shipConfig.length || 18;
+  const shipWid = shipConfig.width || 5.0;
   const nameplateY = shipLen * 0.76 + 3.6;
 
   return (
@@ -160,6 +213,15 @@ const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf }) => {
         sailState={ship.sail}
         rudderAngle={ship.rudder}
         isEnemy={!isSelf}
+      />
+
+      {/* Dynamic Stern Wake Spray & Churning Foam Particles */}
+      <ShipWakeSplash3D
+        speed={ship.speed ?? 0}
+        rudderAngle={ship.rudder}
+        shipLength={shipLen}
+        shipWidth={shipWid}
+        isSunk={ship.isSunk}
       />
 
       {/* Floating Health Bar and Nameplate (Culled beyond 110m for enemy ships) */}
@@ -210,7 +272,12 @@ const FleetEntities: React.FC = React.memo(() => {
 
 const CannonEntities: React.FC = React.memo(() => {
   const cannonballs = useGameStore((s) => s.cannonballs);
-  return <CannonSystem3D cannonballs={cannonballs} />;
+  return (
+    <>
+      <CannonSystem3D cannonballs={cannonballs} />
+      <CannonFX2D />
+    </>
+  );
 });
 
 export const NavalCanvas: React.FC = React.memo(() => {
@@ -232,6 +299,8 @@ export const NavalCanvas: React.FC = React.memo(() => {
         <Environment3D />
         <OceanWater />
         <Islands3D />
+        <Shipwrecks3D />
+        <JumpingFish3D />
         <MapBoundary3D />
         <CaribbeanSeabirds3D />
         <OceanAtmosphereParticles3D />

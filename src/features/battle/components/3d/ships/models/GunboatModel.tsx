@@ -6,6 +6,7 @@ import { createLateenSailGeometry } from '../common/shipGeometries';
 import { RudderBlade } from '../common/RudderBlade';
 import { BroadsideCannons } from '../common/BroadsideCannons';
 import { ShipFlag } from '../common/ShipFlag';
+import { ShipSail } from '../common/ShipSail';
 
 export const GunboatModel: React.FC<SubModelProps> = React.memo(({
   config,
@@ -17,7 +18,6 @@ export const GunboatModel: React.FC<SubModelProps> = React.memo(({
   sailTexture,
 }) => {
   const { length, width } = config;
-  const sailScale = sailState === 'ANCHOR' ? 0.15 : sailState === 'HALF_SAIL' ? 0.65 : 1.0;
   const tillerRef = useRef<THREE.Mesh>(null);
 
   useFrame(() => {
@@ -80,16 +80,15 @@ export const GunboatModel: React.FC<SubModelProps> = React.memo(({
             <cylinderGeometry args={[0.07, 0.07, length * 1.1, 8]} />
             <meshStandardMaterial color="#2d1c12" roughness={0.8} />
           </mesh>
-          <mesh
+          <ShipSail
             geometry={lateenGeo}
-            position={[0, -length * 0.28 * sailScale, 0.15]}
-            scale={[1, sailScale, 1]}
+            texture={sailTexture}
+            sailState={sailState}
+            height={length * 0.65}
+            depthOffset={0.15}
+            type="lateen"
             rotation={[0, Math.PI / 2, 0]}
-            castShadow
-            receiveShadow
-          >
-            <meshStandardMaterial map={sailTexture} side={THREE.DoubleSide} roughness={0.85} />
-          </mesh>
+          />
         </group>
         <ShipFlag position={[0, length * 0.88, -0.4]} isEnemy={isEnemy} />
       </group>

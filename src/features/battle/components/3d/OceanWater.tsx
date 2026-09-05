@@ -20,9 +20,17 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }
     return geo;
   }, [size]);
 
-  // Pack arena islands data into uniform array: [vec4(x, z, sandRadius, radius), ...]
-  const islandsData = useMemo(() => {
-    return ARENA_ISLANDS.map((isl) => new THREE.Vector4(isl.x, isl.z, isl.sandRadius, isl.radius));
+  // Pack arena islands data into uniform arrays: position/seed and elongation params
+  const islandPositions = useMemo(() => {
+    return ARENA_ISLANDS.map((isl) => new THREE.Vector4(isl.x, isl.z, isl.sandRadius, isl.seed));
+  }, []);
+
+  const islandParams = useMemo(() => {
+    return ARENA_ISLANDS.map((isl) =>
+      isl.elongation
+        ? new THREE.Vector4(isl.elongation.scaleX, isl.elongation.scaleZ, isl.elongation.angle, 1.0)
+        : new THREE.Vector4(1.0, 1.0, 0.0, 0.0)
+    );
   }, []);
 
   // Assassin's Creed IV: Black Flag & Sea of Thieves AAA Caribbean Ocean Shader
@@ -30,17 +38,18 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }
     return new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
-        uDeepWaterColor: { value: new THREE.Color('#012b4d') }, // Deep Caribbean abyssal navy
-        uMidWaterColor: { value: new THREE.Color('#0272b5') },  // Luminous tropical sapphire
+        uDeepWaterColor: { value: new THREE.Color('#074574') }, // Rich Caribbean deep sapphire (never pitch black!)
+        uMidWaterColor: { value: new THREE.Color('#0b71b0') },  // Luminous tropical sapphire
         uShallowColor: { value: new THREE.Color('#06b6d4') },   // Sunlit turquoise aqua
-        uLagoonColor: { value: new THREE.Color('#0ee6b8') },    // Crystal shallow shoreline lagoon
-        uCrestGlowColor: { value: new THREE.Color('#2dd4bf') }, // Radiant emerald crest highlight
+        uLagoonColor: { value: new THREE.Color('#10e7b8') },    // Crystal shallow shoreline lagoon
+        uCrestGlowColor: { value: new THREE.Color('#38bdf8') }, // Radiant crest highlight
         uSubsurfaceColor: { value: new THREE.Color('#14b8a6') },// Bright tropical SSS transmission
         uFoamColor: { value: new THREE.Color('#ffffff') },      // Crisp clean white sea froth
         uSunColor: { value: new THREE.Color('#fffbeb') },       // Warm brilliant Caribbean sun
         uSkyHorizonColor: { value: new THREE.Color(FOG_COLOR) }, // Fog horizon match
         uLightDir: { value: new THREE.Vector3(70, 140, -50).normalize() },
-        uIslands: { value: islandsData },
+        uIslandPos: { value: islandPositions },
+        uIslandParams: { value: islandParams },
         uShipPos: { value: new THREE.Vector3(0, 0, 0) },
         uShipHeading: { value: 0 },
         uShipSpeed: { value: 0 },
@@ -59,22 +68,19 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }
           float speed;
         };
 
-        // 4 Primary Gerstner waves synchronized 1:1 with server simulation
-        // + 2 High-frequency surface chop harmonics
-        const int NUM_WAVES = 6;
+        // 4 Primary Gerstner wave swells synchronized with server simulation
+        // Sub-grid micro ripples are handled in fragment shader capillary normals
+        // to eliminate Nyquist aliasing and swimming during camera rotation.
+        const int NUM_WAVES = 4;
         const Wave waves[NUM_WAVES] = Wave[NUM_WAVES](
           // 1. Dominant Caribbean rolling swell
-          Wave(vec2(1.0, 0.25), 0.10, 85.0, 2.8),
+          Wave(vec2(1.0, 0.28), 0.11, 92.0, 2.6),
           // 2. Secondary diagonal cross-swell
-          Wave(vec2(0.55, 0.85), 0.08, 44.0, 2.2),
-          // 3. Intermediate surface chop
-          Wave(vec2(-0.35, 0.92), 0.06, 22.0, 1.7),
-          // 4. Capillary ripple swell
-          Wave(vec2(-0.75, -0.65), 0.04, 11.0, 1.3),
-          // 5. Fine wind chop harmonic
-          Wave(vec2(0.85, -0.52), 0.035, 8.5, 1.9),
-          // 6. Micro crossing wave ripple
-          Wave(vec2(-0.60, 0.80), 0.025, 4.8, 2.5)
+          Wave(vec2(0.55, 0.85), 0.085, 48.0, 2.1),
+          // 3. Intermediate surface swell
+          Wave(vec2(-0.35, 0.92), 0.065, 28.0, 1.7),
+          // 4. Moderate wind swell
+          Wave(vec2(-0.75, -0.65), 0.045, 18.0, 1.4)
         );
 
         void main() {
@@ -141,7 +147,8 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }
         uniform vec3 uSunColor;
         uniform vec3 uSkyHorizonColor;
         uniform vec3 uLightDir;
-        uniform vec4 uIslands[4];
+        uniform vec4 uIslandPos[9];
+        uniform vec4 uIslandParams[9];
         uniform vec3 uShipPos;
         uniform float uShipHeading;
         uniform float uShipSpeed;
@@ -180,17 +187,17 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }
           vec2 d2 = normalize(vec2(-0.8, 0.6));
           vec2 d3 = normalize(vec2(0.38, -0.92));
 
-          float k1 = 6.2831853 / 3.8;
-          float k2 = 6.2831853 / 1.9;
-          float k3 = 6.2831853 / 0.95;
+          float k1 = 6.2831853 / 4.2;
+          float k2 = 6.2831853 / 2.2;
+          float k3 = 6.2831853 / 1.1;
 
-          float phase1 = k1 * (dot(d1, p) - 2.4 * time);
-          float phase2 = k2 * (dot(d2, p) - 3.1 * time);
-          float phase3 = k3 * (dot(d3, p) - 3.8 * time);
+          float phase1 = k1 * (dot(d1, p) - 2.2 * time);
+          float phase2 = k2 * (dot(d2, p) - 2.8 * time);
+          float phase3 = k3 * (dot(d3, p) - 3.4 * time);
 
-          float a1 = 0.038;
-          float a2 = 0.022;
-          float a3 = 0.012;
+          float a1 = 0.032;
+          float a2 = 0.018;
+          float a3 = 0.009;
 
           float c1 = cos(phase1);
           float c2 = cos(phase2);
@@ -207,31 +214,64 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }
           vec3 lightDir = normalize(uLightDir);
           vec3 viewDir = normalize(cameraPosition - vWorldPosition);
 
-          // 1. High-Frequency Micro-Wave Capillary Normal
+          // 1. High-Frequency Micro-Wave Capillary Normal Blending
           vec3 capNorm = computeCapillaryNormal(vWorldPosition.xz, uTime);
           vec3 normal = normalize(vec3(
-            baseNormal.x + capNorm.x * 0.16,
+            baseNormal.x + capNorm.x * 0.18,
             baseNormal.y,
-            baseNormal.z + capNorm.z * 0.16
+            baseNormal.z + capNorm.z * 0.18
           ));
 
-          // 2. Island Proximity & Shoreline Lagoon Shallows
+          // 2. Island Proximity & Shoreline Lagoon Shallows (Supports 9 Arena Islands with Contour Matching)
           float minDistToShore = 9999.0;
-          for (int i = 0; i < 4; i++) {
-            float distToCenter = length(vWorldPosition.xz - uIslands[i].xy);
-            float distToSand = distToCenter - uIslands[i].z;
-            minDistToShore = min(minDistToShore, distToSand);
+          for (int i = 0; i < 9; i++) {
+            vec2 relPos = vWorldPosition.xz - uIslandPos[i].xy;
+            float seed = uIslandPos[i].w;
+            float sandR = uIslandPos[i].z;
+            float isElongated = uIslandParams[i].w;
+
+            if (isElongated > 0.5) {
+              float rotA = uIslandParams[i].z;
+              float cosA = cos(-rotA);
+              float sinA = sin(-rotA);
+              vec2 localPos = vec2(relPos.x * cosA - relPos.y * sinA, relPos.x * sinA + relPos.y * cosA);
+
+              float scaleX = uIslandParams[i].x;
+              float scaleZ = uIslandParams[i].y;
+              float halfRidge = sandR * (scaleZ - scaleX);
+              float clampedZ = clamp(localPos.y, -halfRidge, halfRidge);
+              vec2 spineOffset = vec2(localPos.x, localPos.y - clampedZ);
+              float distSpine = length(spineOffset);
+
+              float spineAngle = atan(spineOffset.y, spineOffset.x);
+              float elongatedNoise = sin(spineAngle * 5.0 + localPos.y * 0.15) * (sandR * scaleX * 0.08);
+              float distToSand = distSpine - (sandR * scaleX * 1.15 + elongatedNoise);
+              minDistToShore = min(minDistToShore, distToSand);
+            } else {
+              float distToCenter = length(relPos);
+              float angle = atan(relPos.y, relPos.x);
+              // Harmonic coastal noise identically matching createBeachGeometry
+              float coastNoise = (sin(angle * 5.0 + seed * 0.1) * 0.08 +
+                                  sin(angle * 11.0 + seed * 0.3) * 0.04 +
+                                  sin(angle * 17.0 + seed * 0.7) * 0.02) * sandR;
+              float distToSand = distToCenter - (sandR * 1.15 + coastNoise);
+              minDistToShore = min(minDistToShore, distToSand);
+            }
           }
-          float shoreProximity = 1.0 - smoothstep(0.0, 36.0, max(0.0, minDistToShore));
+          float shoreProximity = 1.0 - smoothstep(0.0, 32.0, max(0.0, minDistToShore));
 
           // 3. Multi-Depth Sunlit Tropical Gradient (Beer-Lambert optical absorption)
-          float depthFactor = clamp((vWaveHeight + 1.2) / 2.4, 0.0, 1.0);
-          vec3 waterColor = mix(uDeepWaterColor, uMidWaterColor, smoothstep(0.0, 0.45, depthFactor));
-          waterColor = mix(waterColor, uShallowColor, smoothstep(0.35, 0.85, depthFactor));
-          waterColor = mix(waterColor, uCrestGlowColor, smoothstep(0.70, 1.0, depthFactor) * 0.55);
+          // Depth factor floor ensures troughs never sink to near-black
+          float depthFactor = clamp((vWaveHeight + 1.3) / 2.6, 0.12, 1.0);
+          vec3 waterColor = mix(uDeepWaterColor, uMidWaterColor, smoothstep(0.08, 0.52, depthFactor));
+          waterColor = mix(waterColor, uShallowColor, smoothstep(0.40, 0.88, depthFactor));
+          waterColor = mix(waterColor, uCrestGlowColor, smoothstep(0.72, 1.0, depthFactor) * 0.50);
+
+          // Deep ambient radiance floor in troughs (prevents dark mud/blackness)
+          waterColor = max(waterColor, vec3(0.03, 0.18, 0.32));
 
           // Blend into luminous turquoise lagoon near island shores
-          waterColor = mix(waterColor, uLagoonColor, shoreProximity * 0.72);
+          waterColor = mix(waterColor, uLagoonColor, shoreProximity * 0.76);
 
           // 4. Subsurface Scattering (bright tropical emerald glow through wave crests)
           vec3 sssLightDir = normalize(lightDir + normal * 0.35);
@@ -239,29 +279,21 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }
           float crestThickness = smoothstep(0.25, 1.2, vWaveHeight);
           vec3 sss = uSubsurfaceColor * (sssFactor * crestThickness * 0.7);
 
-          // 5. Accurate Physical Fresnel & Sky Reflection
-          float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 4.2);
+          // 5. Accurate Physical Fresnel & Sky Reflection (Schlick approximation)
+          float NdotV = max(dot(viewDir, normal), 0.0);
+          float fresnel = 0.02 + 0.98 * pow(1.0 - NdotV, 5.0);
           vec3 skyReflection = mix(vec3(0.18, 0.52, 0.85), vec3(0.65, 0.86, 1.0), fresnel);
-          
-          // Sky sun flare reflection on horizon
-          vec3 reflDir = reflect(-viewDir, normal);
-          float sunSkyRefl = pow(max(0.0, dot(reflDir, lightDir)), 36.0);
-          skyReflection += uSunColor * (sunSkyRefl * 0.75);
 
-          vec3 baseShaded = mix(waterColor + sss, skyReflection, fresnel * 0.45);
+          vec3 baseShaded = mix(waterColor + sss, skyReflection, fresnel * 0.55);
 
-          // 6. Anisotropic Multi-Lobe Sun Glitter Road (glistening diamond sparkle)
+          // 6. Stable Anisotropic Multi-Lobe Sun Glitter Road (Flicker-Free During Camera Orbit)
           vec3 halfVector = normalize(lightDir + viewDir);
           float NdotH = max(dot(normal, halfVector), 0.0);
-          float oceanBloomSheen = pow(NdotH, 12.0) * 0.38;       // Broad warm golden sun trail
-          float specularCore = pow(NdotH, 64.0) * 0.95;          // Core sun highlight
-          
-          // Scintillating diamond micro-glints
-          float diamondGlint = pow(NdotH, 320.0) * 3.8;
-          float glintNoise = sin(vWorldPosition.x * 18.0 + vWorldPosition.z * 14.0 + uTime * 6.0) * 0.5 + 0.5;
-          diamondGlint *= (0.35 + 0.65 * glintNoise);
+          float oceanBloomSheen = pow(NdotH, 14.0) * 0.40;  // Broad warm golden sun trail
+          float specularCore    = pow(NdotH, 64.0) * 0.90;  // Core sun highlight
+          float specularSharp   = pow(NdotH, 140.0) * 1.6;  // Brilliant crisp center
 
-          baseShaded += uSunColor * (oceanBloomSheen + specularCore + diamondGlint);
+          baseShaded += uSunColor * (oceanBloomSheen + specularCore + specularSharp);
 
           // 7. Organic Lacy Cellular Sea Foam on Wave Crests
           float crestBreak = smoothstep(0.95, 1.45, vWaveHeight) * smoothstep(0.08, 0.32, vCrestPinch);
@@ -278,7 +310,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }
 
           // 9. Dynamic Ship Wake Foam
           float shipWakeFoam = 0.0;
-          if (uShipSpeed > 0.4) {
+          if (uShipSpeed > 0.35) {
             vec2 rel = vWorldPosition.xz - uShipPos.xz;
             float sinH = sin(uShipHeading);
             float cosH = cos(uShipHeading);
@@ -305,9 +337,9 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }
           float totalFoam = clamp(crestFoam * 0.75 + totalShoreFoam * 0.85 + shipWakeFoam * 0.9, 0.0, 1.0);
           vec3 finalColor = mix(baseShaded, uFoamColor, totalFoam);
 
-          // 10. Horizon Fog (seamless blend matching scene fog)
+          // 10. Horizon Fog (Matches Scene FOG_NEAR: 120, FOG_FAR: 750 for seamless blend)
           float dist = length(vWorldPosition - cameraPosition);
-          float horizonFog = smoothstep(50.0, 440.0, dist);
+          float horizonFog = smoothstep(120.0, 740.0, dist);
           finalColor = mix(finalColor, uSkyHorizonColor, horizonFog);
 
           gl_FragColor = vec4(finalColor, 1.0);
@@ -316,29 +348,44 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600 }
       transparent: false,
       wireframe: false,
     });
-  }, [islandsData]);
+  }, [islandPositions, islandParams]);
 
-  useFrame((state) => {
+  // Smoothed real-time ship state refs to prevent 30Hz server-tick wake stutter
+  const smoothShipPos = useRef(new THREE.Vector3(0, 0, 0));
+  const smoothShipHeading = useRef(0);
+  const smoothShipSpeed = useRef(0);
+
+  useFrame((state, delta) => {
     const t = state.clock.getElapsedTime();
     if (shaderMaterial) {
       shaderMaterial.uniforms.uTime.value = t;
 
-      // Extract self ship state in real-time for dynamic wake interaction
+      // Extract self ship state in real-time with smooth frame-by-frame interpolation
       const { ships, selfId } = useGameStore.getState();
       const selfShip = ships.find((s) => s.id === selfId);
       if (selfShip && !selfShip.isSunk) {
-        shaderMaterial.uniforms.uShipPos.value.set(selfShip.x, selfShip.y, selfShip.z);
-        shaderMaterial.uniforms.uShipHeading.value = selfShip.rotationY;
-        shaderMaterial.uniforms.uShipSpeed.value = selfShip.speed ?? 0;
+        // High-precision smooth position and heading tracking
+        const targetPos = new THREE.Vector3(selfShip.x, selfShip.y, selfShip.z);
+        smoothShipPos.current.lerp(targetPos, Math.min(1.0, 24 * delta));
+        smoothShipHeading.current = THREE.MathUtils.lerp(smoothShipHeading.current, selfShip.rotationY, Math.min(1.0, 20 * delta));
+        smoothShipSpeed.current = THREE.MathUtils.lerp(smoothShipSpeed.current, selfShip.speed ?? 0, Math.min(1.0, 14 * delta));
+
+        shaderMaterial.uniforms.uShipPos.value.copy(smoothShipPos.current);
+        shaderMaterial.uniforms.uShipHeading.value = smoothShipHeading.current;
+        shaderMaterial.uniforms.uShipSpeed.value = smoothShipSpeed.current;
       } else {
-        shaderMaterial.uniforms.uShipSpeed.value = 0;
+        smoothShipSpeed.current = THREE.MathUtils.lerp(smoothShipSpeed.current, 0, Math.min(1.0, 10 * delta));
+        shaderMaterial.uniforms.uShipSpeed.value = smoothShipSpeed.current;
       }
     }
 
-    // Keep ocean mesh centered horizontally around camera so the horizon never ends
+    // Grid snapping: Snap mesh position to 10m vertex grid steps.
+    // This stops vertices from sliding across the world-space Gerstner coordinates
+    // during camera movement or orbit, completely eliminating wave swimming & crawling!
     if (meshRef.current) {
-      meshRef.current.position.x = state.camera.position.x;
-      meshRef.current.position.z = state.camera.position.z;
+      const gridStep = 10.0;
+      meshRef.current.position.x = Math.floor(state.camera.position.x / gridStep) * gridStep;
+      meshRef.current.position.z = Math.floor(state.camera.position.z / gridStep) * gridStep;
     }
   });
 

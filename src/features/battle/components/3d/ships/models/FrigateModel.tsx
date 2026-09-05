@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import * as THREE from 'three';
+
 import type { SubModelProps } from '../types';
 import { createBillowedSailGeometry, createJibSailGeometry } from '../common/shipGeometries';
 import { RudderBlade } from '../common/RudderBlade';
@@ -7,6 +7,7 @@ import { BroadsideCannons } from '../common/BroadsideCannons';
 import { BowCatheadAnchors } from '../common/BowCatheadAnchors';
 import { ShipHelm } from '../common/ShipHelm';
 import { ShipFlag } from '../common/ShipFlag';
+import { ShipSail } from '../common/ShipSail';
 
 export const FrigateModel: React.FC<SubModelProps> = React.memo(({
   config,
@@ -18,7 +19,6 @@ export const FrigateModel: React.FC<SubModelProps> = React.memo(({
   sailTexture,
 }) => {
   const { length, width, cannonsPerSide, trimColor } = config;
-  const sailScale = sailState === 'ANCHOR' ? 0.18 : sailState === 'HALF_SAIL' ? 0.65 : 1.0;
   const mastPositions = useMemo(() => [-length * 0.32, 0, length * 0.28], [length]);
 
   const cannonPositions = useMemo(() => {
@@ -97,9 +97,13 @@ export const FrigateModel: React.FC<SubModelProps> = React.memo(({
         <meshStandardMaterial color="#382013" roughness={0.8} />
       </mesh>
       <group position={[0, 3.5, length * 0.32]} rotation={[0, -Math.PI / 2, 0]}>
-        <mesh geometry={jibGeo} scale={[1, sailScale, 1]} castShadow receiveShadow>
-          <meshStandardMaterial map={sailTexture} side={THREE.DoubleSide} roughness={0.85} />
-        </mesh>
+        <ShipSail
+          geometry={jibGeo}
+          texture={sailTexture}
+          sailState={sailState}
+          height={length * 0.28}
+          type="jib"
+        />
       </group>
 
       {/* 3 Massive Full-Rigged Masts */}
@@ -116,18 +120,30 @@ export const FrigateModel: React.FC<SubModelProps> = React.memo(({
                 <cylinderGeometry args={[0.08, 0.08, width * 1.5, 8]} />
                 <meshStandardMaterial color="#2d1c12" />
               </mesh>
-              <mesh geometry={lowerGeo} position={[0, -length * 0.12 * sailScale, 0.22]} scale={[1, sailScale, 1]} castShadow receiveShadow>
-                <meshStandardMaterial map={sailTexture} side={THREE.DoubleSide} roughness={0.85} />
-              </mesh>
+              <ShipSail
+                geometry={lowerGeo}
+                texture={sailTexture}
+                sailState={sailState}
+                height={length * 0.25}
+                depthOffset={0.22}
+                type="square"
+                mastIndex={mIdx * 2}
+              />
             </group>
             <group position={[0, mastHeight * 0.83, 0]}>
               <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
                 <cylinderGeometry args={[0.06, 0.06, width * 1.18, 8]} />
                 <meshStandardMaterial color="#2d1c12" />
               </mesh>
-              <mesh geometry={upperGeo} position={[0, -length * 0.09 * sailScale, 0.16]} scale={[1, sailScale, 1]} castShadow receiveShadow>
-                <meshStandardMaterial map={sailTexture} side={THREE.DoubleSide} roughness={0.85} />
-              </mesh>
+              <ShipSail
+                geometry={upperGeo}
+                texture={sailTexture}
+                sailState={sailState}
+                height={length * 0.19}
+                depthOffset={0.16}
+                type="square"
+                mastIndex={mIdx * 2 + 1}
+              />
             </group>
             <mesh position={[0, mastHeight * 0.66, 0]} castShadow>
               <cylinderGeometry args={[0.55, 0.42, 0.48, 8]} />

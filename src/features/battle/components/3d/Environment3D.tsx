@@ -3,11 +3,11 @@ import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 
 export const FOG_COLOR = '#4fa2e8';
-export const FOG_NEAR = 40;
-export const FOG_FAR = 320;
-export const MAX_VIEW_DISTANCE = 320;
-export const ISLAND_LOD_DISTANCE = 160;
-export const NAMEPLATE_CULL_DISTANCE = 120;
+export const FOG_NEAR = 120;
+export const FOG_FAR = 750;
+export const MAX_VIEW_DISTANCE = 850;
+export const ISLAND_LOD_DISTANCE = 550;
+export const NAMEPLATE_CULL_DISTANCE = 140;
 
 /**
  * Procedural 2D Soft Natural Caribbean Cloud Texture

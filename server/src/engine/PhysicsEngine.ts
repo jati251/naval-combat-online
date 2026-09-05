@@ -5,11 +5,42 @@ import {
   SERVER_SHIP_CONFIGS,
 } from '../types/protocol.js';
 
-export const SERVER_ISLANDS = [
-  { id: 'dead-mans-cay', x: -150, z: 140, radius: 42 },
-  { id: 'isla-de-la-muerte', x: 160, z: -130, radius: 50 },
-  { id: 'smugglers-reef', x: 130, z: 80, radius: 32 },
-  { id: 'tortuga-atoll', x: -140, z: -120, radius: 36 },
+export interface ServerIsland {
+  id: string;
+  x: number;
+  z: number;
+  radius: number;
+  sandRadius: number;
+  elongation?: {
+    scaleX: number;
+    scaleZ: number;
+    angle: number;
+  };
+}
+
+export const SERVER_ISLANDS: ServerIsland[] = [
+  {
+    id: 'isla-larga',
+    x: -25,
+    z: -15,
+    radius: 30,
+    sandRadius: 42,
+    elongation: { scaleX: 0.55, scaleZ: 2.5, angle: 0.52 },
+  },
+  { id: 'dead-mans-cay', x: -190, z: 130, radius: 46, sandRadius: 65 },
+  { id: 'isla-de-la-muerte', x: 180, z: -160, radius: 52, sandRadius: 72 },
+  { id: 'smugglers-reef', x: 130, z: 140, radius: 34, sandRadius: 48 },
+  { id: 'isla-verde', x: 200, z: 45, radius: 44, sandRadius: 62 },
+  { id: 'tortuga-atoll', x: -175, z: -145, radius: 38, sandRadius: 54 },
+  { id: 'verdant-ridge', x: -65, z: 225, radius: 48, sandRadius: 66 },
+  { id: 'cayo-de-la-selva', x: -235, z: -15, radius: 42, sandRadius: 58 },
+  { id: 'black-sand-atoll', x: 45, z: -225, radius: 36, sandRadius: 52 },
+];
+
+export const SERVER_WRECKS = [
+  { id: 'wreck-el-cazador', x: 0, z: 65, radius: 14, height: 8 },
+  { id: 'wreck-queen-anne', x: -80, z: -40, radius: 12, height: 7 },
+  { id: 'wreck-royal-fortune', x: 80, z: -60, radius: 13, height: 8 },
 ];
 
 export class PhysicsEngine {
@@ -70,8 +101,11 @@ export class PhysicsEngine {
       ship.speed = absoluteMaxSpeed;
     }
 
+    // Record pre-movement position to measure actual post-collision velocity
+    const prevX = ship.x;
+    const prevZ = ship.z;
+
     // Move along ship heading (yaw)
-    // Note: Three.js coordinates: +Z forward or -Z forward depending on orientation
     // Standardized: 0 rad yaw points along +Z, rotation around Y
     const moveZ = Math.cos(ship.rotationY) * ship.speed * dt;
     const moveX = Math.sin(ship.rotationY) * ship.speed * dt;
@@ -83,30 +117,79 @@ export class PhysicsEngine {
     const maxRadius = 500;
     const distFromCenter = Math.hypot(ship.x, ship.z);
     if (distFromCenter > maxRadius) {
-      // Repel back inside arena boundary
       const angle = Math.atan2(ship.x, ship.z);
       ship.x = Math.sin(angle) * maxRadius;
       ship.z = Math.cos(angle) * maxRadius;
-      ship.speed *= 0.5; // Dampen speed on boundary collision
+      ship.speed *= 0.2;
     }
+
+    // Ship physical collision radius accounts for bow & hull length
+    const shipRadius = config.length * 0.42;
 
     // Tactical Caribbean Islands Collision & Run-Aground Deceleration
     for (const isl of SERVER_ISLANDS) {
-      const dx = ship.x - isl.x;
-      const dz = ship.z - isl.z;
-      const dist = Math.hypot(dx, dz);
-      const minSafeDist = isl.radius + config.width * 0.5;
-      if (dist < minSafeDist && dist > 0.001) {
-        const nx = dx / dist;
-        const nz = dz / dist;
-        ship.x = isl.x + nx * minSafeDist;
-        ship.z = isl.z + nz * minSafeDist;
-        ship.speed *= 0.2; // Aground slowdown
+      if (isl.elongation) {
+        // Oriented capsule collision for elongated barrier island
+        const relX = ship.x - isl.x;
+        const relZ = ship.z - isl.z;
+        const cosA = Math.cos(-isl.elongation.angle);
+        const sinA = Math.sin(-isl.elongation.angle);
+        const localX = relX * cosA - relZ * sinA;
+        const localZ = relX * sinA + relZ * cosA;
+
+        const halfRidge = isl.sandRadius * (isl.elongation.scaleZ - isl.elongation.scaleX);
+        const clampedZ = Math.max(-halfRidge, Math.min(halfRidge, localZ));
+        const spineDx = localX;
+        const spineDz = localZ - clampedZ;
+        const dist = Math.hypot(spineDx, spineDz);
+        const minSafeDist = isl.sandRadius * isl.elongation.scaleX * 1.05 + shipRadius;
+
+        if (dist < minSafeDist && dist > 0.0001) {
+          const nx = spineDx / dist;
+          const nz = spineDz / dist;
+          const pushLocalX = nx * minSafeDist;
+          const pushLocalZ = clampedZ + nz * minSafeDist;
+
+          const cosInv = Math.cos(isl.elongation.angle);
+          const sinInv = Math.sin(isl.elongation.angle);
+          ship.x = isl.x + (pushLocalX * cosInv - pushLocalZ * sinInv);
+          ship.z = isl.z + (pushLocalX * sinInv + pushLocalZ * cosInv);
+          ship.speed = 0; // complete halt on land impact
+        }
+      } else {
+        // Circular island shoreline collision against visible beach radius
+        const dx = ship.x - isl.x;
+        const dz = ship.z - isl.z;
+        const dist = Math.hypot(dx, dz);
+        const minSafeDist = isl.sandRadius * 1.05 + shipRadius;
+        if (dist < minSafeDist && dist > 0.001) {
+          const nx = dx / dist;
+          const nz = dz / dist;
+          ship.x = isl.x + nx * minSafeDist;
+          ship.z = isl.z + nz * minSafeDist;
+          ship.speed = 0; // Stop dead on reef/sandbank
+        }
       }
     }
 
-    ship.vx = moveX / dt;
-    ship.vz = moveZ / dt;
+    // Floating Shipwrecks Collision & Scrape Slowdown (AC Black Flag Flotsam / Wreck Hulls)
+    for (const wreck of SERVER_WRECKS) {
+      const dx = ship.x - wreck.x;
+      const dz = ship.z - wreck.z;
+      const dist = Math.hypot(dx, dz);
+      const minSafeDist = wreck.radius + shipRadius;
+      if (dist < minSafeDist && dist > 0.001) {
+        const nx = dx / dist;
+        const nz = dz / dist;
+        ship.x = wreck.x + nx * minSafeDist;
+        ship.z = wreck.z + nz * minSafeDist;
+        ship.speed = 0; // Impact with floating timbers stops forward push
+      }
+    }
+
+    // Crucial: Synchronize true post-collision velocity so client extrapolation never shoots into land
+    ship.vx = (ship.x - prevX) / dt;
+    ship.vz = (ship.z - prevZ) / dt;
 
     // 3-Point Water Height Probing for Buoyancy and Pitch/Roll
     const halfLen = config.length * 0.5;
@@ -176,15 +259,43 @@ export class PhysicsEngine {
       }
 
       // Island terrain obstruction check (cannonball hits island rock/sand)
-      let hitIsland = false;
+      let hitObstacle = false;
       for (const isl of SERVER_ISLANDS) {
-        const distToIsl = Math.hypot(ball.x - isl.x, ball.z - isl.z);
-        if (distToIsl <= isl.radius && ball.y <= 24) {
-          hitIsland = true;
+        if (isl.elongation) {
+          const relX = ball.x - isl.x;
+          const relZ = ball.z - isl.z;
+          const cosA = Math.cos(-isl.elongation.angle);
+          const sinA = Math.sin(-isl.elongation.angle);
+          const localX = relX * cosA - relZ * sinA;
+          const localZ = relX * sinA + relZ * cosA;
+          const halfRidge = isl.sandRadius * (isl.elongation.scaleZ - isl.elongation.scaleX);
+          const clampedZ = Math.max(-halfRidge, Math.min(halfRidge, localZ));
+          const dist = Math.hypot(localX, localZ - clampedZ);
+          if (dist <= isl.sandRadius * isl.elongation.scaleX && ball.y <= 22) {
+            hitObstacle = true;
+            break;
+          }
+        } else {
+          const distToIsl = Math.hypot(ball.x - isl.x, ball.z - isl.z);
+          if (distToIsl <= isl.sandRadius && ball.y <= 24) {
+            hitObstacle = true;
+            break;
+          }
+        }
+      }
+      if (hitObstacle) {
+        continue;
+      }
+
+      // Shipwreck collision check (cannonball hits floating wreck hull/mast)
+      for (const wreck of SERVER_WRECKS) {
+        const distToWreck = Math.hypot(ball.x - wreck.x, ball.z - wreck.z);
+        if (distToWreck <= wreck.radius && ball.y <= wreck.height) {
+          hitObstacle = true;
           break;
         }
       }
-      if (hitIsland) {
+      if (hitObstacle) {
         continue;
       }
 
