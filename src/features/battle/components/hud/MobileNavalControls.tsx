@@ -68,7 +68,7 @@ export const MobileNavalControls: React.FC = () => {
   const lastPortFireTimestamp = useRef<number>(0);
   const lastStbdFireTimestamp = useRef<number>(0);
 
-  // Direct Left / Port Broadside Fire
+  // Direct Left Broadside Fire (fires left battery)
   const handleFirePort = useCallback((e?: React.TouchEvent | React.MouseEvent) => {
     if (e) {
       e.stopPropagation();
@@ -78,12 +78,13 @@ export const MobileNavalControls: React.FC = () => {
     if (now - lastPortFireTimestamp.current < 250) return;
     lastPortFireTimestamp.current = now;
 
-    if (isPortReady) {
-      fireBattery('port');
+    // Trigger physical left firing battery
+    if (isStbdReady) {
+      fireBattery('starboard');
     }
-  }, [fireBattery, isPortReady]);
+  }, [fireBattery, isStbdReady]);
 
-  // Direct Right / Starboard Broadside Fire
+  // Direct Right Broadside Fire (fires right battery)
   const handleFireStarboard = useCallback((e?: React.TouchEvent | React.MouseEvent) => {
     if (e) {
       e.stopPropagation();
@@ -93,10 +94,11 @@ export const MobileNavalControls: React.FC = () => {
     if (now - lastStbdFireTimestamp.current < 250) return;
     lastStbdFireTimestamp.current = now;
 
-    if (isStbdReady) {
-      fireBattery('starboard');
+    // Trigger physical right firing battery
+    if (isPortReady) {
+      fireBattery('port');
     }
-  }, [fireBattery, isStbdReady]);
+  }, [fireBattery, isPortReady]);
 
   // Progress for radial cooldown rings (0 to 188)
   const portDashOffset = 188 - 188 * Math.min(1, portProgress);
@@ -214,10 +216,10 @@ export const MobileNavalControls: React.FC = () => {
               cy="50%"
               r="30"
               fill="none"
-              stroke={isPortReady ? '#fbbf24' : '#ef4444'}
+              stroke={isStbdReady ? '#fbbf24' : '#ef4444'}
               strokeWidth="3.5"
               strokeDasharray="188"
-              strokeDashoffset={portDashOffset}
+              strokeDashoffset={stbdDashOffset}
               strokeLinecap="round"
               className="transition-all duration-75"
             />
@@ -226,21 +228,21 @@ export const MobileNavalControls: React.FC = () => {
           <button
             onTouchStart={handleFirePort}
             onClick={handleFirePort}
-            disabled={!isPortReady}
+            disabled={!isStbdReady}
             className={`w-15 h-15 sm:w-18 sm:h-18 rounded-full border-2 transition-all flex flex-col items-center justify-center shadow-2xl touch-none active:scale-90 cursor-pointer ${
-              isPortReady
+              isStbdReady
                 ? 'bg-gradient-to-b from-rose-600 via-red-700 to-stone-950 border-amber-400 text-amber-100 shadow-[0_0_15px_rgba(239,68,68,0.6)] animate-pulse'
                 : 'pirate-panel border-stone-800 text-stone-500 opacity-80 cursor-not-allowed'
             }`}
             title="Shoot Left Broadside (PORT)"
             aria-label="Shoot Port Battery"
           >
-            <Flame className={`w-4 h-4 sm:w-5 sm:h-5 ${isPortReady ? 'text-amber-300' : 'text-stone-500'}`} />
+            <Flame className={`w-4 h-4 sm:w-5 sm:h-5 ${isStbdReady ? 'text-amber-300' : 'text-stone-500'}`} />
             <span className="text-[7.5px] sm:text-[9px] font-cinzel font-black uppercase tracking-wider mt-0.5 gold-emboss">
               ◄ PORT
             </span>
             <span className="text-[6px] sm:text-[7px] font-mono font-bold opacity-90">
-              {isPortReady ? 'READY' : `${Math.round(portProgress * 100)}%`}
+              {isStbdReady ? 'READY' : `${Math.round(stbdProgress * 100)}%`}
             </span>
           </button>
         </div>
@@ -262,10 +264,10 @@ export const MobileNavalControls: React.FC = () => {
               cy="50%"
               r="30"
               fill="none"
-              stroke={isStbdReady ? '#fbbf24' : '#ef4444'}
+              stroke={isPortReady ? '#fbbf24' : '#ef4444'}
               strokeWidth="3.5"
               strokeDasharray="188"
-              strokeDashoffset={stbdDashOffset}
+              strokeDashoffset={portDashOffset}
               strokeLinecap="round"
               className="transition-all duration-75"
             />
@@ -274,21 +276,21 @@ export const MobileNavalControls: React.FC = () => {
           <button
             onTouchStart={handleFireStarboard}
             onClick={handleFireStarboard}
-            disabled={!isStbdReady}
+            disabled={!isPortReady}
             className={`w-15 h-15 sm:w-18 sm:h-18 rounded-full border-2 transition-all flex flex-col items-center justify-center shadow-2xl touch-none active:scale-90 cursor-pointer ${
-              isStbdReady
+              isPortReady
                 ? 'bg-gradient-to-b from-rose-600 via-red-700 to-stone-950 border-amber-400 text-amber-100 shadow-[0_0_15px_rgba(239,68,68,0.6)] animate-pulse'
                 : 'pirate-panel border-stone-800 text-stone-500 opacity-80 cursor-not-allowed'
             }`}
             title="Shoot Right Broadside (STBD)"
             aria-label="Shoot Starboard Battery"
           >
-            <Flame className={`w-4 h-4 sm:w-5 sm:h-5 ${isStbdReady ? 'text-amber-300' : 'text-stone-500'}`} />
+            <Flame className={`w-4 h-4 sm:w-5 sm:h-5 ${isPortReady ? 'text-amber-300' : 'text-stone-500'}`} />
             <span className="text-[7.5px] sm:text-[9px] font-cinzel font-black uppercase tracking-wider mt-0.5 gold-emboss">
               STBD ►
             </span>
             <span className="text-[6px] sm:text-[7px] font-mono font-bold opacity-90">
-              {isStbdReady ? 'READY' : `${Math.round(stbdProgress * 100)}%`}
+              {isPortReady ? 'READY' : `${Math.round(portProgress * 100)}%`}
             </span>
           </button>
         </div>

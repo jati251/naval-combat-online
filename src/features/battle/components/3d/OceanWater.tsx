@@ -42,12 +42,12 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
     return new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
-        uDeepWaterColor: { value: new THREE.Color(isNight ? '#020817' : '#021b3a') },
-        uMidWaterColor: { value: new THREE.Color(isNight ? '#06152b' : '#034b7f') },
-        uShallowColor: { value: new THREE.Color(isNight ? '#0b2545' : '#0891b2') },
+        uDeepWaterColor: { value: new THREE.Color(isNight ? '#020817' : '#026cb0') },
+        uMidWaterColor: { value: new THREE.Color(isNight ? '#06152b' : '#029ae0') },
+        uShallowColor: { value: new THREE.Color(isNight ? '#0b2545' : '#00c4e6') },
         uLagoonColor: { value: new THREE.Color(isNight ? '#133863' : '#10b981') },
         uCrestGlowColor: { value: new THREE.Color(isNight ? '#385f8a' : '#38bdf8') },
-        uSubsurfaceColor: { value: new THREE.Color(isNight ? '#0d2744' : '#06b6d4') },
+        uSubsurfaceColor: { value: new THREE.Color(isNight ? '#0d2744' : '#38bdf8') },
         uFoamColor: { value: new THREE.Color(isNight ? '#cbd5e1' : '#ffffff') },
         uSunColor: { value: new THREE.Color(isNight ? '#c5daf8' : '#fffbeb') },
         uSkyHorizonColor: { value: new THREE.Color(isNight ? NIGHT_FOG_COLOR : FOG_COLOR) },
@@ -58,7 +58,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
         uShipHeading: { value: 0 },
         uShipSpeed: { value: 0 },
         uIsMobile: { value: isMobile ? 1.0 : 0.0 },
-        uFogDensity: { value: isMobile ? (isNight ? 0.0038 : 0.0032) : (isNight ? 0.0024 : 0.0020) },
+        uFogDensity: { value: isMobile ? (isNight ? 0.0028 : 0.0018) : (isNight ? 0.0022 : 0.0014) },
       },
       vertexShader: `
         uniform float uTime;
@@ -302,7 +302,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
           vec3 waterColor = mix(uDeepWaterColor, uMidWaterColor, smoothstep(0.08, 0.52, depthFactor));
           waterColor = mix(waterColor, uShallowColor, smoothstep(0.40, 0.88, depthFactor));
           waterColor = mix(waterColor, uCrestGlowColor, smoothstep(0.70, 1.0, depthFactor) * 0.55);
-          waterColor = max(waterColor, vec3(0.02, 0.14, 0.28));
+          waterColor = max(waterColor, vec3(0.06, 0.38, 0.65));
 
           if (shoreProximity > 0.001) {
             waterColor = mix(waterColor, uLagoonColor, shoreProximity * 0.76);
@@ -321,9 +321,9 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
           // 5. Accurate Physical Fresnel & Sky Reflection (Deep rich Caribbean water, no white wash)
           float NdotV = max(dot(viewDir, normal), 0.0);
           float fresnel = 0.02 + 0.98 * pow(1.0 - NdotV, 5.0);
-          vec3 skyReflection = mix(vec3(0.04, 0.22, 0.48), vec3(0.14, 0.45, 0.76), fresnel);
+          vec3 skyReflection = mix(vec3(0.12, 0.45, 0.72), vec3(0.32, 0.68, 0.92), fresnel);
 
-          vec3 baseShaded = mix(waterColor + sss, skyReflection, fresnel * 0.42);
+          vec3 baseShaded = mix(waterColor + sss, skyReflection, fresnel * 0.32);
 
           // 6. DISTANCE LOD: Sun Glitter Specular Highlight (Rich, sparkling path without white washing horizon)
           vec3 halfVector = normalize(lightDir + viewDir);

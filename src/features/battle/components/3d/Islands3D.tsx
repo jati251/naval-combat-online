@@ -35,14 +35,15 @@ export const Islands3D: React.FC<Islands3DProps> = React.memo(({ isMobile = fals
     return {
       sand: new THREE.MeshStandardMaterial({
         map: sandTexture,
+        color: '#d4af72',
         roughness: 0.88,
         metalness: 0.02,
       }),
       rock: new THREE.MeshStandardMaterial({
         map: rockTexture,
         vertexColors: true, // height-based green→brown→rock gradient
-        roughness: 0.82,
-        metalness: 0.04,
+        roughness: 0.88,
+        metalness: 0.02,
       }),
       darkRock: new THREE.MeshStandardMaterial({
         map: darkRockTexture,

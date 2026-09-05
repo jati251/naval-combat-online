@@ -72,7 +72,7 @@ export const NavalCanvas: React.FC = React.memo(() => {
           alpha: false,
           powerPreference: 'high-performance',
           toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: isNight ? 1.05 : 1.15,
+          toneMappingExposure: isNight ? 1.05 : 1.28,
         }}
       >
         <color attach="background" args={[bgColor]} />

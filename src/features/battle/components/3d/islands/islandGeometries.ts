@@ -100,13 +100,13 @@ export function createIslandTerrainGeometry(
   const colors = new Float32Array(pos.count * 3);
   const color = new THREE.Color();
 
-  const colLushGrass = new THREE.Color('#22c55e');
+  const colLushGrass = new THREE.Color('#16a34a');
   const colGreen     = new THREE.Color('#15803d');
   const colDenseRain = new THREE.Color('#14532d');
-  const colBrown     = new THREE.Color('#6b4226');
-  const colRock      = new THREE.Color('#5c5147');
-  const colPeak      = new THREE.Color('#7a726a');
-  const colMoss      = new THREE.Color('#3a6b35');
+  const colBrown     = new THREE.Color('#4e3420');
+  const colRock      = new THREE.Color('#283b32');
+  const colPeak      = new THREE.Color('#22332c');
+  const colMoss      = new THREE.Color('#1e4d25');
 
   for (let i = 0; i < pos.count; i++) {
     const y = pos.getY(i);

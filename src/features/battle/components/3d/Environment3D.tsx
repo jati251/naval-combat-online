@@ -3,26 +3,26 @@ import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
 
-export const FOG_COLOR = '#2b7ab8';
+export const FOG_COLOR = '#70b2db';
 export const NIGHT_FOG_COLOR = '#060e1d';
 
 // Exponential Atmospheric Haze Densities (Beer-Lambert Atmospheric Scattering)
-export const FOG_DENSITY_DESKTOP = 0.0020;
-export const FOG_DENSITY_DESKTOP_NIGHT = 0.0024;
-export const FOG_DENSITY_MOBILE = 0.0032;
-export const FOG_DENSITY_MOBILE_NIGHT = 0.0038;
+export const FOG_DENSITY_DESKTOP = 0.0010;
+export const FOG_DENSITY_DESKTOP_NIGHT = 0.0022;
+export const FOG_DENSITY_MOBILE = 0.0013;
+export const FOG_DENSITY_MOBILE_NIGHT = 0.0028;
 
 // Desktop Render Distance & View Limits
-export const FOG_NEAR_DESKTOP = 120;
-export const FOG_FAR_DESKTOP = 450;
-export const MAX_VIEW_DISTANCE_DESKTOP = 550;
-export const ISLAND_DETAIL_DISTANCE_DESKTOP = 140;
+export const FOG_NEAR_DESKTOP = 160;
+export const FOG_FAR_DESKTOP = 550;
+export const MAX_VIEW_DISTANCE_DESKTOP = 650;
+export const ISLAND_DETAIL_DISTANCE_DESKTOP = 160;
 
 // Mobile Render Distance & View Limits
-export const FOG_NEAR_MOBILE = 60;
-export const FOG_FAR_MOBILE = 260;
-export const MAX_VIEW_DISTANCE_MOBILE = 350;
-export const ISLAND_DETAIL_DISTANCE_MOBILE = 80;
+export const FOG_NEAR_MOBILE = 90;
+export const FOG_FAR_MOBILE = 350;
+export const MAX_VIEW_DISTANCE_MOBILE = 450;
+export const ISLAND_DETAIL_DISTANCE_MOBILE = 100;
 
 // Nameplate cull distances
 export const NAMEPLATE_CULL_DISTANCE = 110;
@@ -40,8 +40,8 @@ export function getFogConfig(isMobile: boolean, isNight: boolean) {
     density: isMobile
       ? (isNight ? FOG_DENSITY_MOBILE_NIGHT : FOG_DENSITY_MOBILE)
       : (isNight ? FOG_DENSITY_DESKTOP_NIGHT : FOG_DENSITY_DESKTOP),
-    near: isMobile ? (isNight ? 45 : FOG_NEAR_MOBILE) : (isNight ? 85 : FOG_NEAR_DESKTOP),
-    far: isMobile ? (isNight ? 240 : FOG_FAR_MOBILE) : (isNight ? 420 : FOG_FAR_DESKTOP),
+    near: isMobile ? (isNight ? 55 : FOG_NEAR_MOBILE) : (isNight ? 95 : FOG_NEAR_DESKTOP),
+    far: isMobile ? (isNight ? 280 : FOG_FAR_MOBILE) : (isNight ? 460 : FOG_FAR_DESKTOP),
     viewDistance: isMobile ? MAX_VIEW_DISTANCE_MOBILE : MAX_VIEW_DISTANCE_DESKTOP,
     islandDetailDistance: isMobile ? ISLAND_DETAIL_DISTANCE_MOBILE : ISLAND_DETAIL_DISTANCE_DESKTOP,
   };
@@ -317,9 +317,9 @@ const CaribbeanSkyDome: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({ 
           vec3 dir = normalize(vWorldPosition);
           float h = max(0.0, dir.y);
 
-          // Rayleigh atmospheric gradient
-          vec3 skyLower = mix(uHorizonColor, uMidColor, smoothstep(0.0, 0.35, h));
-          vec3 sky = mix(skyLower, uTopColor, smoothstep(0.25, 0.95, h));
+        // Rayleigh atmospheric gradient - smooth bright Caribbean daytime sky
+        vec3 skyLower = mix(uHorizonColor, uMidColor, smoothstep(0.0, 0.45, h));
+        vec3 sky = mix(skyLower, uTopColor, smoothstep(0.28, 0.95, h));
 
           float celestialDot = max(0.0, dot(dir, uCelestialPos));
 
@@ -422,7 +422,7 @@ export const Environment3D: React.FC<{ isMobile?: boolean }> = React.memo(({ isM
       {/* Celestial Directional Light (Brilliant Sun vs Silver Moon) */}
       <directionalLight
         position={lightPos}
-        intensity={isNight ? 0.75 : 2.35}
+        intensity={isNight ? 0.75 : 2.85}
         color={isNight ? '#c8dcff' : '#fffbeb'}
         castShadow={!isMobile}
         shadow-mapSize-width={isMobile ? 0 : 1024}
@@ -438,8 +438,8 @@ export const Environment3D: React.FC<{ isMobile?: boolean }> = React.memo(({ isM
 
       {/* Ambient Fill Lighting */}
       <ambientLight
-        intensity={isNight ? 0.42 : 0.9}
-        color={isNight ? '#162038' : '#cce6ff'}
+        intensity={isNight ? 0.45 : 1.25}
+        color={isNight ? '#162038' : '#dbeafe'}
       />
 
       {/* Ocean Reflection Hemisphere Fill */}
@@ -447,7 +447,7 @@ export const Environment3D: React.FC<{ isMobile?: boolean }> = React.memo(({ isM
         args={
           isNight
             ? ['#1e293b', '#090d16', 0.45]
-            : ['#38bdf8', '#0284c7', 0.85]
+            : ['#60a5fa', '#0369a1', 1.15]
         }
       />
 
