@@ -79,11 +79,11 @@ export const KINGSTON_ISLANDS: IslandDefinition[] = [
     ],
     settlement: {
       type: 'kingston-city',
-      x: -8,
-      z: 62,
+      x: -6,
+      z: 58,
       rotationY: 0.12,
-      terraceElevation: 1.5,
-      terraceRadius: 52,
+      terraceElevation: 3.2,
+      terraceRadius: 56,
     },
   },
   // 3. Port Henderson Bluff - Towering coastal headland in the Southwest

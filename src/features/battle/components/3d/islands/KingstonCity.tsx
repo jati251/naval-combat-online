@@ -82,6 +82,7 @@ export const KingstonCity: React.FC<KingstonCityProps> = React.memo(({ settlemen
 
   return (
     <group position={[settlement.x, 0, settlement.z]} rotation={[0, settlement.rotationY, 0]}>
+
       {/* =========================================================================
           1. FORT CHARLES STONE CITADEL & RAMPARTS
           ========================================================================= */}
@@ -141,8 +142,12 @@ export const KingstonCity: React.FC<KingstonCityProps> = React.memo(({ settlemen
           2. ST. PETER'S COLONIAL CHURCH & SQUARE BELL TOWER
           ========================================================================= */}
       <group position={[8, 0, -18]}>
+        {/* Church foundation stone base */}
+        <mesh position={[0, 0.5, 0]} material={mats.darkStone} receiveShadow>
+          <boxGeometry args={[12, 1.2, 19]} />
+        </mesh>
         {/* Main church nave hall */}
-        <mesh position={[0, 3.6, 0]} material={mats.brickWall} castShadow receiveShadow>
+        <mesh position={[0, 4.2, 0]} material={mats.brickWall} castShadow receiveShadow>
           <boxGeometry args={[11, 7.2, 18]} />
         </mesh>
         {/* Steep church roof */}
@@ -237,13 +242,13 @@ export const KingstonCity: React.FC<KingstonCityProps> = React.memo(({ settlemen
           5. DEEP-WATER STONE HARBOR QUAY & WORKING DOCKS
           ========================================================================= */}
       <group position={[8, 0, 14]}>
-        {/* Massive stone harbor sea-wall (extending down into water) */}
-        <mesh position={[0, 0.4, 0]} material={mats.wharfStone} castShadow receiveShadow>
-          <boxGeometry args={[38, 5.0, 12]} />
+        {/* Massive stone harbor sea-wall (extending 7m down into water) */}
+        <mesh position={[0, -0.6, 0]} material={mats.wharfStone} castShadow receiveShadow>
+          <boxGeometry args={[42, 7.0, 14]} />
         </mesh>
 
         {/* Timber jetty extension jutting into deep channel */}
-        <mesh position={[0, 1.6, 12]} material={mats.timberDeck} castShadow receiveShadow>
+        <mesh position={[0, 1.8, 12]} material={mats.timberDeck} castShadow receiveShadow>
           <boxGeometry args={[9, 0.5, 16]} />
         </mesh>
 

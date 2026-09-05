@@ -100,19 +100,23 @@ export function createIslandTerrainGeometry(
       const sx = island.settlement.x;
       const sz = island.settlement.z;
       const targetTerrace = island.settlement.terraceElevation ?? (
-        island.settlement.type === 'kingston-city' ? 1.6 :
+        island.settlement.type === 'kingston-city' ? 3.2 :
         island.settlement.type === 'mayan-temple' ? 12.0 :
-        island.settlement.type === 'pirate-haven' ? 1.5 : 3.0
+        island.settlement.type === 'pirate-haven' ? 2.5 : 3.0
       );
       const terraceRad = island.settlement.terraceRadius ?? (
-        island.settlement.type === 'kingston-city' ? 44.0 :
+        island.settlement.type === 'kingston-city' ? 56.0 :
         island.settlement.type === 'mayan-temple' ? 36.0 : 24.0
       );
 
       const distSettlement = Math.sqrt((finalX - sx) ** 2 + (finalZ - sz) ** 2);
       if (distSettlement < terraceRad) {
-        const u = distSettlement / terraceRad;
-        const blend = (1 - u) * (1 - u) * (3 - 2 * (1 - u));
+        const flatZone = terraceRad * 0.72;
+        let blend = 1.0;
+        if (distSettlement > flatZone) {
+          const u = (distSettlement - flatZone) / (terraceRad - flatZone);
+          blend = 1.0 - u * u * (3 - 2 * u);
+        }
         const elevOffset = getIslandElevation(island) + 2.0;
         const currentWorldY = finalY + elevOffset;
         const blendedWorldY = currentWorldY * (1 - blend) + targetTerrace * blend;
@@ -184,6 +188,20 @@ export function createIslandTerrainGeometry(
         color.lerpColors(colBrown, colRock, (adjustedT - 0.25) / 0.3);
       } else {
         color.lerpColors(colRock, colPeak, (adjustedT - 0.55) / 0.45);
+      }
+    }
+
+    // If island has Kingston City, paint paved cobblestone plaza on the flat terrace directly into the terrain mesh (100% zero Z-fighting)
+    if (island.settlement && island.settlement.type === 'kingston-city') {
+      const sx = island.settlement.x;
+      const sz = island.settlement.z;
+      const vx = pos.getX(i);
+      const vz = pos.getZ(i);
+      const dist = Math.sqrt((vx - sx) ** 2 + (vz - sz) ** 2);
+      if (dist < 46) {
+        const colPavement = new THREE.Color('#78716c'); // Weathered colonial cobblestone pavers
+        const blend = Math.max(0, Math.min(1, (46 - dist) / 10));
+        color.lerp(colPavement, blend * 0.88);
       }
     }
 
@@ -276,23 +294,25 @@ export function getTerrainSurfaceY(
     const sx = settlement.x;
     const sz = settlement.z;
     const targetTerrace = settlement.terraceElevation ?? (
-      settlement.type === 'kingston-city' ? 1.6 :
+      settlement.type === 'kingston-city' ? 3.2 :
       settlement.type === 'mayan-temple' ? 12.0 :
-      settlement.type === 'pirate-haven' ? 1.5 : 3.0
+      settlement.type === 'pirate-haven' ? 2.5 : 3.0
     );
     const terraceRad = settlement.terraceRadius ?? (
-      settlement.type === 'kingston-city' ? 44.0 :
+      settlement.type === 'kingston-city' ? 56.0 :
       settlement.type === 'mayan-temple' ? 36.0 : 24.0
     );
 
     const distSettlement = Math.sqrt((relX - sx) ** 2 + (relZ - sz) ** 2);
-    if (distSettlement < terraceRad * 0.7) {
+    const flatZone = terraceRad * 0.72;
+    if (distSettlement <= flatZone) {
       return targetTerrace;
     }
     if (distSettlement < terraceRad) {
-      const u = (distSettlement - terraceRad * 0.7) / (terraceRad * 0.3);
+      const u = (distSettlement - flatZone) / (terraceRad - flatZone);
+      const blend = 1.0 - u * u * (3 - 2 * u);
       const naturalY = computeNaturalSlopeY(island, relX, relZ);
-      return targetTerrace * (1 - u) + naturalY * u;
+      return naturalY * (1 - blend) + targetTerrace * blend;
     }
   }
 
