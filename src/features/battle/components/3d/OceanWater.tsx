@@ -15,14 +15,14 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
   const timeOfDay = useGameStore((s) => s.timeOfDay);
   const isNight = timeOfDay === 'NIGHT';
 
-  // Responsive vertex grid density: 64x64 on mobile (4,096 quads) for high-performance 60fps,
+  // Responsive vertex grid density: 96x96 on mobile (9,216 quads) balanced performance/fidelity,
   // 160x160 on desktop (25,600 quads) for maximum geometric fidelity.
+  const segments = isMobile ? 96 : 160;
   const geometry = useMemo(() => {
-    const segments = isMobile ? 64 : 160;
     const geo = new THREE.PlaneGeometry(size, size, segments, segments);
     geo.rotateX(-Math.PI / 2);
     return geo;
-  }, [size, isMobile]);
+  }, [size, segments]);
 
   // Pack arena islands data into uniform arrays: position/seed and elongation params
   const islandPositions = useMemo(() => {
@@ -442,13 +442,13 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
       }
     }
 
-    // Grid snapping: Snap mesh position to 10m vertex grid steps.
-    // This stops vertices from sliding across the world-space Gerstner coordinates
-    // during camera movement or orbit, completely eliminating wave swimming & crawling!
+    // Grid snapping: Snap mesh position to exact vertex grid spacing.
+    // The step MUST equal size/segments so the Gerstner world-space coordinates
+    // align perfectly with vertex positions after each snap, preventing flickering.
     if (meshRef.current) {
-      const gridStep = 10.0;
-      meshRef.current.position.x = Math.floor(state.camera.position.x / gridStep) * gridStep;
-      meshRef.current.position.z = Math.floor(state.camera.position.z / gridStep) * gridStep;
+      const gridStep = size / segments;
+      meshRef.current.position.x = Math.round(state.camera.position.x / gridStep) * gridStep;
+      meshRef.current.position.z = Math.round(state.camera.position.z / gridStep) * gridStep;
     }
   });
 

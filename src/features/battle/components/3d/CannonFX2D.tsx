@@ -73,7 +73,10 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
     const halfWid = shipCfg.width * 0.5 + 0.5;
     const gunDeckY = firingShip.y + 1.8;
 
-    const numGuns = Math.min(16, Math.max(3, Math.floor(shipCfg.length / 2.0)));
+    // Mobile: cap at 6 guns to prevent frame hang from particle storm
+    const numGuns = isMobile
+      ? Math.min(6, Math.max(2, Math.floor(shipCfg.length / 3.0)))
+      : Math.min(16, Math.max(3, Math.floor(shipCfg.length / 2.0)));
     for (let g = 0; g < numGuns; g++) {
       const relZ = (g - (numGuns - 1) * 0.5) * ((shipCfg.length * 0.6) / numGuns);
       const gx = firingShip.x + (cosH * sideSign * halfWid + sinH * relZ);
@@ -85,7 +88,11 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
 
       // Bright muzzle explosion burst
       spawnFlash(flashPool.current, gx, gy, gz, 5.0 + Math.random() * 2.5);
-      spawnSparks(sparkPool.current, gx, gy, gz, normX, normZ);
+      // Skip sparks on mobile — barely visible and each gun spawns 14-24 sparks
+      // which causes O(n*m) pool scanning that hangs the frame
+      if (!isMobile) {
+        spawnSparks(sparkPool.current, gx, gy, gz, normX, normZ);
+      }
 
       // Thick billowing gunpowder smoke cloud (reduced on mobile)
       const smokeCount = isMobile ? (3 + Math.floor(Math.random() * 2)) : (6 + Math.floor(Math.random() * 4));
