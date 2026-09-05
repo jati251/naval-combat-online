@@ -50,7 +50,8 @@ export class RoomManager {
           roomId,
           msg.roomName || `Fleet Arena #${roomId.substring(5)}`,
           msg.maxPlayers || 4,
-          (topic, payload) => this.broadcastToTopic(topic, payload)
+          (topic, payload) => this.broadcastToTopic(topic, payload),
+          (cid, payload) => this.sendDirect(cid, payload)
         );
 
         this.rooms.set(roomId, room);
@@ -150,8 +151,21 @@ export class RoomManager {
         if (!roomId) return;
         const room = this.rooms.get(roomId);
         const player = room?.players.get(clientId);
-        if (room && player?.isHost) {
-          room.startGame();
+        if (!room || !player?.isHost) return;
+
+        // Verify that all players are ready before setting sail
+        const unready = Array.from(room.players.values()).filter((p) => !p.isReady);
+        if (unready.length > 0) {
+          const names = unready.map((p) => p.name).join(', ');
+          this.sendDirect(clientId, {
+            type: 'ERROR',
+            message: `Menunggu semua captain siap tempur (Ready)! Belum siap: ${names}`,
+          });
+          return;
+        }
+
+        const started = room.startGame();
+        if (started) {
           this.broadcastLobbyUpdate();
         }
         break;

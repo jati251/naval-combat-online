@@ -34,19 +34,22 @@ export class GameRoom {
   private startTime: number = 0;
   private lastTickTime: number = 0;
 
-  // Broadcast callback passed from WebSocket server
+  // Broadcast and direct send callbacks
   private broadcast: (roomId: string, message: ServerMessage) => void;
+  private sendDirect: (clientId: string, message: ServerMessage) => void;
 
   constructor(
     id: string,
     name: string,
     maxPlayers: number,
-    broadcast: (roomId: string, message: ServerMessage) => void
+    broadcast: (roomId: string, message: ServerMessage) => void,
+    sendDirect: (clientId: string, message: ServerMessage) => void
   ) {
     this.id = id;
     this.name = name;
     this.maxPlayers = maxPlayers;
     this.broadcast = broadcast;
+    this.sendDirect = sendDirect;
   }
 
   public addPlayer(id: string, name: string, shipClass: ShipClass): boolean {
@@ -271,12 +274,20 @@ export class GameRoom {
       });
     });
 
-    this.broadcast(this.id, {
+    const startMsg: ServerMessage = {
       type: 'GAME_STARTED',
       startTime: this.startTime,
       windAngle: this.windAngle,
       windSpeed: this.windSpeed,
-    });
+    };
+
+    // 1. Broadcast to room pub/sub topic
+    this.broadcast(this.id, startMsg);
+
+    // 2. Direct message to EVERY player in room (guarantees host/sender receives it without pub/sub echo suppression)
+    for (const playerId of this.players.keys()) {
+      this.sendDirect(playerId, startMsg);
+    }
 
     // Start 30Hz simulation loop
     this.tickTimer = setInterval(() => this.tick(), 1000 / 30);
@@ -393,11 +404,21 @@ export class GameRoom {
   }
 
   public broadcastRoomState(): void {
+    const roomInfo = this.getRoomInfo();
     this.broadcast(this.id, {
       type: 'ROOM_STATE',
-      room: this.getRoomInfo(),
+      room: roomInfo,
       selfId: '',
     });
+
+    // Direct send to each player with their verified selfId
+    for (const playerId of this.players.keys()) {
+      this.sendDirect(playerId, {
+        type: 'ROOM_STATE',
+        room: roomInfo,
+        selfId: playerId,
+      });
+    }
   }
 
   public destroy(): void {

@@ -11,6 +11,8 @@ import {
   RefreshCw,
   Shield,
   Zap,
+  Loader2,
+  Clock,
 } from 'lucide-react';
 import { useGameStore } from '@/stores/useGameStore';
 import { useToastStore } from '@/stores/useToastStore';
@@ -44,6 +46,36 @@ export const LobbyView: React.FC = () => {
   const currentShipConfig = SHIP_PRESETS[selectedShip];
   const selfPlayer = currentRoom?.players.find((p) => p.id === selfId);
   const isHost = selfPlayer?.isHost ?? false;
+
+  const [isDeploying, setIsDeploying] = useState(false);
+
+  const otherPlayers = currentRoom?.players.filter((p) => p.id !== selfId) ?? [];
+  const hasOtherPlayers = otherPlayers.length > 0;
+  // All other captains must be ready. If solo, host can start immediately.
+  const allCaptainsReady =
+    currentRoom &&
+    currentRoom.players.length > 0 &&
+    (hasOtherPlayers ? otherPlayers.every((p) => p.isReady) : true);
+  const readyCount = currentRoom?.players.filter((p) => p.isReady).length ?? 0;
+  const totalCount = currentRoom?.players.length ?? 0;
+
+  const handleStartGame = () => {
+    if (!allCaptainsReady) {
+      const unreadyNames = otherPlayers.filter((p) => !p.isReady).map((p) => p.name).join(', ');
+      useToastStore.getState().warning(
+        `Menunggu semua captain siap (${unreadyNames || 'Captain'} belum Ready)!`,
+        'Captains Not Ready'
+      );
+      return;
+    }
+    setIsDeploying(true);
+    networkClient.startGame();
+
+    // Safety timeout in case server responds slowly
+    setTimeout(() => {
+      setIsDeploying(false);
+    }, 7000);
+  };
 
   const handleCreateRoom = (e: React.FormEvent) => {
     e.preventDefault();
@@ -292,11 +324,34 @@ export const LobbyView: React.FC = () => {
 
                 {isHost && (
                   <button
-                    onClick={() => networkClient.startGame()}
-                    className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-slate-950 font-black text-sm tracking-wider flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(245,158,11,0.4)] transition active:scale-98 cursor-pointer"
+                    onClick={handleStartGame}
+                    disabled={!allCaptainsReady || isDeploying}
+                    className={`w-full py-3.5 rounded-2xl font-black text-sm tracking-wider flex items-center justify-center gap-2 shadow-lg transition active:scale-98 cursor-pointer ${
+                      isDeploying
+                        ? 'bg-amber-600 text-slate-950 cursor-wait'
+                        : allCaptainsReady
+                        ? 'bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 text-slate-950 shadow-[0_0_25px_rgba(245,158,11,0.5)] hover:brightness-110 active:scale-95'
+                        : 'bg-slate-850 text-slate-400 border border-slate-750 cursor-not-allowed opacity-80'
+                    }`}
                   >
-                    <Play className="w-4 h-4 fill-current" />
-                    <span>SET SAIL & COMMENCE BATTLE</span>
+                    {isDeploying ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
+                        <span>COMMENCING HIGH SEAS ENGAGEMENT...</span>
+                      </>
+                    ) : allCaptainsReady ? (
+                      <>
+                        <Play className="w-4 h-4 fill-current" />
+                        <span>SET SAIL & COMMENCE BATTLE</span>
+                      </>
+                    ) : (
+                      <>
+                        <Clock className="w-4 h-4 text-amber-400 animate-pulse" />
+                        <span>
+                          WAITING FOR ALL CAPTAINS TO READY ({readyCount}/{totalCount})
+                        </span>
+                      </>
+                    )}
                   </button>
                 )}
               </div>
@@ -539,6 +594,38 @@ export const LobbyView: React.FC = () => {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tactical Deployment Overlay Loader */}
+      {isDeploying && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="glass-panel max-w-sm w-full rounded-3xl p-8 border border-amber-500/40 shadow-[0_0_50px_rgba(245,158,11,0.25)] flex flex-col items-center text-center gap-5">
+            <div className="relative flex items-center justify-center">
+              <div className="w-20 h-20 rounded-full border-4 border-amber-500/20 border-t-amber-400 animate-spin" />
+              <Compass className="w-10 h-10 text-amber-400 absolute animate-pulse" />
+            </div>
+
+            <div>
+              <span className="text-[10px] font-bold text-amber-400 tracking-widest uppercase">
+                FLEET DEPLOYMENT SEQUENCE
+              </span>
+              <h3 className="font-cinzel text-xl font-black text-slate-100 mt-1">
+                COMMENCING BATTLE
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Dispatching armada coordinates to battle stations...
+              </p>
+            </div>
+
+            <div className="w-full bg-slate-900 border border-slate-800 rounded-full h-2 overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full animate-pulse w-full" />
+            </div>
+
+            <span className="text-[11px] text-amber-300/80 font-mono font-bold tracking-wider animate-pulse">
+              ALL HANDS ON DECK
+            </span>
           </div>
         </div>
       )}
