@@ -239,13 +239,19 @@ export const JumpingFish3D: React.FC = React.memo(() => {
         // Water sounds
         if (!fish.hasSplashedExit && progress > 0.06) {
           fish.hasSplashedExit = true;
-          navalAudio.playWaterSplash();
+          navalAudio.playWaterSplash({
+            worldPos: { x: fish.startX, z: fish.startZ },
+            volumeMultiplier: 0.65,
+          });
         }
 
         if (!fish.hasSplashedEntry && progress > 0.88) {
           fish.hasSplashedEntry = true;
           spawnRing(fish.targetX, fish.targetZ);
-          navalAudio.playWaterSplash();
+          navalAudio.playWaterSplash({
+            worldPos: { x: fish.targetX, z: fish.targetZ },
+            volumeMultiplier: 0.65,
+          });
         }
 
         // Hard timeout: guaranteed cleanup so it CANNOT get stuck

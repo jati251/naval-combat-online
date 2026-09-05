@@ -25,6 +25,8 @@ export const GalleonModel: React.FC<SubModelProps> = React.memo(({
   hullTexture,
   deckTexture,
   sailTexture,
+  shipId,
+  isSelf,
 }) => {
   const { length, width, cannonsPerSide, trimColor } = config;
 
@@ -206,7 +208,14 @@ export const GalleonModel: React.FC<SubModelProps> = React.memo(({
           </group>
         ))}
 
-        {!isEnemy && <ShipHelm position={[0, 1.35, length * 0.1]} rudderAngle={rudderAngle} />}
+        {!isEnemy && (
+          <ShipHelm
+            position={[0, 1.35, length * 0.1]}
+            rudderAngle={rudderAngle}
+            shipId={shipId}
+            isSelf={isSelf}
+          />
+        )}
       </group>
 
       {/* Cargo Hatch & Naval Capstan (Player only) */}
@@ -341,7 +350,13 @@ export const GalleonModel: React.FC<SubModelProps> = React.memo(({
         </group>
       </group>
 
-      <RudderBlade length={length} rudderAngle={rudderAngle} isEnemy={isEnemy} />
+      <RudderBlade
+        length={length}
+        rudderAngle={rudderAngle}
+        isEnemy={isEnemy}
+        shipId={shipId}
+        isSelf={isSelf}
+      />
     </group>
   );
 });

@@ -19,6 +19,7 @@ import {
 import { createInitialCameraState, updateChaseCamera } from '../../utils/cameraController';
 import { lerpAngle, damp } from '../../utils/math';
 import { useGameStore } from '@/stores/useGameStore';
+import { navalAudio } from '../../services/navalAudio';
 
 export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf, isMobile = false }) => {
   const groupRef = useRef<THREE.Group>(null);
@@ -138,6 +139,13 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf,
 
     // 100% Lockstep Chase Camera: camera follows the visual ship transform directly
     if (isSelf && !curShip.isSunk) {
+      navalAudio.updateListener(
+        groupRef.current.position.x,
+        groupRef.current.position.z,
+        groupRef.current.rotation.y
+      );
+      navalAudio.updateAmbienceSpeed(curShip.speed ?? 0);
+
       updateChaseCamera({
         camera,
         delta,
@@ -167,6 +175,8 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf,
         sailState={ship.sail}
         rudderAngle={ship.rudder}
         isEnemy={!isSelf}
+        shipId={ship.id}
+        isSelf={isSelf}
       />
 
       {/* Dynamic Stern Wake Spray & 2D Bubbles (Reads live state directly) */}

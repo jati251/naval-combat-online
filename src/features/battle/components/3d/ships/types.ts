@@ -7,6 +7,8 @@ export interface ShipModelProps {
   sailState?: SailState;
   rudderAngle?: number;
   isEnemy?: boolean;
+  shipId?: string;
+  isSelf?: boolean;
 }
 
 export interface SubModelProps {
@@ -17,4 +19,6 @@ export interface SubModelProps {
   hullTexture: THREE.CanvasTexture;
   deckTexture: THREE.CanvasTexture;
   sailTexture: THREE.CanvasTexture;
+  shipId?: string;
+  isSelf?: boolean;
 }

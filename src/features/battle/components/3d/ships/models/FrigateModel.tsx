@@ -25,6 +25,8 @@ export const FrigateModel: React.FC<SubModelProps> = React.memo(({
   hullTexture,
   deckTexture,
   sailTexture,
+  shipId,
+  isSelf,
 }) => {
   const { length, width, cannonsPerSide, trimColor } = config;
   const mastPositions = useMemo(() => [-length * 0.32, 0, length * 0.28], [length]);
@@ -151,7 +153,15 @@ export const FrigateModel: React.FC<SubModelProps> = React.memo(({
             {!isEnemy && <pointLight color="#f59e0b" intensity={0.7} distance={7} decay={2} />}
           </group>
         ))}
-        {!isEnemy && <ShipHelm position={[0, 1.3, length * 0.08]} rudderAngle={rudderAngle} isDouble />}
+        {!isEnemy && (
+          <ShipHelm
+            position={[0, 1.3, length * 0.08]}
+            rudderAngle={rudderAngle}
+            isDouble
+            shipId={shipId}
+            isSelf={isSelf}
+          />
+        )}
       </group>
 
       {/* Cargo Hatches & Deck Hardware (Player only) */}
@@ -240,7 +250,13 @@ export const FrigateModel: React.FC<SubModelProps> = React.memo(({
         );
       })}
 
-      <RudderBlade length={length} rudderAngle={rudderAngle} isEnemy={isEnemy} />
+      <RudderBlade
+        length={length}
+        rudderAngle={rudderAngle}
+        isEnemy={isEnemy}
+        shipId={shipId}
+        isSelf={isSelf}
+      />
     </group>
   );
 });

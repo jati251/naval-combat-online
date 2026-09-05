@@ -40,23 +40,27 @@ export function useShipControls() {
       currentRudder.current = THREE.MathUtils.lerp(
         currentRudder.current,
         steerTarget,
-        dt * 6.0,
+        dt * 8.0,
       );
 
-      // Continuous, rock-solid network sync (~20Hz) when steering
-      if (now - lastNetworkSync.current >= 50) {
+      // Keep local store immediately in sync for 120fps visual responsiveness
+      setLocalRudder(currentRudder.current);
+
+      // Continuous, rock-solid network sync (~20Hz) when steering with periodic heartbeat
+      const timeSinceLastSync = now - lastNetworkSync.current;
+      if (timeSinceLastSync >= 50) {
         const isActivelySteering =
           steerTarget !== 0 || Math.abs(currentRudder.current) > 0.005;
         const rudderChanged =
-          Math.abs(currentRudder.current - lastSentRudder.current) > 0.004;
+          Math.abs(currentRudder.current - lastSentRudder.current) > 0.003;
+        const heartbeatDue = isActivelySteering && timeSinceLastSync >= 160;
 
-        if (isActivelySteering && rudderChanged) {
+        if (isActivelySteering && (rudderChanged || heartbeatDue)) {
           lastNetworkSync.current = now;
           if (steerTarget === 0 && Math.abs(currentRudder.current) < 0.015) {
             currentRudder.current = 0;
           }
           lastSentRudder.current = currentRudder.current;
-          setLocalRudder(currentRudder.current);
           // Inverted sign sent to server physics to correctly turn Left on A and Right on D
           networkClient.sendInput(
             -currentRudder.current,
@@ -157,15 +161,25 @@ export function useShipControls() {
       }
     };
 
+    const handleBlur = () => {
+      keys.current = {};
+      currentRudder.current = 0;
+      lastSentRudder.current = 0;
+      setLocalRudder(0);
+      networkClient.sendInput(0, useGameStore.getState().localSail);
+    };
+
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
     window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("blur", handleBlur);
 
     return () => {
       if (animFrameId.current) cancelAnimationFrame(animFrameId.current);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("blur", handleBlur);
     };
   }, [actions, setLocalRudder]);
 

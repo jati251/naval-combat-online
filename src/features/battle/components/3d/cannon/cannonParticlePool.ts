@@ -229,5 +229,5 @@ export function spawnWaterImpact(
     );
   }
 
-  navalAudio.playWaterSplash();
+  navalAudio.playWaterSplash({ worldPos: { x, z } });
 }

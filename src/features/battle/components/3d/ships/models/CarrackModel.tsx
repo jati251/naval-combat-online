@@ -23,6 +23,8 @@ export const CarrackModel: React.FC<SubModelProps> = React.memo(({
   hullTexture,
   deckTexture,
   sailTexture,
+  shipId,
+  isSelf,
 }) => {
   const { length, width } = config;
   const mastPositions = useMemo(() => [-length * 0.32, 0, length * 0.26], [length]);
@@ -136,7 +138,14 @@ export const CarrackModel: React.FC<SubModelProps> = React.memo(({
             {!isEnemy && <pointLight color="#34d399" intensity={1.5} distance={9} decay={2} />}
           </group>
         ))}
-        {!isEnemy && <ShipHelm position={[0, 1.4, length * 0.08]} rudderAngle={rudderAngle} />}
+        {!isEnemy && (
+          <ShipHelm
+            position={[0, 1.4, length * 0.08]}
+            rudderAngle={rudderAngle}
+            shipId={shipId}
+            isSelf={isSelf}
+          />
+        )}
       </group>
 
       {/* Deck Hardware: Cargo Hatches & Capstan (Player only) */}
@@ -215,7 +224,13 @@ export const CarrackModel: React.FC<SubModelProps> = React.memo(({
         );
       })}
 
-      <RudderBlade length={length} rudderAngle={rudderAngle} isEnemy={isEnemy} />
+      <RudderBlade
+        length={length}
+        rudderAngle={rudderAngle}
+        isEnemy={isEnemy}
+        shipId={shipId}
+        isSelf={isSelf}
+      />
     </group>
   );
 });

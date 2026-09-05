@@ -64,7 +64,7 @@ export function useShipActions(): ShipActions {
 
     if (progress >= 1.0) {
       lastFireTimestamps[side] = now;
-      navalAudio.playCannonFire();
+      navalAudio.playCannonFire({ side, isSelf: true });
       if (selfShip) {
         store.triggerFireEvent(selfShip.id, side);
       }

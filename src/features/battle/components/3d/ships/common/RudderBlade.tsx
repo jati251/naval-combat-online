@@ -1,19 +1,40 @@
 import React, { useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
+import { useGameStore } from '@/stores/useGameStore';
 
 interface RudderBladeProps {
   length: number;
-  rudderAngle: number;
+  rudderAngle?: number;
   isEnemy?: boolean;
+  shipId?: string;
+  isSelf?: boolean;
 }
 
-export const RudderBlade: React.FC<RudderBladeProps> = React.memo(({ length, rudderAngle, isEnemy = false }) => {
-  const meshRef = useRef<THREE.Mesh>(null);
-  useFrame(() => {
-    if (meshRef.current) {
-      meshRef.current.rotation.y = -rudderAngle * 0.55;
-    }
+export const RudderBlade: React.FC<RudderBladeProps> = React.memo(({
+  length,
+  rudderAngle = 0,
+  isEnemy = false,
+  shipId,
+  isSelf = false,
+}) => {
+  const meshRef = useRef<THREE.Group>(null);
+
+  useFrame((_, delta) => {
+    if (!meshRef.current) return;
+
+    const store = useGameStore.getState();
+    const targetRudder = isSelf
+      ? store.localRudder
+      : (store.ships.find((s) => s.id === shipId)?.rudder ?? rudderAngle ?? 0);
+
+    const targetRotY = -targetRudder * 0.55;
+    meshRef.current.rotation.y = THREE.MathUtils.damp(
+      meshRef.current.rotation.y,
+      targetRotY,
+      18,
+      delta
+    );
   });
 
   return (

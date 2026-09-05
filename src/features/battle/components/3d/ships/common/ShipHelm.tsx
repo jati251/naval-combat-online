@@ -1,19 +1,40 @@
 import React, { useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
+import { useGameStore } from '@/stores/useGameStore';
 
 interface ShipHelmProps {
   position: [number, number, number];
-  rudderAngle: number;
+  rudderAngle?: number;
   isDouble?: boolean;
+  shipId?: string;
+  isSelf?: boolean;
 }
 
-export const ShipHelm: React.FC<ShipHelmProps> = React.memo(({ position, rudderAngle, isDouble = false }) => {
+export const ShipHelm: React.FC<ShipHelmProps> = React.memo(({
+  position,
+  rudderAngle = 0,
+  isDouble = false,
+  shipId,
+  isSelf = false,
+}) => {
   const helmRef = useRef<THREE.Group>(null);
-  useFrame(() => {
-    if (helmRef.current) {
-      helmRef.current.rotation.z = -rudderAngle * 2.8;
-    }
+
+  useFrame((_, delta) => {
+    if (!helmRef.current) return;
+
+    const store = useGameStore.getState();
+    const targetRudder = isSelf
+      ? store.localRudder
+      : (store.ships.find((s) => s.id === shipId)?.rudder ?? rudderAngle ?? 0);
+
+    const targetRotZ = -targetRudder * 2.8;
+    helmRef.current.rotation.z = THREE.MathUtils.damp(
+      helmRef.current.rotation.z,
+      targetRotZ,
+      18,
+      delta
+    );
   });
 
   return (

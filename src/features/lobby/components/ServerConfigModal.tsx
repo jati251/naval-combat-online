@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Compass, X } from 'lucide-react';
+import { Compass } from 'lucide-react';
 import { useGameStore } from '@/stores/useGameStore';
 import { networkClient } from '@/services/networkClient';
+import { Modal } from '@/components/ui/Modal';
 
 interface ServerConfigModalProps {
   isOpen: boolean;
@@ -25,34 +26,13 @@ export const ServerConfigModal: React.FC<ServerConfigModalProps> = ({ isOpen, on
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
-      <div className="pirate-parchment border-2 border-amber-600/50 rounded-xl p-5 sm:p-6 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl relative">
-        {/* Corner Brackets */}
-        <div className="absolute top-1.5 left-1.5 w-3 h-3 border-t-2 border-l-2 border-amber-400/80" />
-        <div className="absolute top-1.5 right-1.5 w-3 h-3 border-t-2 border-r-2 border-amber-400/80" />
-        <div className="absolute bottom-1.5 left-1.5 w-3 h-3 border-b-2 border-l-2 border-amber-400/80" />
-        <div className="absolute bottom-1.5 right-1.5 w-3 h-3 border-b-2 border-r-2 border-amber-400/80" />
-
-        <div className="flex items-center justify-between pb-3.5 border-b border-amber-600/30 mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg pirate-panel border border-amber-500/50 flex items-center justify-center text-amber-400 shadow-md">
-              <Compass className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-cinzel font-black text-amber-100 text-lg tracking-wider gold-emboss">
-                ADMIRALTY GATEWAY
-              </h3>
-              <p className="text-[10px] font-fell italic text-amber-200/60">Configure naval dispatch gateway coordinates</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-amber-400/60 hover:text-amber-200 transition cursor-pointer p-1"
-            title="Close"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="ADMIRALTY GATEWAY"
+      subtitle="Configure naval dispatch gateway coordinates"
+      icon={<Compass className="w-5 h-5" />}
+    >
 
         <form onSubmit={handleSave} className="space-y-4">
           <div>
@@ -112,7 +92,6 @@ export const ServerConfigModal: React.FC<ServerConfigModalProps> = ({ isOpen, on
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 };

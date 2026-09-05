@@ -1,5 +1,6 @@
 import React from 'react';
 import { useGameStore } from '@/stores/useGameStore';
+import { useModalStore } from '@/stores/useModalStore';
 import { networkClient } from '@/services/networkClient';
 import { useLobby } from '../hooks/useLobby';
 import { LobbyHeader } from './LobbyHeader';
@@ -94,7 +95,19 @@ export const LobbyView: React.FC = () => {
             totalCount={totalCount}
             isDeploying={isDeploying}
             onStartGame={handleStartGame}
-            onLeaveRoom={() => networkClient.leaveRoom()}
+            onLeaveRoom={async () => {
+              const confirmed = await useModalStore.getState().confirm({
+                title: 'ABANDON SQUADRON',
+                message: 'Depart this armada chamber and return to the fleet registry?',
+                confirmLabel: 'Abandon Fleet',
+                cancelLabel: 'Remain',
+                variant: 'danger',
+                icon: 'retreat',
+              });
+              if (confirmed) {
+                networkClient.leaveRoom();
+              }
+            }}
           />
         ) : (
           <div className="w-full h-full max-h-full flex flex-col lg:flex-row gap-3 lg:gap-5 items-stretch justify-center overflow-hidden">

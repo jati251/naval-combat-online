@@ -225,7 +225,10 @@ class NetworkClient {
         // Only trigger audio & muzzle burst if fired by ANOTHER ship!
         // The local ship ALREADY triggered instant sound & particles on local fire input.
         if (msg.ownerId !== store.selfId) {
-          navalAudio.playCannonShot();
+          const firingShip = store.ships.find((s) => s.id === msg.ownerId);
+          navalAudio.playCannonFire({
+            worldPos: firingShip ? { x: firingShip.x, z: firingShip.z } : undefined,
+          });
           if (msg.ownerId) {
             store.triggerFireEvent(msg.ownerId as string, (msg.side as 'left' | 'right') || 'left');
           }
@@ -233,8 +236,13 @@ class NetworkClient {
         break;
       }
       case 'HIT_EVENT': {
-        navalAudio.playHullImpact();
-        if (msg.targetId === store.selfId) {
+        const isSelfTarget = msg.targetId === store.selfId;
+        const targetShip = store.ships.find((s) => s.id === msg.targetId);
+        navalAudio.playHullImpact({
+          isSelf: isSelfTarget,
+          worldPos: targetShip ? { x: targetShip.x, z: targetShip.z } : undefined,
+        });
+        if (isSelfTarget) {
           store.triggerCameraShake(0.85, 'hit');
         }
         break;
@@ -242,6 +250,10 @@ class NetworkClient {
       case 'SHIP_SUNK': {
         const sunkShip = store.ships.find((s) => s.id === msg.shipId);
         const name = sunkShip?.name || 'Vessel';
+        navalAudio.playShipSunk({
+          isSelf: msg.shipId === store.selfId,
+          worldPos: sunkShip ? { x: sunkShip.x, z: sunkShip.z } : undefined,
+        });
         store.addCombatLog(`💥 ${name} was shattered and sent to Davy Jones' locker!`, 'sink');
         break;
       }

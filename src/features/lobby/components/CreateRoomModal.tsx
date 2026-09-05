@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Swords, Sun, Moon, Dices, X, Trophy, Users, Shield } from 'lucide-react';
+import { Swords, Sun, Moon, Dices, Trophy, Users, Shield } from 'lucide-react';
+import { Modal } from '@/components/ui/Modal';
 
 interface CreateRoomModalProps {
   isOpen: boolean;
@@ -35,34 +36,13 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
-      <div className="pirate-parchment border-2 border-amber-500/70 rounded-xl p-5 sm:p-6 max-w-md w-full max-h-[92vh] overflow-y-auto shadow-[0_12px_40px_rgba(0,0,0,0.8),0_0_20px_rgba(245,158,11,0.2)] relative">
-        {/* Corner Brackets */}
-        <div className="absolute top-1.5 left-1.5 w-3 h-3 border-t-2 border-l-2 border-amber-400" />
-        <div className="absolute top-1.5 right-1.5 w-3 h-3 border-t-2 border-r-2 border-amber-400" />
-        <div className="absolute bottom-1.5 left-1.5 w-3 h-3 border-b-2 border-l-2 border-amber-400" />
-        <div className="absolute bottom-1.5 right-1.5 w-3 h-3 border-b-2 border-r-2 border-amber-400" />
-
-        <div className="flex items-center justify-between pb-3.5 border-b border-amber-500/30 mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg pirate-panel border border-amber-400/60 flex items-center justify-center text-amber-300 shadow-md">
-              <Swords className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-cinzel font-black text-amber-100 text-lg tracking-wider gold-emboss">
-                LETTERS OF MARQUE
-              </h3>
-              <p className="text-[10px] font-fell italic text-amber-200/80">Commission a naval fleet for deathmatch combat</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-amber-300 hover:text-white transition cursor-pointer p-1"
-            title="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="LETTERS OF MARQUE"
+      subtitle="Commission a naval fleet for deathmatch combat"
+      icon={<Swords className="w-5 h-5" />}
+    >
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Fleet Anchorage Name */}
@@ -234,7 +214,6 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 };

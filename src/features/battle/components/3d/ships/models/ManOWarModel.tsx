@@ -25,6 +25,8 @@ export const ManOWarModel: React.FC<SubModelProps> = React.memo(({
   hullTexture,
   deckTexture,
   sailTexture,
+  shipId,
+  isSelf,
 }) => {
   const { length, width, cannonsPerSide, trimColor } = config;
   const mastPositions = useMemo(() => [-length * 0.35, -length * 0.12, length * 0.12, length * 0.32], [length]);
@@ -188,7 +190,15 @@ export const ManOWarModel: React.FC<SubModelProps> = React.memo(({
           </group>
         ))}
 
-        {!isEnemy && <ShipHelm position={[0, 1.45, length * 0.06]} rudderAngle={rudderAngle} isDouble />}
+        {!isEnemy && (
+          <ShipHelm
+            position={[0, 1.45, length * 0.06]}
+            rudderAngle={rudderAngle}
+            isDouble
+            shipId={shipId}
+            isSelf={isSelf}
+          />
+        )}
       </group>
 
       {/* Heavy Deck Hardware (Player only) */}
@@ -278,7 +288,13 @@ export const ManOWarModel: React.FC<SubModelProps> = React.memo(({
         );
       })}
 
-      <RudderBlade length={length} rudderAngle={rudderAngle} isEnemy={isEnemy} />
+      <RudderBlade
+        length={length}
+        rudderAngle={rudderAngle}
+        isEnemy={isEnemy}
+        shipId={shipId}
+        isSelf={isSelf}
+      />
     </group>
   );
 });

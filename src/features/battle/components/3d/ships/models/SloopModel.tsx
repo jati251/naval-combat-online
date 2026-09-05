@@ -25,6 +25,8 @@ export const SloopModel: React.FC<SubModelProps> = React.memo(({
   hullTexture,
   deckTexture,
   sailTexture,
+  shipId,
+  isSelf,
 }) => {
   const { length, width, trimColor } = config;
   const mastHeight = length * 0.92;
@@ -169,7 +171,14 @@ export const SloopModel: React.FC<SubModelProps> = React.memo(({
           <cylinderGeometry args={[0.1, 0.15, 0.4, 6]} />
           <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={1.3} metalness={0.85} />
         </mesh>
-        {!isEnemy && <ShipHelm position={[0, 0.85, length * 0.06]} rudderAngle={rudderAngle} />}
+        {!isEnemy && (
+          <ShipHelm
+            position={[0, 0.85, length * 0.06]}
+            rudderAngle={rudderAngle}
+            shipId={shipId}
+            isSelf={isSelf}
+          />
+        )}
       </group>
 
       <BroadsideCannons positions={cannonZ} width={width * 0.94} y={hullDepth + 0.1} isEnemy={isEnemy} />
@@ -230,7 +239,13 @@ export const SloopModel: React.FC<SubModelProps> = React.memo(({
         <ShipFlag position={[0, mastHeight + 0.45, -0.6]} isEnemy={isEnemy} />
       </group>
 
-      <RudderBlade length={length} rudderAngle={rudderAngle} isEnemy={isEnemy} />
+      <RudderBlade
+        length={length}
+        rudderAngle={rudderAngle}
+        isEnemy={isEnemy}
+        shipId={shipId}
+        isSelf={isSelf}
+      />
     </group>
   );
 });

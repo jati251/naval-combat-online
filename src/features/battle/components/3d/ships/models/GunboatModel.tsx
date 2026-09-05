@@ -2,6 +2,7 @@ import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import type { SubModelProps } from '../types';
+import { useGameStore } from '@/stores/useGameStore';
 import {
   createCurvedHullGeometry,
   createCurvedDeckGeometry,
@@ -23,13 +24,28 @@ export const GunboatModel: React.FC<SubModelProps> = React.memo(({
   hullTexture,
   deckTexture,
   sailTexture,
+  shipId,
+  isSelf,
 }) => {
   const { length, width, trimColor } = config;
   const tillerRef = useRef<THREE.Mesh>(null);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     if (tillerRef.current) {
-      tillerRef.current.rotation.y = rudderAngle * 0.75;
+      let targetAngle = rudderAngle;
+      const store = useGameStore.getState();
+      if (isSelf) {
+        targetAngle = store.localRudder;
+      } else if (shipId) {
+        const ship = store.ships.find((s) => s.id === shipId);
+        if (ship) targetAngle = ship.rudder;
+      }
+      tillerRef.current.rotation.y = THREE.MathUtils.damp(
+        tillerRef.current.rotation.y,
+        targetAngle * 0.75,
+        14,
+        delta
+      );
     }
   });
 
@@ -151,7 +167,13 @@ export const GunboatModel: React.FC<SubModelProps> = React.memo(({
         </mesh>
       </group>
 
-      <RudderBlade length={length} rudderAngle={rudderAngle} isEnemy={isEnemy} />
+      <RudderBlade
+        length={length}
+        rudderAngle={rudderAngle}
+        isEnemy={isEnemy}
+        shipId={shipId}
+        isSelf={isSelf}
+      />
     </group>
   );
 });

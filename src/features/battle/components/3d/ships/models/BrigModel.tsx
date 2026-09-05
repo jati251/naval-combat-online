@@ -25,6 +25,8 @@ export const BrigModel: React.FC<SubModelProps> = React.memo(({
   hullTexture,
   deckTexture,
   sailTexture,
+  shipId,
+  isSelf,
 }) => {
   const { length, width, cannonsPerSide, trimColor } = config;
   const mastPositions = useMemo(() => [-length * 0.24, length * 0.18], [length]);
@@ -165,7 +167,14 @@ export const BrigModel: React.FC<SubModelProps> = React.memo(({
             {!isEnemy && <pointLight color="#f59e0b" intensity={0.6} distance={6} decay={2} />}
           </group>
         ))}
-        {!isEnemy && <ShipHelm position={[0, 1.05, length * 0.08]} rudderAngle={rudderAngle} />}
+        {!isEnemy && (
+          <ShipHelm
+            position={[0, 1.05, length * 0.08]}
+            rudderAngle={rudderAngle}
+            shipId={shipId}
+            isSelf={isSelf}
+          />
+        )}
       </group>
 
       <BroadsideCannons positions={cannonPositions} width={width * 0.95} y={hullDepth + 0.12} isEnemy={isEnemy} />
@@ -243,7 +252,13 @@ export const BrigModel: React.FC<SubModelProps> = React.memo(({
         );
       })}
 
-      <RudderBlade length={length} rudderAngle={rudderAngle} isEnemy={isEnemy} />
+      <RudderBlade
+        length={length}
+        rudderAngle={rudderAngle}
+        isEnemy={isEnemy}
+        shipId={shipId}
+        isSelf={isSelf}
+      />
     </group>
   );
 });

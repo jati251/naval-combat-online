@@ -5,6 +5,7 @@ import { LobbyView } from '@/features/lobby';
 import { NavalCanvas, BattleHUD, SpeedMotionBlurOverlay } from '@/features/battle';
 import { ToastContainer } from '@/components/ui/ToastContainer';
 import { OrientationLockOverlay } from '@/components/ui/OrientationLockOverlay';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 export const App: React.FC = () => {
   const stage = useGameStore((s) => s.stage);
@@ -18,6 +19,7 @@ export const App: React.FC = () => {
     <div className="fixed inset-0 w-full h-full h-[100dvh] overflow-hidden bg-[#0b1626] text-[#f5eedf] select-none touch-none">
       <OrientationLockOverlay />
       <ToastContainer />
+      <ConfirmDialog />
       {stage === 'LOBBY' && <LobbyView />}
 
       {(stage === 'BATTLE' || stage === 'DEBRIEF') && (() => {

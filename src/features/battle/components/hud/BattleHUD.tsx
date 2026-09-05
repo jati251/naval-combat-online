@@ -1,7 +1,9 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Volume2, VolumeX, LogOut, Swords, Skull, Smartphone, Trophy } from 'lucide-react';
 import { useGameStore } from '@/stores/useGameStore';
+import { useModalStore } from '@/stores/useModalStore';
 import { networkClient } from '@/services/networkClient';
+import { navalAudio } from '../../services/navalAudio';
 import { useShipControls } from '../../hooks/useShipControls';
 import { useShipActions } from '../../hooks/useShipActions';
 import { SHIP_PRESETS } from '@/types';
@@ -299,8 +301,24 @@ export const BattleHUD: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const handleLeave = useCallback(() => {
-    if (confirm('Strike colors and return to safe harbor?')) {
+  // Atmospheric oceanic sea ambience during naval engagement
+  useEffect(() => {
+    navalAudio.startAmbience();
+    return () => {
+      navalAudio.stopAmbience();
+    };
+  }, []);
+
+  const handleLeave = useCallback(async () => {
+    const confirmed = await useModalStore.getState().confirm({
+      title: 'RETREAT TO SAFE HARBOR',
+      message: 'Strike colors and abandon this naval engagement to return to safe harbor?',
+      confirmLabel: 'Strike Colors',
+      cancelLabel: 'Belay Order',
+      variant: 'danger',
+      icon: 'retreat',
+    });
+    if (confirmed) {
       networkClient.leaveRoom();
     }
   }, []);

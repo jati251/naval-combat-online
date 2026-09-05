@@ -8,6 +8,7 @@ export interface DeadReckoningBuffer {
   snapHeading: number;
   vx: number;
   vz: number;
+  turnRate: number;
   packetTime: number;
   lastSeqKey: string;
 }
@@ -25,6 +26,7 @@ export function createDeadReckoningBuffer(
     snapHeading: heading,
     vx: 0,
     vz: 0,
+    turnRate: 0,
     packetTime: performance.now(),
     lastSeqKey: '',
   };
@@ -45,8 +47,21 @@ export function pushSnapshot(
   const seqKey = `${newX}_${newZ}_${newHeading}`;
   if (seqKey === buffer.lastSeqKey) return;
 
+  const now = performance.now();
+  const dt = Math.max(0.015, (now - buffer.packetTime) / 1000);
+
+  // Compute smooth angular velocity from heading delta (shortest arc)
+  if (buffer.packetTime > 0 && dt < 0.25) {
+    const twoPi = Math.PI * 2;
+    const diff = ((newHeading - buffer.snapHeading) % twoPi + twoPi + Math.PI) % twoPi - Math.PI;
+    const calculatedRate = diff / dt;
+    buffer.turnRate = Math.max(-2.5, Math.min(2.5, calculatedRate));
+  } else {
+    buffer.turnRate = 0;
+  }
+
   buffer.lastSeqKey = seqKey;
-  buffer.packetTime = performance.now();
+  buffer.packetTime = now;
   buffer.snapX = newX;
   buffer.snapY = newY;
   buffer.snapZ = newZ;
@@ -70,7 +85,7 @@ export function extrapolatePosition(
   let targetX = buffer.snapX + buffer.vx * elapsed;
   let targetZ = buffer.snapZ + buffer.vz * elapsed;
   const targetY = isSunk ? buffer.snapY : buffer.snapY + 0.85;
-  const targetHeading = buffer.snapHeading;
+  const targetHeading = buffer.snapHeading + buffer.turnRate * elapsed;
 
   // Shoreline and Shipwreck client collision clamping
   const shipColRadius = 2.5;

@@ -25,6 +25,8 @@ export const CorvetteModel: React.FC<SubModelProps> = React.memo(({
   hullTexture,
   deckTexture,
   sailTexture,
+  shipId,
+  isSelf,
 }) => {
   const { length, width, trimColor } = config;
   const mastPositions = useMemo(() => [-length * 0.22, length * 0.20], [length]);
@@ -132,7 +134,12 @@ export const CorvetteModel: React.FC<SubModelProps> = React.memo(({
           <MooringBitts position={[0, hullDepth + sheerStern * 0.6, -length * 0.42]} width={0.55} />
 
           {/* Brass Binnacle & Helm at Aft Quarterdeck */}
-          <ShipHelm position={[0, hullDepth + sheerStern * 0.7 + 0.5, -length * 0.38]} rudderAngle={rudderAngle} />
+          <ShipHelm
+            position={[0, hullDepth + sheerStern * 0.7 + 0.5, -length * 0.38]}
+            rudderAngle={rudderAngle}
+            shipId={shipId}
+            isSelf={isSelf}
+          />
           <BowCatheadAnchors width={width} z={length * 0.42} />
         </>
       )}
@@ -213,7 +220,13 @@ export const CorvetteModel: React.FC<SubModelProps> = React.memo(({
         );
       })}
 
-      <RudderBlade length={length} rudderAngle={rudderAngle} isEnemy={isEnemy} />
+      <RudderBlade
+        length={length}
+        rudderAngle={rudderAngle}
+        isEnemy={isEnemy}
+        shipId={shipId}
+        isSelf={isSelf}
+      />
     </group>
   );
 });
