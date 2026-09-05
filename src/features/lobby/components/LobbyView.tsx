@@ -25,8 +25,11 @@ export const LobbyView: React.FC = () => {
   const currentRoom = useGameStore((s) => s.currentRoom);
   const selfId = useGameStore((s) => s.selfId);
   const isConnected = useGameStore((s) => s.isConnected);
+  const serverUrl = useGameStore((s) => s.serverUrl);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showServerModal, setShowServerModal] = useState(false);
+  const [inputServerUrl, setInputServerUrl] = useState(serverUrl);
   const [newRoomName, setNewRoomName] = useState('');
   const [maxPlayers, setMaxPlayers] = useState(4);
 
@@ -63,10 +66,22 @@ export const LobbyView: React.FC = () => {
           </div>
         </div>
 
-        {/* Server Status Badge */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-xs">
-          <div className={`w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'}`} />
-          <span className="text-slate-300 font-semibold">{isConnected ? 'Server Online' : 'Connecting...'}</span>
+        {/* Server Switcher & Status Badge */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-xs">
+            <div className={`w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'}`} />
+            <span className="text-slate-300 font-semibold">{isConnected ? 'Server Connected' : 'Connecting...'}</span>
+          </div>
+
+          <button
+            onClick={() => setShowServerModal(true)}
+            className="px-2.5 py-1.5 rounded-full bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs text-slate-300 font-medium flex items-center gap-1.5 transition cursor-pointer"
+            title="Configure Server Endpoint"
+          >
+            <span className="text-[10px] text-cyan-400 font-mono">
+              {serverUrl.includes('cekcok') ? 'Test Server' : serverUrl ? 'Custom' : 'Local :3000'}
+            </span>
+          </button>
         </div>
       </header>
 
@@ -372,6 +387,95 @@ export const LobbyView: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Server Endpoint Configuration Modal */}
+      {showServerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+          <div className="glass-panel max-w-md w-full rounded-3xl p-6 border border-slate-700 shadow-2xl flex flex-col gap-4 animate-in fade-in zoom-in duration-200">
+            <h3 className="font-cinzel text-lg font-bold text-slate-100">Server Connection Target</h3>
+            <p className="text-xs text-slate-400">
+              Select which backend server to connect to while running in development mode (<code className="text-amber-300 font-mono">pnpm run dev</code>).
+            </p>
+
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  networkClient.reconnectWithUrl('');
+                  setShowServerModal(false);
+                }}
+                className={`p-3 rounded-2xl border text-left flex flex-col gap-1 transition ${
+                  !serverUrl
+                    ? 'bg-cyan-950/60 border-cyan-500 text-cyan-200'
+                    : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-850'
+                }`}
+              >
+                <span className="text-xs font-bold flex items-center justify-between">
+                  <span>Local Dev Server</span>
+                  {!serverUrl && <span className="text-[10px] bg-cyan-800 px-1.5 py-0.5 rounded">ACTIVE</span>}
+                </span>
+                <span className="text-[11px] font-mono text-slate-400">ws://localhost:3000/ws (via Vite proxy)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  networkClient.reconnectWithUrl('wss://naval-combat.cekcok.my.id/ws');
+                  setShowServerModal(false);
+                }}
+                className={`p-3 rounded-2xl border text-left flex flex-col gap-1 transition ${
+                  serverUrl === 'wss://naval-combat.cekcok.my.id/ws'
+                    ? 'bg-cyan-950/60 border-cyan-500 text-cyan-200'
+                    : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-850'
+                }`}
+              >
+                <span className="text-xs font-bold flex items-center justify-between">
+                  <span>Homelab Remote Test Server</span>
+                  {serverUrl === 'wss://naval-combat.cekcok.my.id/ws' && (
+                    <span className="text-[10px] bg-cyan-800 px-1.5 py-0.5 rounded">ACTIVE</span>
+                  )}
+                </span>
+                <span className="text-[11px] font-mono text-slate-400">wss://naval-combat.cekcok.my.id/ws</span>
+              </button>
+
+              <div className="pt-2 border-t border-slate-800">
+                <label className="text-[10px] font-bold text-slate-400 uppercase">Or Custom WebSocket URL</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <input
+                    type="text"
+                    value={inputServerUrl}
+                    onChange={(e) => setInputServerUrl(e.target.value)}
+                    placeholder="ws://192.168.1.41:3000/ws"
+                    className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs font-mono text-slate-100 focus:outline-none focus:border-amber-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (inputServerUrl.trim()) {
+                        networkClient.reconnectWithUrl(inputServerUrl.trim());
+                        setShowServerModal(false);
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs"
+                  >
+                    Connect
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setShowServerModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-200"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

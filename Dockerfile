@@ -7,8 +7,9 @@ WORKDIR /app
 # Install pnpm
 RUN npm install -g pnpm@latest
 
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml* ./
+RUN pnpm config set only-built-dependencies esbuild,uWebSockets.js && \
+    pnpm install
 
 COPY . .
 
@@ -25,8 +26,9 @@ ENV PORT=3000
 # Install pnpm
 RUN npm install -g pnpm@latest
 
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --prod --frozen-lockfile
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml* ./
+RUN pnpm config set only-built-dependencies esbuild,uWebSockets.js && \
+    pnpm install --prod
 
 # Copy compiled frontend static assets and server code
 COPY --from=builder /app/dist ./dist

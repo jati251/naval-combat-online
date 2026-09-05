@@ -8,14 +8,40 @@ class NetworkClient {
   private reconnectTimer: NodeJS.Timeout | null = null;
   private inputSeq: number = 0;
 
+  public getWsUrl(): string {
+    const customUrl = useGameStore.getState().serverUrl;
+    if (customUrl && customUrl.trim()) {
+      return customUrl.trim();
+    }
+
+    const envUrl = import.meta.env.VITE_WS_URL;
+    if (envUrl && envUrl.trim()) {
+      return envUrl.trim();
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    // In local Vite dev, proxy /ws to ws://localhost:3000/ws
+    return `${protocol}//${window.location.host}/ws`;
+  }
+
+  public reconnectWithUrl(newUrl: string): void {
+    useGameStore.getState().setServerUrl(newUrl);
+    if (this.ws) {
+      this.ws.onclose = null; // prevent auto reconnect loop during manual switch
+      this.ws.close();
+      this.ws = null;
+    }
+    useGameStore.getState().setIsConnected(false);
+    this.stopPing();
+    this.connect();
+  }
+
   public connect(): void {
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
       return;
     }
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // In local Vite dev, proxy /ws to ws://localhost:3000/ws
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const wsUrl = this.getWsUrl();
 
     try {
       this.ws = new WebSocket(wsUrl);
