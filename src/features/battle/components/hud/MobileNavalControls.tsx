@@ -1,79 +1,171 @@
-import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useCallback } from "react";
 import { Anchor, Flame } from "lucide-react";
 import { useGameStore } from "@/stores/useGameStore";
 import { useShipActions } from "../../hooks/useShipActions";
+
+// --- Constants ---
+const JOYSTICK_RADIUS = 48; // Max drag distance in px
+const DEADZONE = 4; // px deadzone before registering input
+const NETWORK_THROTTLE_MS = 50; // ~20Hz network sync
+const SPRING_BACK_MS = 180; // CSS transition duration for spring-back
 
 export const MobileNavalControls: React.FC = () => {
   const { changeSail, setRudder, fireBattery } = useShipActions();
 
   const localSail = useGameStore((s) => s.localSail);
-  const localRudder = useGameStore((s) => s.localRudder);
   const leftProgress = useGameStore((s) => s.leftReloadProgress);
   const rightProgress = useGameStore((s) => s.rightReloadProgress);
 
+  // --- Refs for zero-rerender dragging ---
   const joystickRef = useRef<HTMLDivElement | null>(null);
-  const [isDraggingWheel, setIsDraggingWheel] = useState(false);
-  const [wheelVisualX, setWheelVisualX] = useState(0);
+  const wheelHubRef = useRef<HTMLDivElement | null>(null);
+  const activePointerId = useRef<number | null>(null);
   const lastNetworkSync = useRef(0);
-  const currentTouchRudder = useRef(0);
+  const isDragging = useRef(false);
+  const currentRudderValue = useRef(0);
+  const springTransitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isLeftReady = leftProgress >= 1.0;
   const isRightReady = rightProgress >= 1.0;
 
-  // --- Left Thumb: Virtual Helm Steering Touch Handlers ---
-  const handleTouchStartWheel = useCallback(
-    (e: React.TouchEvent) => {
-      e.stopPropagation();
-      setIsDraggingWheel(true);
-      const touch = e.touches[0];
-      if (!joystickRef.current) return;
-      const rect = joystickRef.current.getBoundingClientRect();
-      const centerX = rect.left + rect.width * 0.5;
-      const deltaX = Math.max(-42, Math.min(42, touch.clientX - centerX));
-      setWheelVisualX(deltaX);
-      const rudder = deltaX / 42;
-      currentTouchRudder.current = rudder;
-      lastNetworkSync.current = performance.now();
+  // --- Direct DOM manipulation for 60fps visual updates (no React re-renders) ---
+  const updateWheelVisual = useCallback((deltaX: number, rudder: number, useTransition: boolean) => {
+    const hub = wheelHubRef.current;
+    if (!hub) return;
+    if (useTransition) {
+      hub.style.transition = `transform ${SPRING_BACK_MS}ms cubic-bezier(0.25, 1, 0.5, 1)`;
+    } else {
+      hub.style.transition = "none";
+    }
+    hub.style.transform = `translateX(${deltaX}px) rotate(${rudder * 65}deg)`;
+  }, []);
+
+  // --- Update border glow state ---
+  const updateDragState = useCallback((active: boolean) => {
+    const el = joystickRef.current;
+    if (!el) return;
+    if (active) {
+      el.classList.add("border-amber-400", "ring-2", "ring-amber-400/50");
+      el.classList.remove("border-amber-500/60");
+    } else {
+      el.classList.remove("border-amber-400", "ring-2", "ring-amber-400/50");
+      el.classList.add("border-amber-500/60");
+    }
+  }, []);
+
+  // --- Calculate rudder from pointer position ---
+  const calculateRudder = useCallback((clientX: number): { deltaX: number; rudder: number } => {
+    const rect = joystickRef.current?.getBoundingClientRect();
+    if (!rect) return { deltaX: 0, rudder: 0 };
+    const centerX = rect.left + rect.width * 0.5;
+    const rawDelta = clientX - centerX;
+
+    // Apply deadzone
+    let effectiveDelta = rawDelta;
+    if (Math.abs(rawDelta) < DEADZONE) {
+      effectiveDelta = 0;
+    }
+
+    // Clamp to radius
+    const deltaX = Math.max(-JOYSTICK_RADIUS, Math.min(JOYSTICK_RADIUS, effectiveDelta));
+    const rudder = deltaX / JOYSTICK_RADIUS;
+    return { deltaX, rudder };
+  }, []);
+
+  // =========================================================================
+  //  POINTER EVENTS: Proper multi-touch isolation via setPointerCapture
+  // =========================================================================
+
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    // Only capture if no active pointer is being tracked (first touch on this element)
+    if (activePointerId.current !== null) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Capture this specific pointer — all future move/up events route here
+    // even if the finger slides outside the element boundary
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    activePointerId.current = e.pointerId;
+    isDragging.current = true;
+
+    // Clear any pending spring-back transition
+    if (springTransitionTimer.current) {
+      clearTimeout(springTransitionTimer.current);
+      springTransitionTimer.current = null;
+    }
+
+    const { deltaX, rudder } = calculateRudder(e.clientX);
+    currentRudderValue.current = rudder;
+
+    updateWheelVisual(deltaX, rudder, false);
+    updateDragState(true);
+
+    // Immediate network sync on first touch
+    lastNetworkSync.current = performance.now();
+    setRudder(rudder);
+  }, [calculateRudder, setRudder, updateWheelVisual, updateDragState]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    // Only process the pointer we're actively tracking
+    if (e.pointerId !== activePointerId.current) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const { deltaX, rudder } = calculateRudder(e.clientX);
+    currentRudderValue.current = rudder;
+
+    // Instant visual update (no throttle, runs at display refresh rate)
+    updateWheelVisual(deltaX, rudder, false);
+
+    // Throttle network dispatch to ~20Hz to prevent packet storms
+    const now = performance.now();
+    if (now - lastNetworkSync.current >= NETWORK_THROTTLE_MS) {
+      lastNetworkSync.current = now;
       setRudder(rudder);
-    },
-    [setRudder],
-  );
+    }
+  }, [calculateRudder, setRudder, updateWheelVisual]);
 
-  const handleTouchMoveWheel = useCallback(
-    (e: React.TouchEvent) => {
-      e.stopPropagation();
-      if (!joystickRef.current) return;
-      const touch = e.touches[0];
-      const rect = joystickRef.current.getBoundingClientRect();
-      const centerX = rect.left + rect.width * 0.5;
-      const deltaX = Math.max(-42, Math.min(42, touch.clientX - centerX));
-      setWheelVisualX(deltaX);
-      const rudder = deltaX / 42;
-      currentTouchRudder.current = rudder;
+  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerId !== activePointerId.current) return;
 
-      // Throttle WebSocket dispatch to 20Hz (~50ms) to prevent network packet storms
-      const now = performance.now();
-      if (now - lastNetworkSync.current >= 50) {
-        lastNetworkSync.current = now;
-        setRudder(rudder);
-      }
-    },
-    [setRudder],
-  );
+    e.preventDefault();
+    e.stopPropagation();
 
-  const handleTouchEndWheel = useCallback(
-    (e: React.TouchEvent) => {
-      e.stopPropagation();
-      setIsDraggingWheel(false);
-      setWheelVisualX(0);
-      currentTouchRudder.current = 0;
-      lastNetworkSync.current = performance.now();
-      setRudder(0);
-    },
-    [setRudder],
-  );
+    // Release pointer capture
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      // Pointer may already be released
+    }
 
-  // Track last touch timestamp to filter out synthetic ghost clicks dispatched 300ms after touchstart
+    activePointerId.current = null;
+    isDragging.current = false;
+    currentRudderValue.current = 0;
+
+    // Smooth spring-back to center with CSS transition
+    updateWheelVisual(0, 0, true);
+    updateDragState(false);
+
+    // Clear transition after animation completes to avoid interfering with next drag
+    springTransitionTimer.current = setTimeout(() => {
+      const hub = wheelHubRef.current;
+      if (hub) hub.style.transition = "none";
+      springTransitionTimer.current = null;
+    }, SPRING_BACK_MS + 10);
+
+    // Immediate network sync: rudder = 0
+    lastNetworkSync.current = performance.now();
+    setRudder(0);
+  }, [setRudder, updateWheelVisual, updateDragState]);
+
+  const handlePointerCancel = handlePointerUp;
+
+  // =========================================================================
+  //  BUTTON HANDLERS (Fire / Sail) — Touch + Mouse with ghost click guard
+  // =========================================================================
+
   const lastTouchHandledTime = useRef<number>(0);
 
   const handleTouchButton = useCallback(
@@ -88,7 +180,7 @@ export const MobileNavalControls: React.FC = () => {
   const handleClickButton = useCallback(
     (callback: () => void) => (e: React.MouseEvent) => {
       e.stopPropagation();
-      // Filter out synthetic ghost click dispatched by mobile browser after touchstart
+      // Filter synthetic ghost click dispatched by mobile browser ~300ms after touchstart
       if (performance.now() - lastTouchHandledTime.current < 500) {
         return;
       }
@@ -97,30 +189,22 @@ export const MobileNavalControls: React.FC = () => {
     [],
   );
 
-  // Anti-double-tap and anti-spam debounces for independent broadsides
+  // Anti-double-tap debounces for independent broadsides
   const lastLeftFireTimestamp = useRef<number>(0);
   const lastRightFireTimestamp = useRef<number>(0);
 
-  // Direct Left Broadside Fire (Discharges Left Battery)
   const handleFireLeft = useCallback(() => {
     const now = performance.now();
     if (now - lastLeftFireTimestamp.current < 300) return;
     lastLeftFireTimestamp.current = now;
-
-    if (isLeftReady) {
-      fireBattery("left");
-    }
+    if (isLeftReady) fireBattery("left");
   }, [fireBattery, isLeftReady]);
 
-  // Direct Right Broadside Fire (Discharges Right Battery)
   const handleFireRight = useCallback(() => {
     const now = performance.now();
     if (now - lastRightFireTimestamp.current < 300) return;
     lastRightFireTimestamp.current = now;
-
-    if (isRightReady) {
-      fireBattery("right");
-    }
+    if (isRightReady) fireBattery("right");
   }, [fireBattery, isRightReady]);
 
   // Progress for radial cooldown rings (0 to 188)
@@ -136,15 +220,12 @@ export const MobileNavalControls: React.FC = () => {
         {/* Virtual Mahogany Ship Helm Joystick */}
         <div
           ref={joystickRef}
-          onTouchStart={handleTouchStartWheel}
-          onTouchMove={handleTouchMoveWheel}
-          onTouchEnd={handleTouchEndWheel}
-          onTouchCancel={handleTouchEndWheel}
-          className={`relative w-24 h-24 sm:w-28 sm:h-28 rounded-full pirate-panel border-2 ${
-            isDraggingWheel
-              ? "border-amber-400 ring-2 ring-amber-400/50"
-              : "border-amber-500/60"
-          } shadow-2xl flex items-center justify-center cursor-grab active:cursor-grabbing touch-none select-none`}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
+          className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full pirate-panel border-2 border-amber-500/60 shadow-2xl flex items-center justify-center cursor-grab active:cursor-grabbing touch-none select-none"
+          style={{ touchAction: "none" }}
         >
           {/* Outer Brass Ring with Cardinal Guides */}
           <div className="absolute inset-1 rounded-full border border-amber-400/30 pointer-events-none" />
@@ -158,12 +239,11 @@ export const MobileNavalControls: React.FC = () => {
             RIGHT ►
           </div>
 
-          {/* Draggable Mahogany Ship's Wheel Hub */}
+          {/* Draggable Mahogany Ship's Wheel Hub — visual updated via ref, NOT React state */}
           <div
-            className="w-14 h-14 sm:w-18 sm:h-18 rounded-full bg-[#2a1d13] border-2 border-amber-400 shadow-xl flex items-center justify-center transition-transform duration-75"
-            style={{
-              transform: `translateX(${wheelVisualX}px) rotate(${localRudder * 65}deg)`,
-            }}
+            ref={wheelHubRef}
+            className="w-14 h-14 sm:w-18 sm:h-18 rounded-full bg-[#2a1d13] border-2 border-amber-400 shadow-xl flex items-center justify-center pointer-events-none"
+            style={{ transform: "translateX(0px) rotate(0deg)" }}
           >
             <svg viewBox="0 0 100 100" className="w-10 h-10 sm:w-14 sm:h-14">
               <circle
