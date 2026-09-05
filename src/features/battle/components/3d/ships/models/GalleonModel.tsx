@@ -204,7 +204,6 @@ export const GalleonModel: React.FC<SubModelProps> = React.memo(({
               <cylinderGeometry args={[0.14, 0.2, 0.55, 6]} />
               <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={1.4} metalness={0.85} />
             </mesh>
-            {!isEnemy && <pointLight color="#fbbf24" intensity={0.9} distance={8} decay={2} />}
           </group>
         ))}
 

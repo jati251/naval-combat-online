@@ -8,6 +8,15 @@ interface ShipLanternsProps {
   isEnemy?: boolean;
 }
 
+// Shared static geometries and base brass material to prevent memory leaks and GC stalls
+const lanternCasingGeo = new THREE.CylinderGeometry(0.18, 0.24, 0.55, 6);
+const lanternGlassGeo = new THREE.CylinderGeometry(0.14, 0.19, 0.42, 6);
+const brassMat = new THREE.MeshStandardMaterial({
+  color: '#291d10',
+  metalness: 0.85,
+  roughness: 0.35,
+});
+
 /**
  * 18th-Century Historical Naval Lanterns & Maritime Navigation Lights
  * - Stern Transom Admiral Lantern: Emits a warm amber lantern glow over the quarterdeck & sea wake.
@@ -22,16 +31,9 @@ export const ShipLanterns: React.FC<ShipLanternsProps> = React.memo(({ shipClass
   const halfLen = config.length * 0.5;
   const halfWid = config.width * 0.5;
 
-  // Shared reusable geometries and materials
-  const { lanternCasingGeo, lanternGlassGeo, brassMat, amberGlassMat, leftRedGlassMat, rightGreenGlassMat } = useMemo(() => {
+  // Shared reusable night/day materials
+  const { amberGlassMat, leftRedGlassMat, rightGreenGlassMat } = useMemo(() => {
     return {
-      lanternCasingGeo: new THREE.CylinderGeometry(0.18, 0.24, 0.55, 6),
-      lanternGlassGeo: new THREE.CylinderGeometry(0.14, 0.19, 0.42, 6),
-      brassMat: new THREE.MeshStandardMaterial({
-        color: '#291d10',
-        metalness: 0.85,
-        roughness: 0.35,
-      }),
       amberGlassMat: new THREE.MeshStandardMaterial({
         color: isNight ? '#ffb703' : '#b47b2c',
         emissive: isNight ? '#ff9e00' : '#000000',
@@ -72,10 +74,10 @@ export const ShipLanterns: React.FC<ShipLanternsProps> = React.memo(({ shipClass
       <group position={[0, sternY, sternZ]}>
         <mesh geometry={lanternCasingGeo} material={brassMat} />
         <mesh geometry={lanternGlassGeo} material={amberGlassMat} />
-        {isNight && (
+        {isNight && !isEnemy && (
           <pointLight
             color="#ffaa00"
-            intensity={isEnemy ? 0.9 : 1.4}
+            intensity={1.4}
             distance={14}
             decay={2}
           />

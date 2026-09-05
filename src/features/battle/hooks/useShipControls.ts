@@ -20,6 +20,7 @@ export function useShipControls() {
   const keys = useRef<{ [key: string]: boolean }>({});
   const currentRudder = useRef(0);
   const lastSentRudder = useRef(0);
+  const lastStoreRudder = useRef(0);
   const animFrameId = useRef<number | null>(null);
   const lastNetworkSync = useRef(0);
   const keyPressTimers = useRef<{ [key: string]: number }>({});
@@ -43,8 +44,12 @@ export function useShipControls() {
         dt * 8.0,
       );
 
-      // Keep local store immediately in sync for 120fps visual responsiveness
-      setLocalRudder(currentRudder.current);
+      // Quantized update to local store (~60 levels of precision) prevents 144Hz React state thrashing
+      const quantizedRudder = Math.round(currentRudder.current * 60) / 60;
+      if (quantizedRudder !== lastStoreRudder.current) {
+        lastStoreRudder.current = quantizedRudder;
+        setLocalRudder(quantizedRudder);
+      }
 
       // Continuous, rock-solid network sync (~20Hz) when steering with periodic heartbeat
       const timeSinceLastSync = now - lastNetworkSync.current;
@@ -70,6 +75,7 @@ export function useShipControls() {
           lastNetworkSync.current = now;
           currentRudder.current = 0;
           lastSentRudder.current = 0;
+          lastStoreRudder.current = 0;
           setLocalRudder(0);
           networkClient.sendInput(0, useGameStore.getState().localSail);
         }

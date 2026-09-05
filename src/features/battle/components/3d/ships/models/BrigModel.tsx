@@ -164,7 +164,6 @@ export const BrigModel: React.FC<SubModelProps> = React.memo(({
               <cylinderGeometry args={[0.12, 0.18, 0.45, 6]} />
               <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={1.3} metalness={0.8} />
             </mesh>
-            {!isEnemy && <pointLight color="#f59e0b" intensity={0.6} distance={6} decay={2} />}
           </group>
         ))}
         {!isEnemy && (

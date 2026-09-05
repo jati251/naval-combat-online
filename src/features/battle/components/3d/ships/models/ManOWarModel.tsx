@@ -186,7 +186,6 @@ export const ManOWarModel: React.FC<SubModelProps> = React.memo(({
               <cylinderGeometry args={[0.16, 0.24, 0.6, 6]} />
               <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={1.5} metalness={0.9} />
             </mesh>
-            {!isEnemy && <pointLight color="#fbbf24" intensity={1.1} distance={9} decay={2} />}
           </group>
         ))}
 

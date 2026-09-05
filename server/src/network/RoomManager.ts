@@ -27,7 +27,15 @@ export class RoomManager {
     if (this.masterTickInterval) return;
     this.masterTickInterval = setInterval(() => {
       const now = Date.now();
-      for (const room of this.rooms.values()) {
+      for (const [roomId, room] of this.rooms.entries()) {
+        // If all human players have left (match only contains bots), terminate session immediately
+        if (!room.hasHumanPlayers()) {
+          room.destroy();
+          this.rooms.delete(roomId);
+          this.broadcastLobbyUpdate();
+          continue;
+        }
+
         if (room.status === 'IN_GAME') {
           room.step(now);
         }
@@ -40,10 +48,11 @@ export class RoomManager {
     let inGamePlayers = 0;
     let inGameRooms = 0;
     for (const r of this.rooms.values()) {
-      totalPlayers += r.players.size;
+      const humanCount = r.getHumanPlayerCount();
+      totalPlayers += humanCount;
       if (r.status === 'IN_GAME') {
         inGameRooms++;
-        inGamePlayers += r.players.size;
+        inGamePlayers += humanCount;
       }
     }
     return {
@@ -94,7 +103,11 @@ export class RoomManager {
           resolvedTimeOfDay,
           msg.gameMode || 'FFA',
           (topic, payload) => this.broadcastToTopic(topic, payload),
-          (cid, payload) => this.sendDirect(cid, payload)
+          (cid, payload) => this.sendDirect(cid, payload),
+          (rid) => {
+            this.rooms.delete(rid);
+            this.broadcastLobbyUpdate();
+          }
         );
 
         this.rooms.set(roomId, room);
@@ -334,7 +347,7 @@ export class RoomManager {
     const room = this.rooms.get(roomId);
     if (room) {
       room.handlePlayerDisconnect(clientId, isExplicitLeave);
-      if (room.players.size === 0) {
+      if (!room.hasHumanPlayers()) {
         room.destroy();
         this.rooms.delete(roomId);
       }

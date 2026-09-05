@@ -98,11 +98,11 @@ export const FrigateModel: React.FC<SubModelProps> = React.memo(({
 
       {/* Massive Battering Cutwater Stem & Neptune Figurehead */}
       <group position={[0, hullDepth + sheerBow * 0.55, length * 0.5 + 0.6]}>
-        <mesh position={[0, -0.3, 0.5]} rotation={[0.42, 0, 0]} castShadow>
+        <mesh position={[0, -0.3, 0.5]} rotation={[0.42, 0, 0]} castShadow={!isEnemy}>
           <boxGeometry args={[0.28, 1.25, 1.5]} />
           <meshStandardMaterial color="#382013" roughness={0.7} />
         </mesh>
-        <mesh position={[0, 0.5, 1.3]} rotation={[-0.4, 0, 0]} castShadow>
+        <mesh position={[0, 0.5, 1.3]} rotation={[-0.4, 0, 0]} castShadow={!isEnemy}>
           <coneGeometry args={[0.42, 1.3, 6]} />
           <meshStandardMaterial color="#f59e0b" roughness={0.25} metalness={0.85} />
         </mesh>
@@ -110,17 +110,17 @@ export const FrigateModel: React.FC<SubModelProps> = React.memo(({
 
       {/* Stately Captain's Great Cabin at Stern */}
       <group position={[0, hullDepth + sheerStern * 0.72, -length * 0.38]}>
-        <mesh castShadow receiveShadow>
+        <mesh castShadow={!isEnemy} receiveShadow>
           <boxGeometry args={[width * 0.88, 1.9, length * 0.26]} />
           <meshStandardMaterial map={hullTexture} roughness={0.65} />
         </mesh>
         {/* Gilded Transom Arch Molding along Top */}
-        <mesh position={[0, 0.98, -length * 0.131]} castShadow>
+        <mesh position={[0, 0.98, -length * 0.131]} castShadow={!isEnemy}>
           <boxGeometry args={[width * 0.9, 0.14, 0.08]} />
           <meshStandardMaterial color={trimColor || '#f59e0b'} metalness={0.8} roughness={0.25} />
         </mesh>
         {/* Lower Transom Counter Strake */}
-        <mesh position={[0, -0.9, -length * 0.131]} castShadow>
+        <mesh position={[0, -0.9, -length * 0.131]} castShadow={!isEnemy}>
           <boxGeometry args={[width * 0.88, 0.14, 0.08]} />
           <meshStandardMaterial color="#2d170b" roughness={0.7} />
         </mesh>
@@ -150,7 +150,6 @@ export const FrigateModel: React.FC<SubModelProps> = React.memo(({
               <cylinderGeometry args={[0.13, 0.19, 0.48, 6]} />
               <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={1.3} metalness={0.85} />
             </mesh>
-            {!isEnemy && <pointLight color="#f59e0b" intensity={0.7} distance={7} decay={2} />}
           </group>
         ))}
         {!isEnemy && (

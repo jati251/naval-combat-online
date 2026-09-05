@@ -8,6 +8,7 @@ import {
   MAX_VIEW_DISTANCE_DESKTOP,
   MAX_VIEW_DISTANCE_MOBILE,
   NAMEPLATE_CULL_DISTANCE,
+  NAMEPLATE_CULL_DISTANCE_MOBILE,
 } from './Environment3D';
 import { SHIP_PRESETS } from '@/types';
 import type { ShipEntityProps } from '../../types/entities';
@@ -24,12 +25,10 @@ import { navalAudio } from '../../services/navalAudio';
 export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf, isMobile = false }) => {
   const groupRef = useRef<THREE.Group>(null);
 
-  const currentRoom = useGameStore((s) => s.currentRoom);
-  const selfId = useGameStore((s) => s.selfId);
-  const playerInfo = currentRoom?.players.find((p) => p.id === ship.id);
-  const selfPlayer = currentRoom?.players.find((p) => p.id === selfId);
-  const isTeamMode = currentRoom?.gameMode === 'TEAM';
-  const isFriendly = isTeamMode && Boolean(selfPlayer?.team && playerInfo?.team && selfPlayer.team === playerInfo.team);
+  const isTeamMode = useGameStore((s) => s.currentRoom?.gameMode === 'TEAM');
+  const selfTeam = useGameStore((s) => s.currentRoom?.players.find((p) => p.id === s.selfId)?.team);
+  const playerTeam = useGameStore((s) => s.currentRoom?.players.find((p) => p.id === ship.id)?.team);
+  const isFriendly = isTeamMode && Boolean(selfTeam && playerTeam && selfTeam === playerTeam);
 
   // High-precision dead reckoning extrapolation buffer
   const drBuffer = useRef(
@@ -40,6 +39,7 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf,
   const cameraState = useRef(createInitialCameraState());
 
   const nameplateRef = useRef<THREE.Group>(null);
+  const htmlDivRef = useRef<HTMLDivElement>(null);
   const frameCount = useRef(Math.floor(Math.random() * 6));
   const isInitialized = useRef(false);
   const prevWasSunk = useRef(ship.isSunk);
@@ -98,20 +98,23 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf,
         groupRef.current.visible = inView;
       }
 
-      // 2. Nameplate Culling (Tighter culling radius on mobile)
+      // 2. Nameplate Culling (Tighter culling radius)
       if (!isSelf && nameplateRef.current) {
-        const maxNameplateDist = isMobile ? 65 : NAMEPLATE_CULL_DISTANCE;
+        const maxNameplateDist = isMobile ? NAMEPLATE_CULL_DISTANCE_MOBILE : NAMEPLATE_CULL_DISTANCE;
         const shouldShow = inView && distSq <= maxNameplateDist * maxNameplateDist;
         if (nameplateRef.current.visible !== shouldShow) {
           nameplateRef.current.visible = shouldShow;
+          if (htmlDivRef.current) {
+            htmlDivRef.current.style.display = shouldShow ? 'flex' : 'none';
+          }
         }
       }
     }
 
     if (!groupRef.current.visible) return;
 
-    // Mobile billboard orientation: orient health bar mesh to face camera without Drei DOM overhead
-    if (!isSelf && isMobile && nameplateRef.current && nameplateRef.current.visible) {
+    // Billboard orientation: orient health bar mesh to face camera without Drei DOM overhead
+    if (!isSelf && nameplateRef.current && nameplateRef.current.visible) {
       nameplateRef.current.quaternion.copy(camera.quaternion);
     }
 
@@ -218,11 +221,11 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf,
             </group>
           ) : (
             <Html center distanceFactor={45}>
-              <div className="flex flex-col items-center pointer-events-none select-none">
+              <div ref={htmlDivRef} className="flex flex-col items-center pointer-events-none select-none">
                 <div
                   className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-950/85 border shadow-md text-[10px] font-bold tracking-wide uppercase ${
                     isTeamMode
-                      ? playerInfo?.team === 'red'
+                      ? playerTeam === 'red'
                         ? 'border-rose-500/70 text-rose-200'
                         : 'border-cyan-500/70 text-cyan-200'
                       : 'border-slate-700/60 text-amber-300'
@@ -231,7 +234,7 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf,
                   {isTeamMode && (
                     <span
                       className={`text-[8px] px-1 rounded font-mono ${
-                        playerInfo?.team === 'red'
+                        playerTeam === 'red'
                           ? 'bg-rose-950 text-rose-300 border border-rose-600/50'
                           : 'bg-cyan-950 text-cyan-300 border border-cyan-600/50'
                       }`}

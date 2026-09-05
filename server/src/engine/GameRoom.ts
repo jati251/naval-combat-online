@@ -58,6 +58,7 @@ export class GameRoom {
   // Broadcast and direct send callbacks
   private broadcast: (roomId: string, message: ServerMessage) => void;
   private sendDirect: (clientId: string, message: ServerMessage) => void;
+  private onDestroy?: (roomId: string) => void;
 
   constructor(
     id: string,
@@ -67,7 +68,8 @@ export class GameRoom {
     timeOfDay: 'DAY' | 'NIGHT' = 'DAY',
     gameMode: GameMode = 'FFA',
     broadcast: (roomId: string, message: ServerMessage) => void,
-    sendDirect: (clientId: string, message: ServerMessage) => void
+    sendDirect: (clientId: string, message: ServerMessage) => void,
+    onDestroy?: (roomId: string) => void
   ) {
     this.id = id;
     this.name = name;
@@ -77,6 +79,22 @@ export class GameRoom {
     this.gameMode = gameMode;
     this.broadcast = broadcast;
     this.sendDirect = sendDirect;
+    this.onDestroy = onDestroy;
+  }
+
+  public getHumanPlayerCount(): number {
+    let count = 0;
+    for (const p of this.players.values()) {
+      if (!p.isBot) count++;
+    }
+    return count;
+  }
+
+  public hasHumanPlayers(): boolean {
+    for (const p of this.players.values()) {
+      if (!p.isBot) return true;
+    }
+    return false;
   }
 
   private getAutoAssignedTeam(): Team {
@@ -352,14 +370,15 @@ export class GameRoom {
     this.players.delete(id);
     this.ships.delete(id);
 
-    if (wasHost && this.players.size > 0) {
-      const nextHost = this.players.values().next().value;
-      if (nextHost) nextHost.isHost = true;
-    }
-
-    if (this.players.size === 0) {
+    // If no human players remain in the room (or only bots left), close and destroy the match session
+    if (!this.hasHumanPlayers()) {
       this.destroy();
       return;
+    }
+
+    if (wasHost) {
+      const nextHost = Array.from(this.players.values()).find((p) => !p.isBot);
+      if (nextHost) nextHost.isHost = true;
     }
 
     if (this.status === 'IN_GAME') {
@@ -560,10 +579,13 @@ export class GameRoom {
       const serverTime = (now - this.startTime) / 1000;
 
       // Update Bot AI decisions (smart obstacle avoidance, targeting, broadside salvo)
-      for (const ship of this.ships.values()) {
-        const player = this.players.get(ship.id);
-        if (player?.isBot && !ship.isSunk) {
-          BotAI.update(ship, this);
+      // Only execute on the first sub-step of a tick to prevent duplicate obstacle raycasts during accumulator catch-up
+      if (simulatedSteps === 1) {
+        for (const ship of this.ships.values()) {
+          const player = this.players.get(ship.id);
+          if (player?.isBot && !ship.isSunk) {
+            BotAI.update(ship, this);
+          }
         }
       }
 
@@ -878,5 +900,6 @@ export class GameRoom {
     this.players.clear();
     this.ships.clear();
     this.cannonballs = [];
+    this.onDestroy?.(this.id);
   }
 }

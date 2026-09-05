@@ -24,9 +24,9 @@ export const FOG_FAR_MOBILE = 350;
 export const MAX_VIEW_DISTANCE_MOBILE = 450;
 export const ISLAND_DETAIL_DISTANCE_MOBILE = 100;
 
-// Nameplate cull distances
-export const NAMEPLATE_CULL_DISTANCE = 110;
-export const NAMEPLATE_CULL_DISTANCE_MOBILE = 55;
+// Nameplate cull distances (tightened so only combat-relevant vessels render nameplates)
+export const NAMEPLATE_CULL_DISTANCE = 75;
+export const NAMEPLATE_CULL_DISTANCE_MOBILE = 45;
 
 // Backward-compatible aliases
 export const FOG_NEAR = FOG_NEAR_DESKTOP;

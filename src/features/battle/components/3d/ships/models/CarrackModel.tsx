@@ -135,7 +135,6 @@ export const CarrackModel: React.FC<SubModelProps> = React.memo(({
               <cylinderGeometry args={[0.14, 0.2, 0.5, 6]} />
               <meshStandardMaterial color="#34d399" emissive="#10b981" emissiveIntensity={2.0} metalness={0.8} />
             </mesh>
-            {!isEnemy && <pointLight color="#34d399" intensity={1.5} distance={9} decay={2} />}
           </group>
         ))}
         {!isEnemy && (
