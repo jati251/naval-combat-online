@@ -36,6 +36,9 @@ export function useShipControls() {
 
     if (progress >= 1.0) {
       navalAudio.playCannonFire();
+      if (selfShip) {
+        store.triggerFireEvent(selfShip.id, side);
+      }
       networkClient.fireBroadside(side);
       triggerFireCooldown(side, config.reloadTime);
     }

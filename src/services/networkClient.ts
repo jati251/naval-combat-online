@@ -156,6 +156,9 @@ class NetworkClient {
         const ship = store.ships.find((s) => s.id === msg.ownerId);
         const name = ship?.name || 'A ship';
         store.addCombatLog(`${name} unleashed a broadside volley!`, 'info');
+        if (msg.ownerId) {
+          store.triggerFireEvent(msg.ownerId as string, (msg.side as 'port' | 'starboard') || 'port');
+        }
         break;
       }
       case 'HIT_EVENT': {

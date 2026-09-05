@@ -2,11 +2,18 @@ import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import type { SubModelProps } from '../types';
-import { createLateenSailGeometry } from '../common/shipGeometries';
+import {
+  createCurvedHullGeometry,
+  createCurvedDeckGeometry,
+  createSheerRailGeometry,
+  createLateenSailGeometry,
+} from '../common/shipGeometries';
 import { RudderBlade } from '../common/RudderBlade';
 import { BroadsideCannons } from '../common/BroadsideCannons';
 import { ShipFlag } from '../common/ShipFlag';
 import { ShipSail } from '../common/ShipSail';
+import { StandingRigging } from '../common/StandingRigging';
+import { MooringBitts } from '../common/DeckDetails';
 
 export const GunboatModel: React.FC<SubModelProps> = React.memo(({
   config,
@@ -17,7 +24,7 @@ export const GunboatModel: React.FC<SubModelProps> = React.memo(({
   deckTexture,
   sailTexture,
 }) => {
-  const { length, width } = config;
+  const { length, width, trimColor } = config;
   const tillerRef = useRef<THREE.Mesh>(null);
 
   useFrame(() => {
@@ -26,56 +33,98 @@ export const GunboatModel: React.FC<SubModelProps> = React.memo(({
     }
   });
 
+  const hullDepth = 2.1;
+  const sheerBow = 0.65;
+  const sheerStern = 0.45;
+
+  const hullGeo = useMemo(() => createCurvedHullGeometry({
+    length,
+    width,
+    depth: hullDepth,
+    sheerBow,
+    sheerStern,
+    tumblehome: 0.04,
+    transomWidthRatio: 0.52,
+    segmentsZ: 28,
+    segmentsGirth: 20,
+  }), [length, width]);
+
+  const deckGeo = useMemo(() => createCurvedDeckGeometry({
+    length,
+    width,
+    depth: hullDepth,
+    sheerBow,
+    sheerStern,
+    transomWidthRatio: 0.52,
+    segmentsZ: 26,
+  }, 0.1), [length, width]);
+
+  const railGeo = useMemo(() => createSheerRailGeometry({
+    length,
+    width,
+    depth: hullDepth,
+    sheerBow,
+    sheerStern,
+    transomWidthRatio: 0.52,
+    segmentsZ: 26,
+  }, 0.16, 0.2), [length, width]);
+
   const lateenGeo = useMemo(() => createLateenSailGeometry(length * 0.85, length * 0.65, 0.4), [length]);
+  const mastZ = length * 0.08;
+  const mastH = length * 0.85;
 
   return (
     <group>
-      {/* Sleek Dart Skiff Hull */}
-      <mesh position={[0, 0.9, 0]} castShadow receiveShadow>
-        <boxGeometry args={[width, 2.2, length]} />
-        <meshStandardMaterial map={hullTexture} roughness={0.7} />
+      {/* Hydrodynamic Curved Skiff Hull */}
+      <mesh geometry={hullGeo} castShadow receiveShadow>
+        <meshStandardMaterial map={hullTexture} roughness={0.65} side={THREE.DoubleSide} />
       </mesh>
 
-      {/* Cyan Trim Stripe */}
-      <mesh position={[0, 2.05, 0]}>
-        <boxGeometry args={[width + 0.25, 0.22, length + 0.3]} />
-        <meshStandardMaterial color="#0ea5e9" metalness={0.4} roughness={0.4} />
+      {/* Vibrant Cyan Gunwale Sheer Trim Rail */}
+      <mesh geometry={railGeo} castShadow>
+        <meshStandardMaterial color={trimColor || '#0ea5e9'} metalness={0.45} roughness={0.35} side={THREE.DoubleSide} />
       </mesh>
 
-      {/* Razor Sharp Bow Beak */}
-      <mesh position={[0, 1.0, length * 0.5 + 1.1]} rotation={[Math.PI / 4, 0, 0]} castShadow>
-        <coneGeometry args={[width * 0.45, 2.6, 4]} />
-        <meshStandardMaterial map={hullTexture} roughness={0.65} />
+      {/* Curved Open Weatherdeck */}
+      <mesh geometry={deckGeo} receiveShadow>
+        <meshStandardMaterial map={deckTexture} roughness={0.75} side={THREE.DoubleSide} />
       </mesh>
 
-      {/* Open Weatherdeck */}
-      <mesh position={[0, 1.95, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[width * 0.88, length * 0.92]} />
-        <meshStandardMaterial map={deckTexture} roughness={0.75} />
-      </mesh>
-
-      {/* Centerline Bow Swivel Chase Cannon */}
-      <group position={[0, 2.4, length * 0.38]}>
+      {/* Raised Centerline Bow Swivel Cannon on Bronze Turntable */}
+      <group position={[0, hullDepth + 0.55, length * 0.38]}>
         <mesh rotation={[0, 0, 0]} castShadow>
-          <cylinderGeometry args={[0.16, 0.22, 1.7, 8]} />
-          <meshStandardMaterial color="#18181b" metalness={0.9} roughness={0.2} />
+          <cylinderGeometry args={[0.12, 0.18, 1.6, 8]} />
+          <meshStandardMaterial color="#18181b" metalness={0.92} roughness={0.2} />
         </mesh>
-        <mesh position={[0, -0.2, 0]}>
-          <cylinderGeometry args={[0.42, 0.45, 0.32, 8]} />
-          <meshStandardMaterial color="#382013" />
+        {/* Bronze swivel mount and pintle */}
+        <mesh position={[0, -0.22, 0]}>
+          <cylinderGeometry args={[0.32, 0.36, 0.35, 8]} />
+          <meshStandardMaterial color="#d97706" metalness={0.85} roughness={0.25} />
         </mesh>
       </group>
 
+      {/* Mooring Bitts at Fore and Aft */}
+      <MooringBitts position={[0, hullDepth + 0.15, length * 0.28]} width={0.4} />
+
       {/* 1 Broadside Swivel per Side */}
-      <BroadsideCannons positions={[0]} width={width} y={1.8} scale={0.85} />
+      <BroadsideCannons positions={[0]} width={width * 0.95} y={hullDepth + 0.05} scale={0.85} />
+
+      {/* Standing Rigging & Shrouds for Raked Mast */}
+      <StandingRigging
+        mastPosition={[0, hullDepth, mastZ]}
+        mastHeight={mastH}
+        hullWidth={width * 0.96}
+        shroudSpread={1.2}
+        includeRatlines={false}
+      />
 
       {/* Mediterranean Raked Mast & Lateen Yardarm */}
-      <group position={[0, 1.9, length * 0.08]} rotation={[0.14, 0, 0]}>
-        <mesh position={[0, length * 0.42, 0]} castShadow>
-          <cylinderGeometry args={[0.12, 0.22, length * 0.85, 8]} />
+      <group position={[0, hullDepth, mastZ]} rotation={[0.12, 0, 0]}>
+        <mesh position={[0, mastH * 0.42, 0]} castShadow>
+          <cylinderGeometry args={[0.11, 0.2, mastH * 0.88, 8]} />
           <meshStandardMaterial color="#382013" roughness={0.8} />
         </mesh>
-        <group position={[0, length * 0.48, 0.1]} rotation={[-0.48, 0, 0]}>
+        <group position={[0, mastH * 0.48, 0.1]} rotation={[-0.48, 0, 0]}>
           <mesh castShadow>
             <cylinderGeometry args={[0.07, 0.07, length * 1.1, 8]} />
             <meshStandardMaterial color="#2d1c12" roughness={0.8} />
@@ -90,12 +139,12 @@ export const GunboatModel: React.FC<SubModelProps> = React.memo(({
             rotation={[0, Math.PI / 2, 0]}
           />
         </group>
-        <ShipFlag position={[0, length * 0.88, -0.4]} isEnemy={isEnemy} />
+        <ShipFlag position={[0, mastH * 0.88, -0.4]} isEnemy={isEnemy} />
       </group>
 
       {/* Wooden Tiller Bar on Open Aft Cockpit */}
-      <group position={[0, 2.1, -length * 0.42]}>
-        <mesh ref={tillerRef} position={[0, 0, 0.4]} rotation={[0.2, 0, 0]}>
+      <group position={[0, hullDepth + 0.35, -length * 0.42]}>
+        <mesh ref={tillerRef} position={[0, 0, 0.35]} rotation={[0.18, 0, 0]}>
           <cylinderGeometry args={[0.04, 0.06, 1.1, 6]} />
           <meshStandardMaterial color="#d97706" />
         </mesh>

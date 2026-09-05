@@ -5,3 +5,5 @@ export * from './ShipHelm';
 export * from './RudderBlade';
 export * from './BroadsideCannons';
 export * from './BowCatheadAnchors';
+export * from './StandingRigging';
+export * from './DeckDetails';

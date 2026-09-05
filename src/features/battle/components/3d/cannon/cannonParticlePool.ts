@@ -1,9 +1,9 @@
 import { navalAudio } from '../../../services/navalAudio';
 
-export const MAX_FLASH = 80;
-export const MAX_SMOKE = 240;
-export const MAX_SPARKS = 180;
-export const MAX_WATER_PLUMES = 50;
+export const MAX_FLASH = 160;
+export const MAX_SMOKE = 800;
+export const MAX_SPARKS = 360;
+export const MAX_WATER_PLUMES = 120;
 
 export interface FXParticle {
   x: number;
@@ -71,11 +71,11 @@ export function spawnSmoke(
   p.vx = vx;
   p.vy = vy;
   p.vz = vz;
-  p.maxLife = 1.4 + Math.random() * 1.1;
+  p.maxLife = 2.4 + Math.random() * 1.8;
   p.life = p.maxLife;
   p.size = size;
-  p.growth = 2.8 + Math.random() * 2.2;
-  p.opacity = 0.85;
+  p.growth = 3.6 + Math.random() * 2.8;
+  p.opacity = 0.88;
 }
 
 export function spawnFlash(
@@ -101,10 +101,10 @@ export function spawnFlash(
   p.vx = 0;
   p.vy = 0;
   p.vz = 0;
-  p.maxLife = 0.09 + Math.random() * 0.05;
+  p.maxLife = 0.12 + Math.random() * 0.06;
   p.life = p.maxLife;
-  p.size = size;
-  p.growth = 1.5;
+  p.size = size * 1.35;
+  p.growth = 1.8;
   p.opacity = 1.0;
 }
 
@@ -116,7 +116,7 @@ export function spawnSparks(
   dirX: number,
   dirZ: number
 ): void {
-  const sparkCount = 8 + Math.floor(Math.random() * 6);
+  const sparkCount = 14 + Math.floor(Math.random() * 10);
   for (let s = 0; s < sparkCount; s++) {
     let slot = -1;
     for (let i = 0; i < MAX_SPARKS; i++) {
@@ -131,14 +131,14 @@ export function spawnSparks(
     p.x = x;
     p.y = y;
     p.z = z;
-    const speed = 12.0 + Math.random() * 16.0;
-    p.vx = dirX * speed + (Math.random() - 0.5) * 8.0;
-    p.vy = 3.0 + Math.random() * 7.0;
-    p.vz = dirZ * speed + (Math.random() - 0.5) * 8.0;
-    p.maxLife = 0.35 + Math.random() * 0.35;
+    const speed = 14.0 + Math.random() * 18.0;
+    p.vx = dirX * speed + (Math.random() - 0.5) * 9.0;
+    p.vy = 3.5 + Math.random() * 8.0;
+    p.vz = dirZ * speed + (Math.random() - 0.5) * 9.0;
+    p.maxLife = 0.45 + Math.random() * 0.4;
     p.life = p.maxLife;
-    p.size = 0.7 + Math.random() * 0.8;
-    p.growth = -0.5;
+    p.size = 0.8 + Math.random() * 0.9;
+    p.growth = -0.4;
     p.opacity = 1.0;
   }
 }

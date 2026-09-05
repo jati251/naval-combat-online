@@ -159,6 +159,8 @@ export class GameRoom {
     ship.sail = sail;
   }
 
+  private activeVolleyTimers: Set<NodeJS.Timeout> = new Set();
+
   public handleFire(id: string, side: 'port' | 'starboard'): void {
     const ship = this.ships.get(id);
     if (!ship || ship.isSunk || this.status !== 'IN_GAME') return;
@@ -174,55 +176,76 @@ export class GameRoom {
     if (side === 'port') ship.reloadTimerPort = config.reloadTime;
     else ship.reloadTimerStarboard = config.reloadTime;
 
-    const serverTime = (Date.now() - this.startTime) / 1000;
     const count = config.cannonsPerSide;
     const span = config.length * 0.65;
     const step = span / (count + 1);
 
-    // Direction vector perpendicular to ship heading
-    // Port is left (-90 deg), Starboard is right (+90 deg)
-    const fireAngle = ship.rotationY + (side === 'port' ? -Math.PI * 0.5 : Math.PI * 0.5);
-    const muzzleSpeed = 38 + Math.random() * 4; // m/s
+    // Number of rolling cascade waves (AC Black Flag style: guns fire in rapid succession down the hull)
+    const numWaves = count <= 3 ? 1 : count <= 6 ? 2 : count <= 10 ? 3 : 4;
+    const waveDelayMs = 60; // 60ms ripple between battery discharges
 
-    for (let i = 1; i <= count; i++) {
-      const offsetAlongLength = -span * 0.5 + i * step;
+    for (let wave = 0; wave < numWaves; wave++) {
+      const startIndex = Math.floor((wave * count) / numWaves) + 1;
+      const endIndex = Math.floor(((wave + 1) * count) / numWaves);
 
-      // Spawn position on deck side
-      const posX = ship.x + Math.sin(ship.rotationY) * offsetAlongLength + Math.sin(fireAngle) * (config.width * 0.5 + 0.2);
-      const posZ = ship.z + Math.cos(ship.rotationY) * offsetAlongLength + Math.cos(fireAngle) * (config.width * 0.5 + 0.2);
-      const posY = ship.y + 1.8; // Deck height
+      const fireSubVolley = () => {
+        if (!this.ships.has(id) || ship.isSunk || this.status !== 'IN_GAME') return;
 
-      // Slight random spread
-      const spreadX = (Math.random() - 0.5) * 0.05;
-      const spreadY = (Math.random() - 0.5) * 0.03;
+        const serverTime = (Date.now() - this.startTime) / 1000;
+        const fireAngle = ship.rotationY + (side === 'port' ? -Math.PI * 0.5 : Math.PI * 0.5);
+        const muzzleSpeed = 38 + Math.random() * 4;
 
-      const vx = Math.sin(fireAngle + spreadX) * muzzleSpeed;
-      const vy = 5.5 + spreadY * 10; // slight upward arc
-      const vz = Math.cos(fireAngle + spreadX) * muzzleSpeed;
+        for (let i = startIndex; i <= endIndex; i++) {
+          const offsetAlongLength = -span * 0.5 + i * step;
 
-      this.cannonballs.push({
-        id: `${ship.id}-${Date.now()}-${i}`,
-        ownerId: ship.id,
-        x: posX,
-        y: posY,
-        z: posZ,
-        vx,
-        vy,
-        vz,
-        damage: config.cannonDamage,
-        createdAt: serverTime,
-        maxLife: 4.5,
-      });
+          // Spawn position on deck side
+          const posX = ship.x + Math.sin(ship.rotationY) * offsetAlongLength + Math.sin(fireAngle) * (config.width * 0.5 + 0.2);
+          const posZ = ship.z + Math.cos(ship.rotationY) * offsetAlongLength + Math.cos(fireAngle) * (config.width * 0.5 + 0.2);
+          const posY = ship.y + 1.8;
+
+          // Slight random spread
+          const spreadX = (Math.random() - 0.5) * 0.06;
+          const spreadY = (Math.random() - 0.5) * 0.04;
+
+          const vx = Math.sin(fireAngle + spreadX) * muzzleSpeed;
+          const vy = 5.5 + spreadY * 10;
+          const vz = Math.cos(fireAngle + spreadX) * muzzleSpeed;
+
+          this.cannonballs.push({
+            id: `${ship.id}-${Date.now()}-${wave}-${i}`,
+            ownerId: ship.id,
+            x: posX,
+            y: posY,
+            z: posZ,
+            vx,
+            vy,
+            vz,
+            damage: config.cannonDamage,
+            createdAt: serverTime,
+            maxLife: 4.5,
+          });
+        }
+
+        // Broadcast muzzle flash and audio event for each rolling discharge
+        this.broadcast(this.id, {
+          type: 'CANNON_FIRED',
+          ownerId: ship.id,
+          side,
+          origin: [ship.x, ship.y + 1.8, ship.z],
+          count: endIndex - startIndex + 1,
+        });
+      };
+
+      if (wave === 0) {
+        fireSubVolley();
+      } else {
+        const timer = setTimeout(() => {
+          this.activeVolleyTimers.delete(timer);
+          fireSubVolley();
+        }, wave * waveDelayMs);
+        this.activeVolleyTimers.add(timer);
+      }
     }
-
-    // Notify all players about muzzle flash and sound event
-    this.broadcast(this.id, {
-      type: 'CANNON_FIRED',
-      ownerId: ship.id,
-      side,
-      origin: [ship.x, ship.y + 1.8, ship.z],
-      count,
-    });
   }
 
   public startGame(): boolean {
@@ -428,6 +451,8 @@ export class GameRoom {
       clearTimeout(this.autoResetTimer);
       this.autoResetTimer = null;
     }
+    this.activeVolleyTimers.forEach(t => clearTimeout(t));
+    this.activeVolleyTimers.clear();
     this.status = 'LOBBY';
     this.ships.clear();
     this.cannonballs = [];
@@ -481,6 +506,8 @@ export class GameRoom {
       clearTimeout(this.autoResetTimer);
       this.autoResetTimer = null;
     }
+    this.activeVolleyTimers.forEach(t => clearTimeout(t));
+    this.activeVolleyTimers.clear();
     this.players.clear();
     this.ships.clear();
     this.cannonballs = [];

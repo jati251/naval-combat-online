@@ -9,6 +9,7 @@ export interface BattleSlice {
   windAngle: number;
   windSpeed: number;
   combatLogs: CombatLog[];
+  fireEvents: Array<{ id: string; ownerId: string; side: 'port' | 'starboard'; timestamp: number }>;
 
   updateWorldSnapshot: (
     serverTime: number,
@@ -18,6 +19,7 @@ export interface BattleSlice {
   setWind: (windAngle: number, windSpeed: number) => void;
   addCombatLog: (text: string, type?: CombatLog['type']) => void;
   setWinner: (name: string) => void;
+  triggerFireEvent: (ownerId: string, side: 'port' | 'starboard') => void;
 }
 
 export const createBattleSlice: StateCreator<
@@ -33,6 +35,7 @@ export const createBattleSlice: StateCreator<
   windAngle: 0.4,
   windSpeed: 12,
   combatLogs: [],
+  fireEvents: [],
 
   updateWorldSnapshot: (serverTime, ships, cannonballs) =>
     set({
@@ -57,4 +60,17 @@ export const createBattleSlice: StateCreator<
     })),
 
   setWinner: (winnerName) => set({ winnerName, stage: 'DEBRIEF' }),
+
+  triggerFireEvent: (ownerId, side) =>
+    set((state) => ({
+      fireEvents: [
+        ...state.fireEvents.slice(-15),
+        {
+          id: `${ownerId}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          ownerId,
+          side,
+          timestamp: Date.now(),
+        },
+      ],
+    })),
 });
