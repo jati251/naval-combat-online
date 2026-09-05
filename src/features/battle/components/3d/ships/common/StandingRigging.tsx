@@ -7,6 +7,7 @@ interface StandingRiggingProps {
   hullWidth: number;
   shroudSpread?: number;
   includeRatlines?: boolean;
+  isEnemy?: boolean;
   color?: string;
 }
 
@@ -20,8 +21,12 @@ export const StandingRigging: React.FC<StandingRiggingProps> = React.memo(({
   hullWidth,
   shroudSpread = 1.6,
   includeRatlines = true,
+  isEnemy = false,
   color = '#27201c',
 }) => {
+  // Opponents at distance do not need high-frequency thin shroud meshes
+  if (isEnemy) return null;
+
   const [mX, mY, mZ] = mastPosition;
   const topY = mY + mastHeight * 0.65; // Attachment at lower masthead / trestletrees
   const baseChainY = mY + 0.2; // Chainplate height at gunwale

@@ -123,20 +123,23 @@ export const SloopModel: React.FC<SubModelProps> = React.memo(({
         />
       </group>
 
-      {/* Cargo Grating Hatch Amidships */}
-      <CargoHatch position={[0, hullDepth + 0.05, length * 0.22]} width={width * 0.35} length={length * 0.14} />
-
-      {/* Mooring Bitts Fore and Aft */}
-      <MooringBitts position={[0, hullDepth + sheerBow * 0.5, length * 0.4]} width={0.5} />
+      {/* Micro Deck Hardware: Cargo Hatches, Bitts, Anchors (Player only) */}
+      {!isEnemy && (
+        <>
+          <CargoHatch position={[0, hullDepth + 0.05, length * 0.22]} width={width * 0.35} length={length * 0.14} />
+          <MooringBitts position={[0, hullDepth + sheerBow * 0.5, length * 0.4]} width={0.5} />
+          <BowCatheadAnchors width={width} z={length * 0.38} />
+        </>
+      )}
 
       {/* Compact Companionway Cabin at Stern */}
       <group position={[0, hullDepth + sheerStern * 0.6, -length * 0.36]}>
-        <mesh castShadow receiveShadow>
+        <mesh castShadow={!isEnemy} receiveShadow>
           <boxGeometry args={[width * 0.72, 1.25, length * 0.22]} />
           <meshStandardMaterial map={hullTexture} roughness={0.65} />
         </mesh>
         {/* Gilded Transom Molding */}
-        <mesh position={[0, 0.64, -length * 0.111]} castShadow>
+        <mesh position={[0, 0.64, -length * 0.111]} castShadow={!isEnemy}>
           <boxGeometry args={[width * 0.74, 0.1, 0.06]} />
           <meshStandardMaterial color={trimColor || '#eab308'} metalness={0.8} roughness={0.3} />
         </mesh>
@@ -153,22 +156,23 @@ export const SloopModel: React.FC<SubModelProps> = React.memo(({
                 side={THREE.DoubleSide}
               />
             </mesh>
-            <mesh position={[0, 0, -0.01]}>
-              <boxGeometry args={[width * 0.2, 0.59, 0.02]} />
-              <meshStandardMaterial color="#1a0e06" roughness={0.9} />
-            </mesh>
+            {!isEnemy && (
+              <mesh position={[0, 0, -0.01]}>
+                <boxGeometry args={[width * 0.2, 0.59, 0.02]} />
+                <meshStandardMaterial color="#1a0e06" roughness={0.9} />
+              </mesh>
+            )}
           </group>
         ))}
         {/* Brass Stern Lantern */}
-        <mesh position={[0, 0.8, -length * 0.12]} castShadow>
+        <mesh position={[0, 0.8, -length * 0.12]} castShadow={!isEnemy}>
           <cylinderGeometry args={[0.1, 0.15, 0.4, 6]} />
           <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={1.3} metalness={0.85} />
         </mesh>
-        <ShipHelm position={[0, 0.85, length * 0.06]} rudderAngle={rudderAngle} />
+        {!isEnemy && <ShipHelm position={[0, 0.85, length * 0.06]} rudderAngle={rudderAngle} />}
       </group>
 
-      <BowCatheadAnchors width={width} z={length * 0.38} />
-      <BroadsideCannons positions={cannonZ} width={width * 0.94} y={hullDepth + 0.1} />
+      <BroadsideCannons positions={cannonZ} width={width * 0.94} y={hullDepth + 0.1} isEnemy={isEnemy} />
 
       {/* Tall Mast Standing Rigging with Ratlines */}
       <StandingRigging
@@ -177,17 +181,18 @@ export const SloopModel: React.FC<SubModelProps> = React.memo(({
         hullWidth={width * 0.96}
         shroudSpread={1.8}
         includeRatlines={!isEnemy}
+        isEnemy={isEnemy}
       />
 
       {/* Tall Single Mast with Gaff Rig & Square Topsail */}
       <group position={[0, hullDepth, mastZ]}>
-        <mesh position={[0, mastHeight * 0.5, 0]} castShadow>
+        <mesh position={[0, mastHeight * 0.5, 0]} castShadow={!isEnemy}>
           <cylinderGeometry args={[0.15, 0.25, mastHeight, 8]} />
           <meshStandardMaterial color="#382013" roughness={0.8} />
         </mesh>
         {/* Gaff Boom */}
         <group position={[0, mastHeight * 0.44, 0]}>
-          <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+          <mesh rotation={[0, 0, Math.PI / 2]} castShadow={!isEnemy}>
             <cylinderGeometry args={[0.07, 0.07, width * 1.35, 8]} />
             <meshStandardMaterial color="#2d1c12" />
           </mesh>
@@ -203,7 +208,7 @@ export const SloopModel: React.FC<SubModelProps> = React.memo(({
         </group>
         {/* Square Topsail */}
         <group position={[0, mastHeight * 0.82, 0]}>
-          <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+          <mesh rotation={[0, 0, Math.PI / 2]} castShadow={!isEnemy}>
             <cylinderGeometry args={[0.06, 0.06, width * 1.05, 8]} />
             <meshStandardMaterial color="#2d1c12" />
           </mesh>
@@ -218,14 +223,14 @@ export const SloopModel: React.FC<SubModelProps> = React.memo(({
           />
         </group>
         {/* Mast Top / Crow's Nest Platform */}
-        <mesh position={[0, mastHeight * 0.65, 0]} castShadow>
+        <mesh position={[0, mastHeight * 0.65, 0]} castShadow={!isEnemy}>
           <cylinderGeometry args={[0.45, 0.36, 0.38, 8]} />
           <meshStandardMaterial color="#1a110a" />
         </mesh>
         <ShipFlag position={[0, mastHeight + 0.45, -0.6]} isEnemy={isEnemy} />
       </group>
 
-      <RudderBlade length={length} rudderAngle={rudderAngle} />
+      <RudderBlade length={length} rudderAngle={rudderAngle} isEnemy={isEnemy} />
     </group>
   );
 });

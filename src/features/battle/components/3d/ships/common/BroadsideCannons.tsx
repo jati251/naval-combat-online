@@ -8,6 +8,7 @@ interface BroadsideCannonsProps {
   scale?: number;
   color?: string;
   isDoubleDecker?: boolean;
+  isEnemy?: boolean;
 }
 
 // Module-level shared geometries for all broadside cannons (zero memory leaks / GC)
@@ -29,9 +30,21 @@ const SingleCannonUnit: React.FC<{
   isPort: boolean;
   color: string;
   barrelScale?: number;
-}> = React.memo(({ isPort, color, barrelScale = 1.0 }) => {
-  const dir = isPort ? -1 : 1;
+  isEnemy?: boolean;
+}> = React.memo(({ isPort, color, barrelScale = 1.0, isEnemy = false }) => {
+  const dir = isPort ? 1 : -1;
   const barrelMat = color === '#09090b' ? gunMetalDarkMat : gunMetalMat;
+
+  // Opponent ships at distance only need the protruding barrel cylinder (saves 90% meshes)
+  if (isEnemy) {
+    return (
+      <group scale={[barrelScale, barrelScale, barrelScale]}>
+        <group rotation={[0, 0, dir * Math.PI / 2]}>
+          <mesh geometry={barrelGeo} material={barrelMat} />
+        </group>
+      </group>
+    );
+  }
 
   return (
     <group scale={[barrelScale, barrelScale, barrelScale]}>
@@ -44,8 +57,8 @@ const SingleCannonUnit: React.FC<{
         <mesh position={[0, 0.05, 0]} rotation={[Math.PI / 2, 0, 0]} geometry={trunnionGeo} material={barrelMat} />
       </group>
 
-      {/* Wheeled Naval Truck Carriage */}
-      <group position={[-dir * 0.28, -0.16, 0]}>
+      {/* Wheeled Naval Truck Carriage (Inboard behind gun breech) */}
+      <group position={[dir * 0.28, -0.16, 0]}>
         <mesh castShadow position={[0, 0.06, 0]} geometry={carriageGeo} material={carriageMat} />
         <mesh position={[-0.14, -0.06, -0.18]} rotation={[0, 0, Math.PI / 2]} geometry={wheelGeo} material={wheelMat} />
         <mesh position={[-0.14, -0.06, 0.18]} rotation={[0, 0, Math.PI / 2]} geometry={wheelGeo} material={wheelMat} />
@@ -63,6 +76,7 @@ export const BroadsideCannons: React.FC<BroadsideCannonsProps> = React.memo(({
   scale = 1,
   color = '#18181b',
   isDoubleDecker = false,
+  isEnemy = false,
 }) => {
   return (
     <>
@@ -70,22 +84,22 @@ export const BroadsideCannons: React.FC<BroadsideCannonsProps> = React.memo(({
         <group key={`gun-${idx}`} position={[0, y, posZ]} scale={[scale, scale, scale]}>
           {/* Port Gun */}
           <group position={[-width * 0.5 - 0.22, 0, 0]}>
-            <SingleCannonUnit isPort={true} color={color} />
+            <SingleCannonUnit isPort={true} color={color} isEnemy={isEnemy} />
           </group>
 
           {/* Starboard Gun */}
           <group position={[width * 0.5 + 0.22, 0, 0]}>
-            <SingleCannonUnit isPort={false} color={color} />
+            <SingleCannonUnit isPort={false} color={color} isEnemy={isEnemy} />
           </group>
 
           {/* Lower Gun Deck Ports (Man-o'-War double decker) */}
           {isDoubleDecker && (
             <>
               <group position={[-width * 0.5 - 0.25, -1.0, 0]}>
-                <SingleCannonUnit isPort={true} color="#09090b" barrelScale={1.1} />
+                <SingleCannonUnit isPort={true} color="#09090b" barrelScale={1.1} isEnemy={isEnemy} />
               </group>
               <group position={[width * 0.5 + 0.25, -1.0, 0]}>
-                <SingleCannonUnit isPort={false} color="#09090b" barrelScale={1.1} />
+                <SingleCannonUnit isPort={false} color="#09090b" barrelScale={1.1} isEnemy={isEnemy} />
               </group>
             </>
           )}

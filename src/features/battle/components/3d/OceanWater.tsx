@@ -16,8 +16,8 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
   const isNight = timeOfDay === 'NIGHT';
 
   // Responsive vertex grid density: 64x64 on mobile (4,096 quads) for high-framerate mobile rendering,
-  // 160x160 on desktop (25,600 quads) for maximum geometric fidelity.
-  const segments = isMobile ? 64 : 160;
+  // 220x220 on desktop (48,400 quads) for rich geometric Gerstner swell curves.
+  const segments = isMobile ? 64 : 220;
   const geometry = useMemo(() => {
     const geo = new THREE.PlaneGeometry(size, size, segments, segments);
     geo.rotateX(-Math.PI / 2);
@@ -42,12 +42,12 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
     return new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
-        uDeepWaterColor: { value: new THREE.Color(isNight ? '#020817' : '#074574') },
-        uMidWaterColor: { value: new THREE.Color(isNight ? '#06152b' : '#0b71b0') },
-        uShallowColor: { value: new THREE.Color(isNight ? '#0b2545' : '#06b6d4') },
-        uLagoonColor: { value: new THREE.Color(isNight ? '#133863' : '#10e7b8') },
+        uDeepWaterColor: { value: new THREE.Color(isNight ? '#020817' : '#021b3a') },
+        uMidWaterColor: { value: new THREE.Color(isNight ? '#06152b' : '#034b7f') },
+        uShallowColor: { value: new THREE.Color(isNight ? '#0b2545' : '#0891b2') },
+        uLagoonColor: { value: new THREE.Color(isNight ? '#133863' : '#10b981') },
         uCrestGlowColor: { value: new THREE.Color(isNight ? '#385f8a' : '#38bdf8') },
-        uSubsurfaceColor: { value: new THREE.Color(isNight ? '#0d2744' : '#14b8a6') },
+        uSubsurfaceColor: { value: new THREE.Color(isNight ? '#0d2744' : '#06b6d4') },
         uFoamColor: { value: new THREE.Color(isNight ? '#cbd5e1' : '#ffffff') },
         uSunColor: { value: new THREE.Color(isNight ? '#c5daf8' : '#fffbeb') },
         uSkyHorizonColor: { value: new THREE.Color(isNight ? NIGHT_FOG_COLOR : FOG_COLOR) },
@@ -233,14 +233,15 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
           // 1. DISTANCE LOD: High-Frequency Micro-Wave Capillary Normal Blending (0m - 140m)
           // Capillary ripples are sub-pixel beyond 120m.
           // Fading them out saves trigonometry and completely eliminates distant specular shimmering.
+          // 1. DISTANCE LOD: High-Frequency Micro-Wave Capillary Normal Blending (0m - 200m on desktop)
           vec3 normal = baseNormal;
-          if (uIsMobile < 0.5 && camDist < 140.0) {
-            float capStrength = 1.0 - smoothstep(60.0, 140.0, camDist);
+          if (uIsMobile < 0.5 && camDist < 200.0) {
+            float capStrength = 1.0 - smoothstep(70.0, 200.0, camDist);
             vec3 capNorm = computeCapillaryNormal(vWorldPosition.xz, uTime);
             normal = normalize(vec3(
-              baseNormal.x + capNorm.x * (0.18 * capStrength),
+              baseNormal.x + capNorm.x * (0.34 * capStrength),
               baseNormal.y,
-              baseNormal.z + capNorm.z * (0.18 * capStrength)
+              baseNormal.z + capNorm.z * (0.34 * capStrength)
             ));
           }
 
@@ -297,8 +298,8 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
           float depthFactor = clamp((vWaveHeight + 1.3) / 2.6, 0.12, 1.0);
           vec3 waterColor = mix(uDeepWaterColor, uMidWaterColor, smoothstep(0.08, 0.52, depthFactor));
           waterColor = mix(waterColor, uShallowColor, smoothstep(0.40, 0.88, depthFactor));
-          waterColor = mix(waterColor, uCrestGlowColor, smoothstep(0.72, 1.0, depthFactor) * 0.50);
-          waterColor = max(waterColor, vec3(0.03, 0.18, 0.32));
+          waterColor = mix(waterColor, uCrestGlowColor, smoothstep(0.70, 1.0, depthFactor) * 0.55);
+          waterColor = max(waterColor, vec3(0.02, 0.14, 0.28));
 
           if (shoreProximity > 0.001) {
             waterColor = mix(waterColor, uLagoonColor, shoreProximity * 0.76);
@@ -309,44 +310,46 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
           if (camDist < (uIsMobile > 0.5 ? 80.0 : 220.0)) {
             vec3 sssLightDir = normalize(lightDir + normal * 0.35);
             float sssFactor = pow(max(dot(viewDir, -sssLightDir), 0.0), 3.2);
-            float crestThickness = smoothstep(0.25, 1.2, vWaveHeight);
+            float crestThickness = smoothstep(0.20, 1.1, vWaveHeight);
             float sssDistFade = 1.0 - smoothstep(uIsMobile > 0.5 ? 40.0 : 120.0, uIsMobile > 0.5 ? 80.0 : 220.0, camDist);
-            sss = uSubsurfaceColor * (sssFactor * crestThickness * 0.7 * sssDistFade);
+            sss = uSubsurfaceColor * (sssFactor * crestThickness * 0.85 * sssDistFade);
           }
 
           // 5. Accurate Physical Fresnel & Sky Reflection (Schlick approximation)
           float NdotV = max(dot(viewDir, normal), 0.0);
           float fresnel = 0.02 + 0.98 * pow(1.0 - NdotV, 5.0);
-          vec3 skyReflection = mix(vec3(0.18, 0.52, 0.85), vec3(0.65, 0.86, 1.0), fresnel);
+          vec3 skyReflection = mix(vec3(0.15, 0.48, 0.82), vec3(0.68, 0.88, 1.0), fresnel);
 
-          vec3 baseShaded = mix(waterColor + sss, skyReflection, fresnel * 0.55);
+          vec3 baseShaded = mix(waterColor + sss, skyReflection, fresnel * 0.58);
 
-          // 6. DISTANCE LOD: Sun Glitter Specular Highlight (simplified on mobile)
+          // 6. DISTANCE LOD: Sun Glitter Specular Highlight (Rich multi-lobe + micro-glitter on web)
           vec3 halfVector = normalize(lightDir + viewDir);
           float NdotH = max(dot(normal, halfVector), 0.0);
           if (uIsMobile > 0.5) {
             // Mobile: single-lobe specular only
             float specMobile = pow(NdotH, 32.0) * 0.85;
             baseShaded += uSunColor * specMobile;
-          } else if (camDist < 180.0) {
-            float oceanBloomSheen = pow(NdotH, 14.0) * 0.40;
-            float specularCore    = pow(NdotH, 64.0) * 0.90;
-            float specularSharp   = pow(NdotH, 140.0) * 1.6;
-            baseShaded += uSunColor * (oceanBloomSheen + specularCore + specularSharp);
+          } else if (camDist < 240.0) {
+            float oceanBloomSheen = pow(NdotH, 12.0) * 0.45;
+            float specularCore    = pow(NdotH, 56.0) * 1.10;
+            float specularSharp   = pow(NdotH, 160.0) * 2.20;
+            float glitterNoise    = fract(sin(dot(vWorldPosition.xz * 2.0, vec2(12.9898, 78.233)) + uTime * 0.7) * 43758.5453);
+            float glitter         = pow(NdotH, 200.0) * step(0.60, glitterNoise) * 2.8;
+            baseShaded += uSunColor * (oceanBloomSheen + specularCore + specularSharp + glitter);
           } else {
             float specularFar = pow(NdotH, 32.0) * 0.90;
             baseShaded += uSunColor * specularFar;
           }
 
-          // 7. DISTANCE LOD: Organic Lacy Cellular Sea Foam on Wave Crests (Skipped on mobile and beyond 150m)
+          // 7. DISTANCE LOD: Organic Lacy Cellular Sea Foam on Wave Crests (Skipped on mobile and beyond 180m)
           float crestFoam = 0.0;
-          float crestBreak = smoothstep(0.95, 1.45, vWaveHeight) * smoothstep(0.08, 0.32, vCrestPinch);
-          if (uIsMobile < 0.5 && crestBreak > 0.01 && camDist < 150.0) {
+          float crestBreak = smoothstep(0.68, 1.25, vWaveHeight) * smoothstep(0.06, 0.28, vCrestPinch);
+          if (uIsMobile < 0.5 && crestBreak > 0.01 && camDist < 180.0) {
             float foamCell = cellularFoam(vWorldPosition.xz * 0.85 + vec2(uTime * 0.05, -uTime * 0.03));
             float bubbleWeb = smoothstep(0.08, 0.45, foamCell) * (1.0 - smoothstep(0.50, 0.88, foamCell));
             float solidHead = 1.0 - smoothstep(0.0, 0.22, foamCell);
             float lacyFoam = clamp(bubbleWeb * 1.5 + solidHead * 0.9, 0.0, 1.0);
-            float foamDistFade = 1.0 - smoothstep(80.0, 150.0, camDist);
+            float foamDistFade = 1.0 - smoothstep(100.0, 180.0, camDist);
             crestFoam = crestBreak * lacyFoam * foamDistFade;
           }
 

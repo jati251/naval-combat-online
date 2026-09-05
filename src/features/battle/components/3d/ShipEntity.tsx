@@ -16,7 +16,7 @@ import { createInitialCameraState, updateChaseCamera } from '../../utils/cameraC
 import { lerpAngle, damp } from '../../utils/math';
 import { useGameStore } from '@/stores/useGameStore';
 
-export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf }) => {
+export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf, isMobile = false }) => {
   const groupRef = useRef<THREE.Group>(null);
 
   // High-precision dead reckoning extrapolation buffer
@@ -85,9 +85,10 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf 
         groupRef.current.visible = inView;
       }
 
-      // 2. Nameplate Culling (Zero React re-render: direct Group visibility toggle)
+      // 2. Nameplate Culling (Tighter culling radius on mobile)
       if (!isSelf && nameplateRef.current) {
-        const shouldShow = inView && distSq <= NAMEPLATE_CULL_DISTANCE * NAMEPLATE_CULL_DISTANCE;
+        const maxNameplateDist = isMobile ? 65 : NAMEPLATE_CULL_DISTANCE;
+        const shouldShow = inView && distSq <= maxNameplateDist * maxNameplateDist;
         if (nameplateRef.current.visible !== shouldShow) {
           nameplateRef.current.visible = shouldShow;
         }
@@ -95,6 +96,11 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf 
     }
 
     if (!groupRef.current.visible) return;
+
+    // Mobile billboard orientation: orient health bar mesh to face camera without Drei DOM overhead
+    if (!isSelf && isMobile && nameplateRef.current && nameplateRef.current.visible) {
+      nameplateRef.current.quaternion.copy(camera.quaternion);
+    }
 
     // First frame initialization (snap immediately without initial sweeping lerp)
     if (!isInitialized.current) {
@@ -156,27 +162,56 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf 
         shipId={ship.id}
         shipLength={shipLen}
         shipWidth={shipWid}
+        isEnemy={!isSelf}
+        isMobile={isMobile}
       />
 
-      {/* Floating Health Bar and Nameplate (Culled beyond 110m for enemy vessels, hidden for player ship) */}
+      {/* Floating Health Bar and Nameplate (Culled for enemy vessels, hidden for player ship) */}
       {!isSelf && (
         <group ref={nameplateRef} position={[0, nameplateY, 0]} visible={false}>
-          <Html center distanceFactor={45}>
-            <div className="flex flex-col items-center pointer-events-none select-none">
-              <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-950/85 border border-slate-700/60 shadow-md text-[10px] font-bold tracking-wide uppercase">
-                <span className="text-amber-300">{ship.name}</span>
-              </div>
-
-              <div className="w-20 h-1 bg-slate-950/90 border border-slate-800 rounded-full overflow-hidden mt-0.5">
-                <div
-                  className={`h-full rounded-full transition-all duration-150 ${
-                    hpPercent > 50 ? 'bg-emerald-400' : hpPercent > 25 ? 'bg-amber-400' : 'bg-rose-500'
-                  }`}
-                  style={{ width: `${hpPercent}%` }}
+          {isMobile ? (
+            /* On mobile: lightweight 3D billboard health bar with 0 DOM mutations */
+            <group scale={[1.2, 1.2, 1.2]}>
+              {/* Dark Backing Bar */}
+              <mesh position={[0, 0, 0]}>
+                <planeGeometry args={[3.2, 0.42]} />
+                <meshBasicMaterial color="#020617" opacity={0.88} transparent depthWrite={false} />
+              </mesh>
+              {/* Border Outline */}
+              <mesh position={[0, 0, 0.01]}>
+                <planeGeometry args={[3.0, 0.28]} />
+                <meshBasicMaterial color="#1e293b" depthWrite={false} />
+              </mesh>
+              {/* Health Fill Bar */}
+              <mesh
+                position={[-1.45 + (1.45 * hpPercent) / 100, 0, 0.02]}
+                scale={[Math.max(0.001, hpPercent / 100), 1, 1]}
+              >
+                <planeGeometry args={[2.9, 0.22]} />
+                <meshBasicMaterial
+                  color={hpPercent > 50 ? '#34d399' : hpPercent > 25 ? '#fbbf24' : '#f43f5e'}
+                  depthWrite={false}
                 />
+              </mesh>
+            </group>
+          ) : (
+            <Html center distanceFactor={45}>
+              <div className="flex flex-col items-center pointer-events-none select-none">
+                <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-950/85 border border-slate-700/60 shadow-md text-[10px] font-bold tracking-wide uppercase">
+                  <span className="text-amber-300">{ship.name}</span>
+                </div>
+
+                <div className="w-20 h-1 bg-slate-950/90 border border-slate-800 rounded-full overflow-hidden mt-0.5">
+                  <div
+                    className={`h-full rounded-full transition-all duration-150 ${
+                      hpPercent > 50 ? 'bg-emerald-400' : hpPercent > 25 ? 'bg-amber-400' : 'bg-rose-500'
+                    }`}
+                    style={{ width: `${hpPercent}%` }}
+                  />
+                </div>
               </div>
-            </div>
-          </Html>
+            </Html>
+          )}
         </group>
       )}
     </group>
@@ -190,6 +225,7 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf 
     prev.ship.sail === next.ship.sail &&
     prev.ship.isSunk === next.ship.isSunk &&
     prev.ship.health === next.ship.health &&
-    prev.isSelf === next.isSelf
+    prev.isSelf === next.isSelf &&
+    prev.isMobile === next.isMobile
   );
 });

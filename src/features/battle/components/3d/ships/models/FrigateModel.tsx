@@ -144,27 +144,31 @@ export const FrigateModel: React.FC<SubModelProps> = React.memo(({
         {/* Dual Heavy Admiral Lanterns */}
         {[-width * 0.3, width * 0.3].map((lx, lIdx) => (
           <group key={`lan-${lIdx}`} position={[lx, 1.0, -length * 0.14]}>
-            <mesh castShadow>
+            <mesh castShadow={!isEnemy}>
               <cylinderGeometry args={[0.13, 0.19, 0.48, 6]} />
               <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={1.3} metalness={0.85} />
             </mesh>
-            <pointLight color="#f59e0b" intensity={0.7} distance={7} decay={2} />
+            {!isEnemy && <pointLight color="#f59e0b" intensity={0.7} distance={7} decay={2} />}
           </group>
         ))}
-        <ShipHelm position={[0, 1.3, length * 0.08]} rudderAngle={rudderAngle} isDouble />
+        {!isEnemy && <ShipHelm position={[0, 1.3, length * 0.08]} rudderAngle={rudderAngle} isDouble />}
       </group>
 
-      {/* Cargo Hatches & Deck Hardware */}
-      <CargoHatch position={[0, hullDepth + 0.05, -length * 0.16]} width={width * 0.36} length={length * 0.14} />
-      <CargoHatch position={[0, hullDepth + 0.05, length * 0.14]} width={width * 0.36} length={length * 0.14} />
-      <NavalCapstan position={[0, hullDepth + sheerBow * 0.35, length * 0.38]} scale={1.05} />
-      <MooringBitts position={[0, hullDepth + sheerBow * 0.55, length * 0.45]} width={0.7} />
+      {/* Cargo Hatches & Deck Hardware (Player only) */}
+      {!isEnemy && (
+        <>
+          <CargoHatch position={[0, hullDepth + 0.05, -length * 0.16]} width={width * 0.36} length={length * 0.14} />
+          <CargoHatch position={[0, hullDepth + 0.05, length * 0.14]} width={width * 0.36} length={length * 0.14} />
+          <NavalCapstan position={[0, hullDepth + sheerBow * 0.35, length * 0.38]} scale={1.05} />
+          <MooringBitts position={[0, hullDepth + sheerBow * 0.55, length * 0.45]} width={0.7} />
+          <BowCatheadAnchors width={width} z={length * 0.44} />
+        </>
+      )}
 
-      <BowCatheadAnchors width={width} z={length * 0.44} />
-      <BroadsideCannons positions={cannonPositions} width={width * 0.95} y={hullDepth + 0.12} scale={1.05} />
+      <BroadsideCannons positions={cannonPositions} width={width * 0.95} y={hullDepth + 0.12} scale={1.05} isEnemy={isEnemy} />
 
       {/* Bowsprit with Flying Jib */}
-      <mesh position={[0, hullDepth + sheerBow + 0.3, length * 0.5 + 2.8]} rotation={[0.34, 0, 0]} castShadow>
+      <mesh position={[0, hullDepth + sheerBow + 0.3, length * 0.5 + 2.8]} rotation={[0.34, 0, 0]} castShadow={!isEnemy}>
         <cylinderGeometry args={[0.11, 0.22, 5.8, 8]} />
         <meshStandardMaterial color="#382013" roughness={0.8} />
       </mesh>
@@ -189,14 +193,15 @@ export const FrigateModel: React.FC<SubModelProps> = React.memo(({
               hullWidth={width * 0.96}
               shroudSpread={2.3}
               includeRatlines={!isEnemy}
+              isEnemy={isEnemy}
             />
             <group position={[0, hullDepth, mastZ]}>
-              <mesh position={[0, mastHeight * 0.5, 0]} castShadow>
+              <mesh position={[0, mastHeight * 0.5, 0]} castShadow={!isEnemy}>
                 <cylinderGeometry args={[0.2, 0.32, mastHeight, 8]} />
                 <meshStandardMaterial color="#382013" />
               </mesh>
               <group position={[0, mastHeight * 0.46, 0]}>
-                <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+                <mesh rotation={[0, 0, Math.PI / 2]} castShadow={!isEnemy}>
                   <cylinderGeometry args={[0.08, 0.08, width * 1.5, 8]} />
                   <meshStandardMaterial color="#2d1c12" />
                 </mesh>
@@ -211,7 +216,7 @@ export const FrigateModel: React.FC<SubModelProps> = React.memo(({
                 />
               </group>
               <group position={[0, mastHeight * 0.83, 0]}>
-                <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+                <mesh rotation={[0, 0, Math.PI / 2]} castShadow={!isEnemy}>
                   <cylinderGeometry args={[0.06, 0.06, width * 1.18, 8]} />
                   <meshStandardMaterial color="#2d1c12" />
                 </mesh>
@@ -225,17 +230,17 @@ export const FrigateModel: React.FC<SubModelProps> = React.memo(({
                   mastIndex={mIdx * 2 + 1}
                 />
               </group>
-              <mesh position={[0, mastHeight * 0.66, 0]} castShadow>
+              <mesh position={[0, mastHeight * 0.66, 0]} castShadow={!isEnemy}>
                 <cylinderGeometry args={[0.55, 0.42, 0.48, 8]} />
                 <meshStandardMaterial color="#1a110a" />
               </mesh>
-              {mIdx === 2 && <ShipFlag position={[0, mastHeight + 0.48, -0.65]} isEnemy={isEnemy} />}
+              {mIdx === 2 && <ShipFlag position={[0, mastHeight + 0.45, -0.6]} isEnemy={isEnemy} />}
             </group>
           </React.Fragment>
         );
       })}
 
-      <RudderBlade length={length} rudderAngle={rudderAngle} />
+      <RudderBlade length={length} rudderAngle={rudderAngle} isEnemy={isEnemy} />
     </group>
   );
 });

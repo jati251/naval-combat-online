@@ -99,43 +99,48 @@ export const CorvetteModel: React.FC<SubModelProps> = React.memo(({
         </mesh>
       </group>
 
-      {/* Polished Brass Stanchion Handrails */}
-      {[-width * 0.44, width * 0.44].map((rx, rIdx) => (
-        <mesh key={`rail-${rIdx}`} position={[rx, hullDepth + 0.5, 0]}>
-          <cylinderGeometry args={[0.03, 0.03, length * 0.8, 6]} />
-          <meshStandardMaterial color="#d97706" metalness={0.85} roughness={0.25} />
-        </mesh>
-      ))}
+      {/* Micro Deck Hardware & Jolly Boats (Player only) */}
+      {!isEnemy && (
+        <>
+          {/* Polished Brass Stanchion Handrails */}
+          {[-width * 0.44, width * 0.44].map((rx, rIdx) => (
+            <mesh key={`rail-${rIdx}`} position={[rx, hullDepth + 0.5, 0]}>
+              <cylinderGeometry args={[0.03, 0.03, length * 0.8, 6]} />
+              <meshStandardMaterial color="#d97706" metalness={0.85} roughness={0.25} />
+            </mesh>
+          ))}
 
-      {/* Dual Wooden Jolly Boats Lashed Amidships */}
-      {[-width * 0.22, width * 0.22].map((bx, bIdx) => (
-        <group key={`boat-${bIdx}`} position={[bx, hullDepth + 0.25, -length * 0.02]}>
-          <mesh castShadow>
-            <boxGeometry args={[0.65, 0.42, 2.6]} />
-            <meshStandardMaterial color="#5c3317" roughness={0.8} />
-          </mesh>
-          <mesh position={[0, 0.16, 0]}>
-            <boxGeometry args={[0.5, 0.18, 2.3]} />
-            <meshStandardMaterial color="#2d170b" />
-          </mesh>
-        </group>
-      ))}
+          {/* Dual Wooden Jolly Boats Lashed Amidships */}
+          {[-width * 0.22, width * 0.22].map((bx, bIdx) => (
+            <group key={`boat-${bIdx}`} position={[bx, hullDepth + 0.25, -length * 0.02]}>
+              <mesh castShadow>
+                <boxGeometry args={[0.65, 0.42, 2.6]} />
+                <meshStandardMaterial color="#5c3317" roughness={0.8} />
+              </mesh>
+              <mesh position={[0, 0.16, 0]}>
+                <boxGeometry args={[0.5, 0.18, 2.3]} />
+                <meshStandardMaterial color="#2d170b" />
+              </mesh>
+            </group>
+          ))}
 
-      {/* Cargo Grating Hatch Forward */}
-      <CargoHatch position={[0, hullDepth + 0.05, length * 0.32]} width={width * 0.32} length={length * 0.12} />
+          {/* Cargo Grating Hatch Forward */}
+          <CargoHatch position={[0, hullDepth + 0.05, length * 0.32]} width={width * 0.32} length={length * 0.12} />
 
-      {/* Mooring Bitts Fore and Aft */}
-      <MooringBitts position={[0, hullDepth + sheerBow * 0.6, length * 0.42]} width={0.55} />
-      <MooringBitts position={[0, hullDepth + sheerStern * 0.6, -length * 0.42]} width={0.55} />
+          {/* Mooring Bitts Fore and Aft */}
+          <MooringBitts position={[0, hullDepth + sheerBow * 0.6, length * 0.42]} width={0.55} />
+          <MooringBitts position={[0, hullDepth + sheerStern * 0.6, -length * 0.42]} width={0.55} />
 
-      {/* Brass Binnacle & Helm at Aft Quarterdeck */}
-      <ShipHelm position={[0, hullDepth + sheerStern * 0.7 + 0.5, -length * 0.38]} rudderAngle={rudderAngle} />
+          {/* Brass Binnacle & Helm at Aft Quarterdeck */}
+          <ShipHelm position={[0, hullDepth + sheerStern * 0.7 + 0.5, -length * 0.38]} rudderAngle={rudderAngle} />
+          <BowCatheadAnchors width={width} z={length * 0.42} />
+        </>
+      )}
 
-      <BowCatheadAnchors width={width} z={length * 0.42} />
-      <BroadsideCannons positions={cannonPositions} width={width * 0.95} y={hullDepth + 0.1} />
+      <BroadsideCannons positions={cannonPositions} width={width * 0.95} y={hullDepth + 0.1} isEnemy={isEnemy} />
 
       {/* Bowsprit & Jib */}
-      <mesh position={[0, hullDepth + sheerBow + 0.2, length * 0.5 + 2.5]} rotation={[0.32, 0, 0]} castShadow>
+      <mesh position={[0, hullDepth + sheerBow + 0.2, length * 0.5 + 2.5]} rotation={[0.32, 0, 0]} castShadow={!isEnemy}>
         <cylinderGeometry args={[0.09, 0.18, 5.2, 8]} />
         <meshStandardMaterial color="#382013" roughness={0.8} />
       </mesh>
@@ -160,15 +165,16 @@ export const CorvetteModel: React.FC<SubModelProps> = React.memo(({
               hullWidth={width * 0.96}
               shroudSpread={1.9}
               includeRatlines={!isEnemy}
+              isEnemy={isEnemy}
             />
             {/* 2 Raked Masts with Square Sails & Spanker */}
             <group position={[0, hullDepth, mastZ]} rotation={[0.05, 0, 0]}>
-              <mesh position={[0, mastHeight * 0.5, 0]} castShadow>
+              <mesh position={[0, mastHeight * 0.5, 0]} castShadow={!isEnemy}>
                 <cylinderGeometry args={[0.16, 0.28, mastHeight, 8]} />
                 <meshStandardMaterial color="#382013" roughness={0.8} />
               </mesh>
               <group position={[0, mastHeight * 0.46, 0]}>
-                <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+                <mesh rotation={[0, 0, Math.PI / 2]} castShadow={!isEnemy}>
                   <cylinderGeometry args={[0.07, 0.07, width * 1.4, 8]} />
                   <meshStandardMaterial color="#2d1c12" />
                 </mesh>
@@ -183,7 +189,7 @@ export const CorvetteModel: React.FC<SubModelProps> = React.memo(({
                 />
               </group>
               <group position={[0, mastHeight * 0.82, 0]}>
-                <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+                <mesh rotation={[0, 0, Math.PI / 2]} castShadow={!isEnemy}>
                   <cylinderGeometry args={[0.05, 0.05, width * 1.1, 8]} />
                   <meshStandardMaterial color="#2d1c12" />
                 </mesh>
@@ -197,7 +203,7 @@ export const CorvetteModel: React.FC<SubModelProps> = React.memo(({
                   mastIndex={mIdx * 2 + 1}
                 />
               </group>
-              <mesh position={[0, mastHeight * 0.65, 0]} castShadow>
+              <mesh position={[0, mastHeight * 0.65, 0]} castShadow={!isEnemy}>
                 <cylinderGeometry args={[0.5, 0.4, 0.45, 8]} />
                 <meshStandardMaterial color="#1a110a" />
               </mesh>
@@ -207,7 +213,7 @@ export const CorvetteModel: React.FC<SubModelProps> = React.memo(({
         );
       })}
 
-      <RudderBlade length={length} rudderAngle={rudderAngle} />
+      <RudderBlade length={length} rudderAngle={rudderAngle} isEnemy={isEnemy} />
     </group>
   );
 });

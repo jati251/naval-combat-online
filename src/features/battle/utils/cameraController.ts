@@ -24,6 +24,7 @@ export function createInitialCameraState(): CameraState {
     lastRecoilDir: undefined,
     currentAimSide: 0,
     currentAimFwd: 0,
+    currentAimLookSide: 0,
     lastTargetFov: 55,
   };
 }
@@ -32,6 +33,7 @@ export function createInitialCameraState(): CameraState {
  * High-performance, butter-smooth naval chase camera update.
  * - Dynamic speed sensation & ocean swell breathing.
  * - Salvo recoil impulse & hit trauma vibration.
+ * - Precision broadside gunnery sight: camera pans toward aimed broadside (Port = Left, Starboard = Right).
  * - Lazy projection matrix updates to prevent GPU stalls.
  */
 export function updateChaseCamera({
@@ -64,12 +66,12 @@ export function updateChaseCamera({
   const shakeY = Math.cos(shakeT * 2.1) * traumaSq * 0.55;
   const shakeZ = Math.sin(shakeT * 1.4) * traumaSq * 0.45;
 
-  // Lateral salvo recoil impulse
+  // Lateral salvo recoil impulse (recoil kicks ship away from firing battery)
   let recoilOffset = 0;
   if (cameraState.lastRecoilDir === 'port') {
-    recoilOffset = traumaSq * 1.5; // kick camera rightward
+    recoilOffset = traumaSq * 1.5; // port salvo pushes camera/ship rightward
   } else if (cameraState.lastRecoilDir === 'starboard') {
-    recoilOffset = -traumaSq * 1.5; // kick camera leftward
+    recoilOffset = -traumaSq * 1.5; // starboard salvo pushes camera/ship leftward
   }
 
   // 2. Dynamic Speed Sensation & Camera Heave
@@ -90,19 +92,33 @@ export function updateChaseCamera({
     }
   }
 
-  // 3. Aim offsets
-  let targetSide = 0;
-  let targetFwd = 0;
+  // 3. Broadside Gunnery Aim Offsets
+  // Port = Left battery (-X lateral), Starboard = Right battery (+X lateral)
+  let targetCamSide = 0;
+  let targetCamFwd = 0;
+  let targetLookSide = 0;
+  let targetAimDistMod = 0;
+  let targetAimHeightMod = 0;
+
   if (aimDirection === 'port') {
-    targetSide = -CONTROL_CONFIG.CAMERA_AIM_SIDE_OFFSET;
-    targetFwd = CONTROL_CONFIG.CAMERA_AIM_FORWARD_OFFSET;
+    // Camera shifts slightly starboard and forward to view over the port rail
+    targetCamSide = 7.5;
+    targetCamFwd = 2.0;
+    targetLookSide = -35.0; // Look 35m into the left/port ocean
+    targetAimDistMod = -6.0;
+    targetAimHeightMod = -3.5;
   } else if (aimDirection === 'starboard') {
-    targetSide = CONTROL_CONFIG.CAMERA_AIM_SIDE_OFFSET;
-    targetFwd = CONTROL_CONFIG.CAMERA_AIM_FORWARD_OFFSET;
+    // Camera shifts slightly port and forward to view over the starboard rail
+    targetCamSide = -7.5;
+    targetCamFwd = 2.0;
+    targetLookSide = 35.0; // Look 35m into the right/starboard ocean
+    targetAimDistMod = -6.0;
+    targetAimHeightMod = -3.5;
   }
 
-  cameraState.currentAimSide = damp(cameraState.currentAimSide, targetSide, 8, delta);
-  cameraState.currentAimFwd = damp(cameraState.currentAimFwd, targetFwd, 8, delta);
+  cameraState.currentAimSide = damp(cameraState.currentAimSide, targetCamSide, 8, delta);
+  cameraState.currentAimFwd = damp(cameraState.currentAimFwd, targetCamFwd, 8, delta);
+  cameraState.currentAimLookSide = damp(cameraState.currentAimLookSide, targetLookSide, 8, delta);
 
   const sOffset = cameraState.currentAimSide + recoilOffset;
   const fOffset = cameraState.currentAimFwd;
@@ -111,14 +127,18 @@ export function updateChaseCamera({
   const cosH = Math.cos(shipHeading);
 
   // Dynamic distance pull-back and gentle ocean swell breathing on camera height
-  const dynamicDist = CONTROL_CONFIG.CAMERA_DISTANCE + speedRatio * 2.4;
+  const dynamicDist = CONTROL_CONFIG.CAMERA_DISTANCE + speedRatio * 2.4 + targetAimDistMod;
   const speedBob = Math.sin(elapsedTime * 1.9) * 0.28 * speedRatio;
-  const dynamicHeight = CONTROL_CONFIG.CAMERA_HEIGHT + speedBob;
+  const dynamicHeight = CONTROL_CONFIG.CAMERA_HEIGHT + speedBob + targetAimHeightMod;
 
   camera.position.x = shipX - sinH * dynamicDist + cosH * sOffset + sinH * fOffset + cosH * shakeX;
   camera.position.y = shipY + dynamicHeight + shakeY;
   camera.position.z = shipZ - cosH * dynamicDist - sinH * sOffset + cosH * fOffset - sinH * shakeX + shakeZ;
 
   const lookAheadDist = 6.0 + speedRatio * 3.5;
-  camera.lookAt(shipX + sinH * lookAheadDist, shipY + 3.5 + shakeY * 0.5, shipZ + cosH * lookAheadDist);
+  const lookX = shipX + sinH * lookAheadDist + cosH * cameraState.currentAimLookSide;
+  const lookY = shipY + 3.2 + shakeY * 0.5;
+  const lookZ = shipZ + cosH * lookAheadDist - sinH * cameraState.currentAimLookSide;
+
+  camera.lookAt(lookX, lookY, lookZ);
 }

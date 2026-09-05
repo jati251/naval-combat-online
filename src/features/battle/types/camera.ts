@@ -12,5 +12,6 @@ export interface CameraState {
   lastRecoilDir?: CameraRecoilDirection;
   currentAimSide: number;
   currentAimFwd: number;
+  currentAimLookSide: number;
   lastTargetFov: number;
 }

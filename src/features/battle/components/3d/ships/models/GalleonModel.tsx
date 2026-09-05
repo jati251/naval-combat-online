@@ -198,27 +198,31 @@ export const GalleonModel: React.FC<SubModelProps> = React.memo(({
         {/* Triple Ornate Gilded Lanterns */}
         {[-width * 0.3, 0, width * 0.3].map((lx, lIdx) => (
           <group key={`lan-${lIdx}`} position={[lx, 2.7, -length * 0.17]}>
-            <mesh castShadow>
+            <mesh castShadow={!isEnemy}>
               <cylinderGeometry args={[0.14, 0.2, 0.55, 6]} />
               <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={1.4} metalness={0.85} />
             </mesh>
-            <pointLight color="#fbbf24" intensity={0.9} distance={8} decay={2} />
+            {!isEnemy && <pointLight color="#fbbf24" intensity={0.9} distance={8} decay={2} />}
           </group>
         ))}
 
-        <ShipHelm position={[0, 1.35, length * 0.1]} rudderAngle={rudderAngle} />
+        {!isEnemy && <ShipHelm position={[0, 1.35, length * 0.1]} rudderAngle={rudderAngle} />}
       </group>
 
-      {/* Cargo Hatch & Naval Capstan */}
-      <CargoHatch position={[0, hullDepth + 0.05, 0]} width={width * 0.36} length={length * 0.14} />
-      <NavalCapstan position={[0, hullDepth + sheerBow * 0.35, length * 0.2]} scale={1.05} />
-      <MooringBitts position={[0, hullDepth + sheerBow * 0.55, length * 0.44]} width={0.7} />
+      {/* Cargo Hatch & Naval Capstan (Player only) */}
+      {!isEnemy && (
+        <>
+          <CargoHatch position={[0, hullDepth + 0.05, 0]} width={width * 0.36} length={length * 0.14} />
+          <NavalCapstan position={[0, hullDepth + sheerBow * 0.35, length * 0.2]} scale={1.05} />
+          <MooringBitts position={[0, hullDepth + sheerBow * 0.55, length * 0.44]} width={0.7} />
+          <BowCatheadAnchors width={width} z={length * 0.44} />
+        </>
+      )}
 
-      <BowCatheadAnchors width={width} z={length * 0.44} />
-      <BroadsideCannons positions={cannonPositions} width={width * 0.95} y={hullDepth + 0.12} scale={1.05} />
+      <BroadsideCannons positions={cannonPositions} width={width * 0.95} y={hullDepth + 0.12} scale={1.05} isEnemy={isEnemy} />
 
       {/* Bowsprit */}
-      <mesh position={[0, hullDepth + sheerBow + 0.35, length * 0.5 + 2.8]} rotation={[0.36, 0, 0]} castShadow>
+      <mesh position={[0, hullDepth + sheerBow + 0.35, length * 0.5 + 2.8]} rotation={[0.36, 0, 0]} castShadow={!isEnemy}>
         <cylinderGeometry args={[0.1, 0.2, 5.6, 8]} />
         <meshStandardMaterial color="#382013" roughness={0.8} />
       </mesh>
@@ -230,14 +234,15 @@ export const GalleonModel: React.FC<SubModelProps> = React.memo(({
         hullWidth={width * 0.96}
         shroudSpread={2.2}
         includeRatlines={!isEnemy}
+        isEnemy={isEnemy}
       />
       <group position={[0, hullDepth, length * 0.26]}>
-        <mesh position={[0, length * 0.38, 0]} castShadow>
+        <mesh position={[0, length * 0.38, 0]} castShadow={!isEnemy}>
           <cylinderGeometry args={[0.16, 0.28, length * 0.76, 8]} />
           <meshStandardMaterial color="#382013" />
         </mesh>
         <group position={[0, length * 0.36, 0]}>
-          <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+          <mesh rotation={[0, 0, Math.PI / 2]} castShadow={!isEnemy}>
             <cylinderGeometry args={[0.08, 0.08, width * 1.45, 8]} />
             <meshStandardMaterial color="#2d1c12" />
           </mesh>
@@ -245,29 +250,34 @@ export const GalleonModel: React.FC<SubModelProps> = React.memo(({
             geometry={lowerGeo}
             texture={sailTexture}
             sailState={sailState}
-            height={length * 0.25}
-            depthOffset={0.22}
+            height={length * 0.24}
+            depthOffset={0.2}
             type="square"
             mastIndex={0}
           />
         </group>
+        <mesh position={[0, length * 0.62, 0]} castShadow={!isEnemy}>
+          <cylinderGeometry args={[0.48, 0.38, 0.42, 8]} />
+          <meshStandardMaterial color="#1a110a" />
+        </mesh>
       </group>
 
       {/* 2. Mainmast with Standing Rigging */}
       <StandingRigging
-        mastPosition={[0, hullDepth, -length * 0.04]}
-        mastHeight={length * 0.84}
-        hullWidth={width * 0.96}
-        shroudSpread={2.3}
+        mastPosition={[0, hullDepth, -length * 0.06]}
+        mastHeight={length * 0.88}
+        hullWidth={width * 0.98}
+        shroudSpread={2.4}
         includeRatlines={!isEnemy}
+        isEnemy={isEnemy}
       />
-      <group position={[0, hullDepth, -length * 0.04]}>
-        <mesh position={[0, length * 0.42, 0]} castShadow>
-          <cylinderGeometry args={[0.18, 0.3, length * 0.84, 8]} />
+      <group position={[0, hullDepth, -length * 0.06]}>
+        <mesh position={[0, length * 0.44, 0]} castShadow={!isEnemy}>
+          <cylinderGeometry args={[0.18, 0.32, length * 0.88, 8]} />
           <meshStandardMaterial color="#382013" />
         </mesh>
-        <group position={[0, length * 0.40, 0]}>
-          <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+        <group position={[0, length * 0.42, 0]}>
+          <mesh rotation={[0, 0, Math.PI / 2]} castShadow={!isEnemy}>
             <cylinderGeometry args={[0.08, 0.08, width * 1.5, 8]} />
             <meshStandardMaterial color="#2d1c12" />
           </mesh>
@@ -282,7 +292,7 @@ export const GalleonModel: React.FC<SubModelProps> = React.memo(({
           />
         </group>
         <group position={[0, length * 0.72, 0]}>
-          <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+          <mesh rotation={[0, 0, Math.PI / 2]} castShadow={!isEnemy}>
             <cylinderGeometry args={[0.06, 0.06, width * 1.18, 8]} />
             <meshStandardMaterial color="#2d1c12" />
           </mesh>
@@ -306,14 +316,15 @@ export const GalleonModel: React.FC<SubModelProps> = React.memo(({
         hullWidth={width * 0.88}
         shroudSpread={1.8}
         includeRatlines={!isEnemy}
+        isEnemy={isEnemy}
       />
       <group position={[0, hullDepth + sheerStern * 0.7, -length * 0.32]}>
-        <mesh position={[0, length * 0.32, 0]} castShadow>
+        <mesh position={[0, length * 0.32, 0]} castShadow={!isEnemy}>
           <cylinderGeometry args={[0.14, 0.22, length * 0.64, 8]} />
           <meshStandardMaterial color="#382013" />
         </mesh>
         <group position={[0, length * 0.34, 0.1]} rotation={[-0.42, 0, 0]}>
-          <mesh castShadow>
+          <mesh castShadow={!isEnemy}>
             <cylinderGeometry args={[0.06, 0.06, length * 0.75, 8]} />
             <meshStandardMaterial color="#2d1c12" />
           </mesh>
@@ -330,7 +341,7 @@ export const GalleonModel: React.FC<SubModelProps> = React.memo(({
         </group>
       </group>
 
-      <RudderBlade length={length} rudderAngle={rudderAngle} />
+      <RudderBlade length={length} rudderAngle={rudderAngle} isEnemy={isEnemy} />
     </group>
   );
 });

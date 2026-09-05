@@ -3,6 +3,7 @@ import type { ShipSnapshot } from '@/types';
 export interface ShipEntityProps {
   ship: ShipSnapshot;
   isSelf: boolean;
+  isMobile?: boolean;
 }
 
 export interface DeadReckoningState {

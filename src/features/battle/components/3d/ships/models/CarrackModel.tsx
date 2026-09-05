@@ -129,25 +129,29 @@ export const CarrackModel: React.FC<SubModelProps> = React.memo(({
         {/* Dual Gargoyle Emerald Lanterns */}
         {[-width * 0.32, width * 0.32].map((lx, lIdx) => (
           <group key={`lan-${lIdx}`} position={[lx, 1.3, -length * 0.15]}>
-            <mesh castShadow>
+            <mesh castShadow={!isEnemy}>
               <cylinderGeometry args={[0.14, 0.2, 0.5, 6]} />
               <meshStandardMaterial color="#34d399" emissive="#10b981" emissiveIntensity={2.0} metalness={0.8} />
             </mesh>
-            <pointLight color="#34d399" intensity={1.5} distance={9} decay={2} />
+            {!isEnemy && <pointLight color="#34d399" intensity={1.5} distance={9} decay={2} />}
           </group>
         ))}
-        <ShipHelm position={[0, 1.4, length * 0.08]} rudderAngle={rudderAngle} />
+        {!isEnemy && <ShipHelm position={[0, 1.4, length * 0.08]} rudderAngle={rudderAngle} />}
       </group>
 
-      {/* Deck Hardware: Cargo Hatches & Capstan */}
-      <CargoHatch position={[0, hullDepth + 0.05, length * 0.12]} width={width * 0.36} length={length * 0.14} />
-      <NavalCapstan position={[0, hullDepth + sheerBow * 0.45, length * 0.38]} scale={0.95} />
-      <MooringBitts position={[0, hullDepth + sheerBow * 0.65, length * 0.44]} width={0.65} />
+      {/* Deck Hardware: Cargo Hatches & Capstan (Player only) */}
+      {!isEnemy && (
+        <>
+          <CargoHatch position={[0, hullDepth + 0.05, length * 0.12]} width={width * 0.36} length={length * 0.14} />
+          <NavalCapstan position={[0, hullDepth + sheerBow * 0.45, length * 0.38]} scale={0.95} />
+          <MooringBitts position={[0, hullDepth + sheerBow * 0.65, length * 0.44]} width={0.65} />
+        </>
+      )}
 
-      <BroadsideCannons positions={cannonPositions} width={width * 0.95} y={hullDepth + 0.12} color="#052e16" />
+      <BroadsideCannons positions={cannonPositions} width={width * 0.95} y={hullDepth + 0.12} color="#052e16" isEnemy={isEnemy} />
 
       {/* Bowsprit */}
-      <mesh position={[0, hullDepth + sheerBow + 0.25, length * 0.5 + 2.7]} rotation={[0.36, 0, 0]} castShadow>
+      <mesh position={[0, hullDepth + sheerBow + 0.25, length * 0.5 + 2.7]} rotation={[0.36, 0, 0]} castShadow={!isEnemy}>
         <cylinderGeometry args={[0.1, 0.22, 5.6, 8]} />
         <meshStandardMaterial color="#1e1b18" roughness={0.9} />
       </mesh>
@@ -163,15 +167,16 @@ export const CarrackModel: React.FC<SubModelProps> = React.memo(({
               hullWidth={width * 0.96}
               shroudSpread={2.1}
               includeRatlines={!isEnemy}
+              isEnemy={isEnemy}
               color="#18181b"
             />
             <group position={[0, hullDepth, mastZ]}>
-              <mesh position={[0, mastHeight * 0.5, 0]} castShadow>
+              <mesh position={[0, mastHeight * 0.5, 0]} castShadow={!isEnemy}>
                 <cylinderGeometry args={[0.18, 0.3, mastHeight, 8]} />
                 <meshStandardMaterial color="#1e1b18" roughness={0.9} />
               </mesh>
               <group position={[0, mastHeight * 0.46, 0]}>
-                <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+                <mesh rotation={[0, 0, Math.PI / 2]} castShadow={!isEnemy}>
                   <cylinderGeometry args={[0.08, 0.08, width * 1.42, 8]} />
                   <meshStandardMaterial color="#18181b" />
                 </mesh>
@@ -186,7 +191,7 @@ export const CarrackModel: React.FC<SubModelProps> = React.memo(({
                 />
               </group>
               <group position={[0, mastHeight * 0.83, 0]}>
-                <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+                <mesh rotation={[0, 0, Math.PI / 2]} castShadow={!isEnemy}>
                   <cylinderGeometry args={[0.06, 0.06, width * 1.15, 8]} />
                   <meshStandardMaterial color="#18181b" />
                 </mesh>
@@ -200,17 +205,17 @@ export const CarrackModel: React.FC<SubModelProps> = React.memo(({
                   mastIndex={mIdx * 2 + 1}
                 />
               </group>
-              <mesh position={[0, mastHeight * 0.65, 0]} castShadow>
+              <mesh position={[0, mastHeight * 0.66, 0]} castShadow={!isEnemy}>
                 <cylinderGeometry args={[0.55, 0.42, 0.48, 8]} />
-                <meshStandardMaterial color="#09090b" />
+                <meshStandardMaterial color="#0c0a09" />
               </mesh>
-              {mIdx === 2 && <ShipFlag position={[0, mastHeight + 0.48, -0.65]} isEnemy={isEnemy} isGhost />}
+              {mIdx === 2 && <ShipFlag position={[0, mastHeight + 0.45, -0.6]} isEnemy={isEnemy} />}
             </group>
           </React.Fragment>
         );
       })}
 
-      <RudderBlade length={length} rudderAngle={rudderAngle} />
+      <RudderBlade length={length} rudderAngle={rudderAngle} isEnemy={isEnemy} />
     </group>
   );
 });

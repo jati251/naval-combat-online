@@ -180,24 +180,33 @@ export const ManOWarModel: React.FC<SubModelProps> = React.memo(({
         {/* 3 Giant Admiral Lanterns on High Stern */}
         {[-width * 0.35, 0, width * 0.35].map((lx, lIdx) => (
           <group key={`lan-${lIdx}`} position={[lx, 2.9, -length * 0.14]}>
-            <mesh castShadow>
+            <mesh castShadow={!isEnemy}>
               <cylinderGeometry args={[0.16, 0.24, 0.6, 6]} />
               <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={1.5} metalness={0.9} />
             </mesh>
-            <pointLight color="#fbbf24" intensity={1.1} distance={9} decay={2} />
+            {!isEnemy && <pointLight color="#fbbf24" intensity={1.1} distance={9} decay={2} />}
           </group>
         ))}
 
-        <ShipHelm position={[0, 1.45, length * 0.06]} rudderAngle={rudderAngle} isDouble />
+        {!isEnemy && <ShipHelm position={[0, 1.45, length * 0.06]} rudderAngle={rudderAngle} isDouble />}
       </group>
 
-      <BowCatheadAnchors width={width} z={length * 0.45} />
+      {/* Heavy Deck Hardware (Player only) */}
+      {!isEnemy && (
+        <>
+          <CargoHatch position={[0, hullDepth + 0.05, -length * 0.02]} width={width * 0.38} length={length * 0.13} />
+          <CargoHatch position={[0, hullDepth + 0.05, length * 0.22]} width={width * 0.38} length={length * 0.13} />
+          <NavalCapstan position={[0, hullDepth + sheerBow * 0.35, length * 0.38]} scale={1.15} />
+          <MooringBitts position={[0, hullDepth + sheerBow * 0.6, length * 0.46]} width={0.8} />
+          <BowCatheadAnchors width={width} z={length * 0.45} />
+        </>
+      )}
 
       {/* 16 Heavy Cannons Total with Double-Decker Ports */}
-      <BroadsideCannons positions={cannonPositions} width={width * 0.95} y={hullDepth + 0.15} scale={1.1} isDoubleDecker />
+      <BroadsideCannons positions={cannonPositions} width={width * 0.95} y={hullDepth + 0.15} scale={1.1} isDoubleDecker isEnemy={isEnemy} />
 
       {/* Heavy Bowsprit */}
-      <mesh position={[0, hullDepth + sheerBow + 0.35, length * 0.5 + 3.0]} rotation={[0.34, 0, 0]} castShadow>
+      <mesh position={[0, hullDepth + sheerBow + 0.35, length * 0.5 + 3.0]} rotation={[0.34, 0, 0]} castShadow={!isEnemy}>
         <cylinderGeometry args={[0.12, 0.24, 6.2, 8]} />
         <meshStandardMaterial color="#382013" roughness={0.8} />
       </mesh>
@@ -222,14 +231,15 @@ export const ManOWarModel: React.FC<SubModelProps> = React.memo(({
               hullWidth={width * 0.96}
               shroudSpread={2.4}
               includeRatlines={!isEnemy}
+              isEnemy={isEnemy}
             />
             <group position={[0, hullDepth, mastZ]}>
-              <mesh position={[0, mastHeight * 0.5, 0]} castShadow>
+              <mesh position={[0, mastHeight * 0.5, 0]} castShadow={!isEnemy}>
                 <cylinderGeometry args={[0.22, 0.35, mastHeight, 8]} />
                 <meshStandardMaterial color="#382013" />
               </mesh>
               <group position={[0, mastHeight * 0.46, 0]}>
-                <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+                <mesh rotation={[0, 0, Math.PI / 2]} castShadow={!isEnemy}>
                   <cylinderGeometry args={[0.09, 0.09, width * 1.5, 8]} />
                   <meshStandardMaterial color="#2d1c12" />
                 </mesh>
@@ -244,7 +254,7 @@ export const ManOWarModel: React.FC<SubModelProps> = React.memo(({
                 />
               </group>
               <group position={[0, mastHeight * 0.83, 0]}>
-                <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+                <mesh rotation={[0, 0, Math.PI / 2]} castShadow={!isEnemy}>
                   <cylinderGeometry args={[0.07, 0.07, width * 1.2, 8]} />
                   <meshStandardMaterial color="#2d1c12" />
                 </mesh>
@@ -258,7 +268,7 @@ export const ManOWarModel: React.FC<SubModelProps> = React.memo(({
                   mastIndex={mIdx * 2 + 1}
                 />
               </group>
-              <mesh position={[0, mastHeight * 0.66, 0]} castShadow>
+              <mesh position={[0, mastHeight * 0.66, 0]} castShadow={!isEnemy}>
                 <cylinderGeometry args={[0.6, 0.45, 0.5, 8]} />
                 <meshStandardMaterial color="#1a110a" />
               </mesh>
@@ -268,7 +278,7 @@ export const ManOWarModel: React.FC<SubModelProps> = React.memo(({
         );
       })}
 
-      <RudderBlade length={length} rudderAngle={rudderAngle} />
+      <RudderBlade length={length} rudderAngle={rudderAngle} isEnemy={isEnemy} />
     </group>
   );
 });

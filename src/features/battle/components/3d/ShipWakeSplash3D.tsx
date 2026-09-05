@@ -67,6 +67,8 @@ interface ShipWakeSplash3DProps {
   shipId: string;
   shipLength?: number;
   shipWidth?: number;
+  isEnemy?: boolean;
+  isMobile?: boolean;
 }
 
 interface BubbleParticle {
@@ -85,16 +87,20 @@ interface BubbleParticle {
 /**
  * Lightweight 2D Water Bubbles & Stern Froth for Player & Opponent vessels.
  * Directly reads real-time speed & rudder in useFrame to eliminate memoization starvation.
+ * Includes dynamic distance culling and mobile LOD budgets to prevent CPU/GPU stall.
  */
 export const ShipWakeSplash3D: React.FC<ShipWakeSplash3DProps> = React.memo(({
   shipId,
   shipLength = 18,
   shipWidth = 6.0,
+  isEnemy = false,
+  isMobile = false,
 }) => {
   const texture = useMemo(() => getBubbleTexture(), []);
   const pointsRef = useRef<THREE.Points>(null);
 
-  const count = 55; // Crisp, balanced bubble budget per vessel
+  // Scaled particle budget: opponents & mobile get leaner budgets
+  const count = isEnemy ? (isMobile ? 12 : 22) : (isMobile ? 28 : 55);
   const particles = useRef<BubbleParticle[]>([]);
 
   // Initial buffer allocation
@@ -122,7 +128,7 @@ export const ShipWakeSplash3D: React.FC<ShipWakeSplash3DProps> = React.memo(({
 
   const emitAccumulator = useRef(0);
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     if (!pointsRef.current) return;
 
     // Fetch live state from Zustand on every frame (bypasses parent React.memo prop stagnation)
@@ -132,6 +138,19 @@ export const ShipWakeSplash3D: React.FC<ShipWakeSplash3DProps> = React.memo(({
       if (pointsRef.current.visible) pointsRef.current.visible = false;
       return;
     }
+
+    // Distance Culling: Opponents beyond wake visibility distance require zero CPU simulation or buffer uploads
+    const cameraPos = state.camera.position;
+    const dx = cameraPos.x - curShip.x;
+    const dz = cameraPos.z - curShip.z;
+    const distSq = dx * dx + dz * dz;
+    const maxWakeDist = isEnemy ? (isMobile ? 55 : 85) : 150;
+
+    if (distSq > maxWakeDist * maxWakeDist) {
+      if (pointsRef.current.visible) pointsRef.current.visible = false;
+      return;
+    }
+
     if (!pointsRef.current.visible) pointsRef.current.visible = true;
 
     const currentSpeed = Math.max(0, curShip.speed ?? 0);

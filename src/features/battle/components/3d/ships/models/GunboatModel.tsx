@@ -103,11 +103,11 @@ export const GunboatModel: React.FC<SubModelProps> = React.memo(({
         </mesh>
       </group>
 
-      {/* Mooring Bitts at Fore and Aft */}
-      <MooringBitts position={[0, hullDepth + 0.15, length * 0.28]} width={0.4} />
+      {/* Mooring Bitts at Fore and Aft (Player only) */}
+      {!isEnemy && <MooringBitts position={[0, hullDepth + 0.15, length * 0.28]} width={0.4} />}
 
       {/* 1 Broadside Swivel per Side */}
-      <BroadsideCannons positions={[0]} width={width * 0.95} y={hullDepth + 0.05} scale={0.85} />
+      <BroadsideCannons positions={[0]} width={width * 0.95} y={hullDepth + 0.05} scale={0.85} isEnemy={isEnemy} />
 
       {/* Standing Rigging & Shrouds for Raked Mast */}
       <StandingRigging
@@ -116,16 +116,17 @@ export const GunboatModel: React.FC<SubModelProps> = React.memo(({
         hullWidth={width * 0.96}
         shroudSpread={1.2}
         includeRatlines={false}
+        isEnemy={isEnemy}
       />
 
       {/* Mediterranean Raked Mast & Lateen Yardarm */}
       <group position={[0, hullDepth, mastZ]} rotation={[0.12, 0, 0]}>
-        <mesh position={[0, mastH * 0.42, 0]} castShadow>
+        <mesh position={[0, mastH * 0.42, 0]} castShadow={!isEnemy}>
           <cylinderGeometry args={[0.11, 0.2, mastH * 0.88, 8]} />
           <meshStandardMaterial color="#382013" roughness={0.8} />
         </mesh>
         <group position={[0, mastH * 0.48, 0.1]} rotation={[-0.48, 0, 0]}>
-          <mesh castShadow>
+          <mesh castShadow={!isEnemy}>
             <cylinderGeometry args={[0.07, 0.07, length * 1.1, 8]} />
             <meshStandardMaterial color="#2d1c12" roughness={0.8} />
           </mesh>
@@ -150,7 +151,7 @@ export const GunboatModel: React.FC<SubModelProps> = React.memo(({
         </mesh>
       </group>
 
-      <RudderBlade length={length} rudderAngle={rudderAngle} />
+      <RudderBlade length={length} rudderAngle={rudderAngle} isEnemy={isEnemy} />
     </group>
   );
 });

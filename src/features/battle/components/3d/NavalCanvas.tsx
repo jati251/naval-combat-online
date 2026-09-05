@@ -20,7 +20,7 @@ const BattleCameraRig: React.FC = () => {
   return null;
 };
 
-const FleetEntities: React.FC = React.memo(() => {
+const FleetEntities: React.FC<{ isMobile: boolean }> = React.memo(({ isMobile }) => {
   const ships = useGameStore((s) => s.ships);
   const selfId = useGameStore((s) => s.selfId);
   const hasSelfShip = useGameStore((s) => s.ships.some((ship) => ship.id === s.selfId && !ship.isSunk));
@@ -29,7 +29,12 @@ const FleetEntities: React.FC = React.memo(() => {
     <>
       {!hasSelfShip && <BattleCameraRig />}
       {ships.map((ship) => (
-        <ShipEntity key={ship.id} ship={ship} isSelf={ship.id === selfId} />
+        <ShipEntity
+          key={ship.id}
+          ship={ship}
+          isSelf={ship.id === selfId}
+          isMobile={isMobile}
+        />
       ))}
     </>
   );
@@ -79,7 +84,7 @@ export const NavalCanvas: React.FC = React.memo(() => {
         <MapBoundary3D isMobile={isMobile} />
         {!isMobile && !isNight && <CaribbeanSeabirds3D />}
         {!isMobile && <OceanAtmosphereParticles3D />}
-        <FleetEntities />
+        <FleetEntities isMobile={isMobile} />
         <CannonEntities isMobile={isMobile} />
       </Canvas>
     </div>
