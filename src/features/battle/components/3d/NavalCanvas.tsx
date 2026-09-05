@@ -12,13 +12,16 @@ import { CaribbeanSeabirds3D } from './CaribbeanSeabirds3D';
 import { OceanAtmosphereParticles3D } from './OceanAtmosphereParticles3D';
 import { useGameStore } from '@/stores/useGameStore';
 import { useBattleCamera } from '../../hooks/useBattleCamera';
+import { CONTROL_CONFIG } from '../../utils/controls';
 import type { ShipSnapshot } from '@/types/game';
 
+function shortestAngleDiff(from: number, to: number): number {
+  const diff = (to - from) % (Math.PI * 2);
+  return ((diff + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+}
+
 function lerpAngle(current: number, target: number, alpha: number): number {
-  let diff = (target - current) % (Math.PI * 2);
-  if (diff > Math.PI) diff -= Math.PI * 2;
-  if (diff < -Math.PI) diff += Math.PI * 2;
-  return current + diff * alpha;
+  return current + shortestAngleDiff(current, target) * alpha;
 }
 
 interface ShipEntityProps {
@@ -30,6 +33,11 @@ const ShipEntity: React.FC<ShipEntityProps> = ({ ship, isSelf }) => {
   const groupRef = useRef<THREE.Group>(null);
   const [showNameplate, setShowNameplate] = useState(isSelf);
   const frameCount = useRef(Math.floor(Math.random() * 6));
+  const isInitialized = useRef(false);
+
+  const aimDirection = useGameStore((s) => s.aimDirection);
+  const currentAimSide = useRef(0);
+  const currentAimFwd = useRef(0);
 
   // Smooth interpolation towards server snapshot with game dev distance culling
   useFrame(({ camera }, delta) => {
@@ -62,15 +70,57 @@ const ShipEntity: React.FC<ShipEntityProps> = ({ ship, isSelf }) => {
     // Natural ship draft seating with proud freeboard above ocean swells
     const targetY = ship.isSunk ? ship.y : ship.y + 0.85;
 
-    // Position interpolation (lerp)
-    groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, ship.x, Math.min(1.0, 16 * delta));
-    groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, targetY, Math.min(1.0, 16 * delta));
-    groupRef.current.position.z = THREE.MathUtils.lerp(groupRef.current.position.z, ship.z, Math.min(1.0, 16 * delta));
+    // First frame initialization (snap without initial lerp sweep)
+    if (!isInitialized.current) {
+      groupRef.current.position.set(ship.x, targetY, ship.z);
+      groupRef.current.rotation.y = ship.rotationY;
+      groupRef.current.rotation.x = ship.pitch;
+      groupRef.current.rotation.z = ship.roll;
+      isInitialized.current = true;
+    } else {
+      // High-precision smooth transform interpolation
+      groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, ship.x, Math.min(1.0, 16 * delta));
+      groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, targetY, Math.min(1.0, 16 * delta));
+      groupRef.current.position.z = THREE.MathUtils.lerp(groupRef.current.position.z, ship.z, Math.min(1.0, 16 * delta));
 
-    // Rotation interpolation with shortest-arc angle wrapping
-    groupRef.current.rotation.y = lerpAngle(groupRef.current.rotation.y, ship.rotationY, Math.min(1.0, 14 * delta));
-    groupRef.current.rotation.x = THREE.MathUtils.lerp(groupRef.current.rotation.x, ship.pitch, Math.min(1.0, 10 * delta));
-    groupRef.current.rotation.z = THREE.MathUtils.lerp(groupRef.current.rotation.z, ship.roll, Math.min(1.0, 10 * delta));
+      // Continuous shortest-arc angle wrapping
+      groupRef.current.rotation.y = lerpAngle(groupRef.current.rotation.y, ship.rotationY, Math.min(1.0, 14 * delta));
+      groupRef.current.rotation.x = THREE.MathUtils.lerp(groupRef.current.rotation.x, ship.pitch, Math.min(1.0, 10 * delta));
+      groupRef.current.rotation.z = THREE.MathUtils.lerp(groupRef.current.rotation.z, ship.roll, Math.min(1.0, 10 * delta));
+    }
+
+    // 100% Lockstep Chase Camera: Eliminates all 30Hz server tick snapping & rotational jitter
+    if (isSelf) {
+      const heading = groupRef.current.rotation.y;
+      const sinH = Math.sin(heading);
+      const cosH = Math.cos(heading);
+
+      let targetSide = 0;
+      let targetFwd = 0;
+      if (aimDirection === 'port') {
+        targetSide = -CONTROL_CONFIG.CAMERA_AIM_SIDE_OFFSET;
+        targetFwd = CONTROL_CONFIG.CAMERA_AIM_FORWARD_OFFSET;
+      } else if (aimDirection === 'starboard') {
+        targetSide = CONTROL_CONFIG.CAMERA_AIM_SIDE_OFFSET;
+        targetFwd = CONTROL_CONFIG.CAMERA_AIM_FORWARD_OFFSET;
+      }
+
+      currentAimSide.current = THREE.MathUtils.lerp(currentAimSide.current, targetSide, Math.min(1.0, 8 * delta));
+      currentAimFwd.current = THREE.MathUtils.lerp(currentAimFwd.current, targetFwd, Math.min(1.0, 8 * delta));
+
+      const sOffset = currentAimSide.current;
+      const fOffset = currentAimFwd.current;
+
+      const posX = groupRef.current.position.x;
+      const posY = groupRef.current.position.y;
+      const posZ = groupRef.current.position.z;
+
+      camera.position.x = posX - sinH * CONTROL_CONFIG.CAMERA_DISTANCE + cosH * sOffset + sinH * fOffset;
+      camera.position.y = posY + CONTROL_CONFIG.CAMERA_HEIGHT;
+      camera.position.z = posZ - cosH * CONTROL_CONFIG.CAMERA_DISTANCE - sinH * sOffset + cosH * fOffset;
+
+      camera.lookAt(posX + sinH * 6, posY + 3.5, posZ + cosH * 6);
+    }
   });
 
   const hpPercent = Math.max(0, Math.min(100, (ship.health / ship.maxHealth) * 100));
@@ -141,7 +191,7 @@ export const NavalCanvas: React.FC = () => {
         <MapBoundary3D />
         <CaribbeanSeabirds3D />
         <OceanAtmosphereParticles3D />
-        <CameraRig />
+        {(!selfId || !ships.some((s) => s.id === selfId && !s.isSunk)) && <CameraRig />}
 
         {/* Render Ships */}
         {ships.map((ship) => (

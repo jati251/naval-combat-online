@@ -56,18 +56,26 @@ export function useShipControls() {
       // Smooth interpolation towards steer target
       currentRudder.current = THREE.MathUtils.lerp(currentRudder.current, steerTarget, dt * 6.0);
 
-      // Throttled network sync (~20Hz or on significant change)
+      // Continuous, rock-solid network sync (~20Hz) when steering
       if (now - lastNetworkSync.current >= 50) {
-        lastNetworkSync.current = now;
-        const diff = Math.abs(currentRudder.current - lastSentRudder.current);
-        if (diff > 0.02 || (steerTarget === 0 && Math.abs(currentRudder.current) < 0.03)) {
-          if (steerTarget === 0 && Math.abs(currentRudder.current) < 0.03) {
+        const isActivelySteering = steerTarget !== 0 || Math.abs(currentRudder.current) > 0.005;
+        const rudderChanged = Math.abs(currentRudder.current - lastSentRudder.current) > 0.004;
+
+        if (isActivelySteering && rudderChanged) {
+          lastNetworkSync.current = now;
+          if (steerTarget === 0 && Math.abs(currentRudder.current) < 0.015) {
             currentRudder.current = 0;
           }
           lastSentRudder.current = currentRudder.current;
           setLocalRudder(currentRudder.current);
           // Inverted sign sent to server physics to correctly turn Port on A and Starboard on D
           networkClient.sendInput(-currentRudder.current, useGameStore.getState().localSail);
+        } else if (!isActivelySteering && lastSentRudder.current !== 0) {
+          lastNetworkSync.current = now;
+          currentRudder.current = 0;
+          lastSentRudder.current = 0;
+          setLocalRudder(0);
+          networkClient.sendInput(0, useGameStore.getState().localSail);
         }
       }
 
