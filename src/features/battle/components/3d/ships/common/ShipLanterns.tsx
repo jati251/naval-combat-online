@@ -37,25 +37,25 @@ export const ShipLanterns: React.FC<ShipLanternsProps> = React.memo(({ shipClass
       amberGlassMat: new THREE.MeshStandardMaterial({
         color: isNight ? '#ffb703' : '#b47b2c',
         emissive: isNight ? '#ff9e00' : '#000000',
-        emissiveIntensity: isNight ? 1.6 : 0,
+        emissiveIntensity: isNight ? 2.8 : 0,
         transparent: true,
-        opacity: 0.88,
+        opacity: 0.92,
         roughness: 0.15,
       }),
       leftRedGlassMat: new THREE.MeshStandardMaterial({
         color: isNight ? '#ef4444' : '#7f1d1d',
         emissive: isNight ? '#dc2626' : '#000000',
-        emissiveIntensity: isNight ? 1.8 : 0,
+        emissiveIntensity: isNight ? 2.6 : 0,
         transparent: true,
-        opacity: 0.88,
+        opacity: 0.92,
         roughness: 0.15,
       }),
       rightGreenGlassMat: new THREE.MeshStandardMaterial({
         color: isNight ? '#22c55e' : '#14532d',
         emissive: isNight ? '#16a34a' : '#000000',
-        emissiveIntensity: isNight ? 1.8 : 0,
+        emissiveIntensity: isNight ? 2.6 : 0,
         transparent: true,
-        opacity: 0.88,
+        opacity: 0.92,
         roughness: 0.15,
       }),
     };
@@ -70,44 +70,69 @@ export const ShipLanterns: React.FC<ShipLanternsProps> = React.memo(({ shipClass
 
   return (
     <group>
-      {/* 1. Large Stern Center Transom Lantern */}
+      {/* 1. Large Stern Center Transom Admiral Lantern */}
       <group position={[0, sternY, sternZ]}>
         <mesh geometry={lanternCasingGeo} material={brassMat} />
         <mesh geometry={lanternGlassGeo} material={amberGlassMat} />
-        {isNight && !isEnemy && (
-          <pointLight
-            color="#ffaa00"
-            intensity={1.4}
-            distance={14}
-            decay={2}
-          />
+        {isNight && (
+          <>
+            {/* Luminous soft halo corona around lantern glass */}
+            <mesh scale={[1.8, 1.8, 1.8]}>
+              <sphereGeometry args={[0.22, 10, 8]} />
+              <meshBasicMaterial
+                color="#ffaa00"
+                transparent
+                opacity={0.35}
+                depthWrite={false}
+                blending={THREE.AdditiveBlending}
+              />
+            </mesh>
+            <pointLight
+              color="#ffaa22"
+              intensity={isEnemy ? 1.5 : 2.4}
+              distance={isEnemy ? 14 : 20}
+              decay={1.5}
+            />
+          </>
         )}
       </group>
 
-      {/* 2. Bow Left Running Light (Red, Left side of ship) */}
+      {/* 2. Quarterdeck / Main Deck Binnacle Lantern (Illuminates player ship deck, helm & cannons) */}
+      {isNight && !isEnemy && (
+        <group position={[0, sternY * 0.75 + 1.2, sternZ + halfLen * 0.4]}>
+          <pointLight
+            color="#ffba3b"
+            intensity={2.8}
+            distance={22}
+            decay={1.3}
+          />
+        </group>
+      )}
+
+      {/* 3. Bow Left Running Light (Red, Port side) */}
       <group position={[-bowX, bowY, bowZ]}>
         <mesh geometry={lanternCasingGeo} material={brassMat} scale={[0.7, 0.7, 0.7]} />
         <mesh geometry={lanternGlassGeo} material={leftRedGlassMat} scale={[0.7, 0.7, 0.7]} />
         {isNight && !isEnemy && (
           <pointLight
             color="#ef4444"
-            intensity={0.6}
-            distance={8}
-            decay={2}
+            intensity={1.0}
+            distance={10}
+            decay={1.8}
           />
         )}
       </group>
 
-      {/* 3. Bow Right Running Light (Green, Right side of ship) */}
+      {/* 4. Bow Right Running Light (Green, Starboard side) */}
       <group position={[bowX, bowY, bowZ]}>
         <mesh geometry={lanternCasingGeo} material={brassMat} scale={[0.7, 0.7, 0.7]} />
         <mesh geometry={lanternGlassGeo} material={rightGreenGlassMat} scale={[0.7, 0.7, 0.7]} />
         {isNight && !isEnemy && (
           <pointLight
             color="#22c55e"
-            intensity={0.6}
-            distance={8}
-            decay={2}
+            intensity={1.0}
+            distance={10}
+            decay={1.8}
           />
         )}
       </group>

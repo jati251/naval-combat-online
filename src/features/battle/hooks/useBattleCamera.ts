@@ -49,6 +49,7 @@ export const useBattleCamera = () => {
       shipZ: smoothPos.current.z,
       shipHeading: smoothHeading.current,
       shipSpeed: targetShip.speed ?? 0,
+      sailState: targetShip.sail,
       aimDirection: selfShip ? aimDirection : 'none',
       cameraState: cameraState.current,
       shakeEvent: selfShip ? cameraShake : null,

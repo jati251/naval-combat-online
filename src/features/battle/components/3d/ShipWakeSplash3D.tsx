@@ -96,6 +96,8 @@ export const ShipWakeSplash3D: React.FC<ShipWakeSplash3DProps> = React.memo(({
   isEnemy = false,
   isMobile = false,
 }) => {
+  const timeOfDay = useGameStore((s) => s.timeOfDay);
+  const isNight = timeOfDay === 'NIGHT';
   const texture = useMemo(() => getBubbleTexture(), []);
   const pointsRef = useRef<THREE.Points>(null);
 
@@ -261,9 +263,9 @@ export const ShipWakeSplash3D: React.FC<ShipWakeSplash3DProps> = React.memo(({
         transparent
         depthWrite={false}
         blending={THREE.NormalBlending}
-        opacity={0.92}
-        color="#ffffff"
-        size={3.2}
+        opacity={isNight ? 0.48 : 0.92}
+        color={isNight ? '#769ec9' : '#ffffff'}
+        size={isNight ? 2.5 : 3.2}
         sizeAttenuation
       />
     </points>

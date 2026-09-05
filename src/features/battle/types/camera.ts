@@ -13,5 +13,7 @@ export interface CameraState {
   currentAimSide: number;
   currentAimFwd: number;
   currentAimLookSide: number;
+  currentSailDistOffset: number;
+  currentSailHeightOffset: number;
   lastTargetFov: number;
 }

@@ -42,14 +42,14 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
     return new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
-        uDeepWaterColor: { value: new THREE.Color(isNight ? '#041026' : '#014f86') },
-        uMidWaterColor: { value: new THREE.Color(isNight ? '#081c38' : '#0077b6') },
-        uShallowColor: { value: new THREE.Color(isNight ? '#0b2545' : '#0096c7') },
-        uLagoonColor: { value: new THREE.Color(isNight ? '#133863' : '#059669') },
-        uCrestGlowColor: { value: new THREE.Color(isNight ? '#385f8a' : '#00b4d8') },
-        uSubsurfaceColor: { value: new THREE.Color(isNight ? '#0d2744' : '#00e5ff') },
-        uFoamColor: { value: new THREE.Color(isNight ? '#cbd5e1' : '#ffffff') },
-        uSunColor: { value: new THREE.Color(isNight ? '#c5daf8' : '#fffbeb') },
+        uDeepWaterColor: { value: new THREE.Color(isNight ? '#082040' : '#014f86') },
+        uMidWaterColor: { value: new THREE.Color(isNight ? '#0f3566' : '#0077b6') },
+        uShallowColor: { value: new THREE.Color(isNight ? '#154c8a' : '#0096c7') },
+        uLagoonColor: { value: new THREE.Color(isNight ? '#185880' : '#059669') },
+        uCrestGlowColor: { value: new THREE.Color(isNight ? '#3f78b8' : '#00b4d8') },
+        uSubsurfaceColor: { value: new THREE.Color(isNight ? '#18548a' : '#00e5ff') },
+        uFoamColor: { value: new THREE.Color(isNight ? '#769ec9' : '#ffffff') },
+        uSunColor: { value: new THREE.Color(isNight ? '#c2d8f5' : '#fffbeb') },
         uSkyHorizonColor: { value: new THREE.Color(isNight ? NIGHT_FOG_COLOR : FOG_COLOR) },
         uLightDir: { value: new THREE.Vector3(70, 140, -50).normalize() },
         uIslandPos: { value: islandPositions },
@@ -58,7 +58,8 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
         uShipHeading: { value: 0 },
         uShipSpeed: { value: 0 },
         uIsMobile: { value: isMobile ? 1.0 : 0.0 },
-        uFogDensity: { value: isMobile ? (isNight ? 0.0028 : 0.0018) : (isNight ? 0.0022 : 0.0014) },
+        uIsNight: { value: isNight ? 1.0 : 0.0 },
+        uFogDensity: { value: isMobile ? (isNight ? 0.0015 : 0.0013) : (isNight ? 0.0011 : 0.0010) },
       },
       vertexShader: `
         uniform float uTime;
@@ -159,6 +160,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
         uniform float uShipHeading;
         uniform float uShipSpeed;
         uniform float uIsMobile;
+        uniform float uIsNight;
         uniform float uFogDensity;
 
         varying vec3 vNormal;
@@ -307,10 +309,10 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
             // Normalized depth gradient: 0.0 at shore water edge, 1.0 at deep sea
             float shoreDepthT = smoothstep(0.0, 48.0, max(0.0, minDistToShore));
 
-            // AC Black Flag Tropical Palette
-            vec3 caribbeanTurquoise = vec3(0.02, 0.62, 0.76); // luminous turquoise reef
-            vec3 crystalCyan        = vec3(0.05, 0.80, 0.86); // shallow crystal clear water
-            vec3 goldenSandBed      = vec3(0.82, 0.68, 0.44); // warm golden sand seabed
+            // AC Black Flag Tropical Palette (blended smoothly into nocturnal waters at night)
+            vec3 caribbeanTurquoise = mix(vec3(0.02, 0.62, 0.76), vec3(0.05, 0.22, 0.36), uIsNight);
+            vec3 crystalCyan        = mix(vec3(0.05, 0.80, 0.86), vec3(0.08, 0.27, 0.42), uIsNight);
+            vec3 goldenSandBed      = mix(vec3(0.82, 0.68, 0.44), vec3(0.25, 0.23, 0.20), uIsNight);
 
             // Smooth continuous water column transition
             vec3 reefTransition = mix(crystalCyan, caribbeanTurquoise, smoothstep(2.5, 18.0, minDistToShore));
@@ -318,11 +320,11 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
 
             // Optical seabed transmission: near the sand edge (< 6m), sand floor is visible through crystal water
             float sandVisibility = 1.0 - smoothstep(-1.0, 6.0, minDistToShore);
-            vec3 shoreBlend = mix(reefTransition, goldenSandBed * 0.40 + crystalCyan * 0.60, sandVisibility * 0.85);
+            vec3 shoreBlend = mix(reefTransition, goldenSandBed * 0.40 + crystalCyan * 0.60, sandVisibility * (uIsNight > 0.5 ? 0.40 : 0.85));
 
             waterColor = mix(shoreBlend, deepOceanColor, shoreDepthT);
           } else {
-            waterColor = mix(waterColor, uCrestGlowColor, smoothstep(0.70, 1.0, waveMod) * 0.28);
+            waterColor = mix(waterColor, uCrestGlowColor, smoothstep(0.70, 1.0, waveMod) * (uIsNight > 0.5 ? 0.34 : 0.28));
           }
 
           // 4. DISTANCE LOD: Subsurface Scattering (Only computed within 220m, simplified on mobile)
@@ -332,32 +334,34 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
             float sssFactor = pow(max(dot(viewDir, -sssLightDir), 0.0), 3.2);
             float crestThickness = smoothstep(0.20, 1.1, vWaveHeight);
             float sssDistFade = 1.0 - smoothstep(uIsMobile > 0.5 ? 40.0 : 120.0, uIsMobile > 0.5 ? 80.0 : 220.0, camDist);
-            sss = uSubsurfaceColor * (sssFactor * crestThickness * 0.85 * sssDistFade);
+            sss = uSubsurfaceColor * (sssFactor * crestThickness * (uIsNight > 0.5 ? 0.92 : 0.85) * sssDistFade);
           }
 
           // 5. Accurate Physical Fresnel & Sky Reflection (Deep rich Caribbean water, no white wash)
           float NdotV = max(dot(viewDir, normal), 0.0);
           float fresnel = 0.02 + 0.98 * pow(1.0 - NdotV, 5.0);
-          vec3 skyReflection = mix(vec3(0.04, 0.28, 0.55), vec3(0.20, 0.55, 0.85), fresnel);
+          vec3 daySkyRefl = mix(vec3(0.04, 0.28, 0.55), vec3(0.20, 0.55, 0.85), fresnel);
+          vec3 nightSkyRefl = mix(vec3(0.03, 0.09, 0.19), vec3(0.08, 0.19, 0.36), fresnel);
+          vec3 skyReflection = mix(daySkyRefl, nightSkyRefl, uIsNight);
 
-          vec3 baseShaded = mix(waterColor + sss, skyReflection, fresnel * 0.28);
+          vec3 baseShaded = mix(waterColor + sss, skyReflection, fresnel * (uIsNight > 0.5 ? 0.28 : 0.28));
 
-          // 6. DISTANCE LOD: Sun Glitter Specular Highlight (Rich, sparkling path without white washing horizon)
+          // 6. DISTANCE LOD: Sun/Moon Glitter Specular Highlight (Rich, sparkling path without white washing horizon)
           vec3 halfVector = normalize(lightDir + viewDir);
           float NdotH = max(dot(normal, halfVector), 0.0);
           float specIntensity = 0.0;
           if (uIsMobile > 0.5) {
-            // Mobile: focused sun path
-            float specMobile = pow(NdotH, 48.0) * 0.90;
+            // Mobile: focused sun/moon path
+            float specMobile = pow(NdotH, 48.0) * (uIsNight > 0.5 ? 0.65 : 0.90);
             specIntensity = specMobile;
           } else if (camDist < 240.0) {
-            float specularCore    = pow(NdotH, 64.0) * 0.95;
-            float specularSharp   = pow(NdotH, 180.0) * 1.80;
+            float specularCore    = pow(NdotH, 64.0) * (uIsNight > 0.5 ? 0.72 : 0.95);
+            float specularSharp   = pow(NdotH, 180.0) * (uIsNight > 0.5 ? 1.30 : 1.80);
             float glitterNoise    = fract(sin(dot(vWorldPosition.xz * 2.2, vec2(12.9898, 78.233)) + uTime * 0.8) * 43758.5453);
-            float glitter         = pow(NdotH, 220.0) * step(0.60, glitterNoise) * 2.4;
+            float glitter         = pow(NdotH, 220.0) * step(0.60, glitterNoise) * (uIsNight > 0.5 ? 1.6 : 2.4);
             specIntensity = specularCore + specularSharp + glitter;
           } else {
-            float specularFar = pow(NdotH, 64.0) * 0.45;
+            float specularFar = pow(NdotH, 64.0) * (uIsNight > 0.5 ? 0.35 : 0.45);
             specIntensity = specularFar;
           }
           // Distance fade out: attenuates specular as it approaches horizon to eliminate whiteout

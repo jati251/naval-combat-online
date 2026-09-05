@@ -4,13 +4,13 @@ import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
 
 export const FOG_COLOR = '#70b2db';
-export const NIGHT_FOG_COLOR = '#060e1d';
+export const NIGHT_FOG_COLOR = '#0d2444';
 
 // Exponential Atmospheric Haze Densities (Beer-Lambert Atmospheric Scattering)
 export const FOG_DENSITY_DESKTOP = 0.0010;
-export const FOG_DENSITY_DESKTOP_NIGHT = 0.0022;
+export const FOG_DENSITY_DESKTOP_NIGHT = 0.0011;
 export const FOG_DENSITY_MOBILE = 0.0013;
-export const FOG_DENSITY_MOBILE_NIGHT = 0.0028;
+export const FOG_DENSITY_MOBILE_NIGHT = 0.0015;
 
 // Desktop Render Distance & View Limits
 export const FOG_NEAR_DESKTOP = 160;
@@ -40,8 +40,8 @@ export function getFogConfig(isMobile: boolean, isNight: boolean) {
     density: isMobile
       ? (isNight ? FOG_DENSITY_MOBILE_NIGHT : FOG_DENSITY_MOBILE)
       : (isNight ? FOG_DENSITY_DESKTOP_NIGHT : FOG_DENSITY_DESKTOP),
-    near: isMobile ? (isNight ? 55 : FOG_NEAR_MOBILE) : (isNight ? 95 : FOG_NEAR_DESKTOP),
-    far: isMobile ? (isNight ? 280 : FOG_FAR_MOBILE) : (isNight ? 460 : FOG_FAR_DESKTOP),
+    near: isMobile ? (isNight ? 70 : FOG_NEAR_MOBILE) : (isNight ? 130 : FOG_NEAR_DESKTOP),
+    far: isMobile ? (isNight ? 360 : FOG_FAR_MOBILE) : (isNight ? 520 : FOG_FAR_DESKTOP),
     viewDistance: isMobile ? MAX_VIEW_DISTANCE_MOBILE : MAX_VIEW_DISTANCE_DESKTOP,
     islandDetailDistance: isMobile ? ISLAND_DETAIL_DISTANCE_MOBILE : ISLAND_DETAIL_DISTANCE_DESKTOP,
   };
@@ -224,7 +224,7 @@ const CaribbeanClouds2D: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({
     }
   });
 
-  const cloudColor = isNight ? '#94a3b8' : '#ffffff';
+  const cloudColor = isNight ? '#4b6385' : '#ffffff';
 
   return (
     <group ref={groupRef}>
@@ -285,8 +285,8 @@ const CaribbeanSkyDome: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({ 
     const mat = new THREE.ShaderMaterial({
       uniforms: {
         uIsNight: { value: isNight ? 1.0 : 0.0 },
-        uTopColor: { value: new THREE.Color(isNight ? '#030712' : '#0284c7') },
-        uMidColor: { value: new THREE.Color(isNight ? '#0a1226' : '#38bdf8') },
+        uTopColor: { value: new THREE.Color(isNight ? '#050d1e' : '#0284c7') },
+        uMidColor: { value: new THREE.Color(isNight ? '#0d2042' : '#38bdf8') },
         uHorizonColor: { value: new THREE.Color(isNight ? NIGHT_FOG_COLOR : FOG_COLOR) },
         uCelestialPos: { value: new THREE.Vector3(70, 140, -50).normalize() },
       },
@@ -422,8 +422,8 @@ export const Environment3D: React.FC<{ isMobile?: boolean }> = React.memo(({ isM
       {/* Celestial Directional Light (Brilliant Sun vs Silver Moon) */}
       <directionalLight
         position={lightPos}
-        intensity={isNight ? 0.75 : 2.85}
-        color={isNight ? '#c8dcff' : '#fffbeb'}
+        intensity={isNight ? 1.75 : 2.85}
+        color={isNight ? '#d8e8ff' : '#fffbeb'}
         castShadow={!isMobile}
         shadow-mapSize-width={isMobile ? 0 : 1024}
         shadow-mapSize-height={isMobile ? 0 : 1024}
@@ -436,17 +436,17 @@ export const Environment3D: React.FC<{ isMobile?: boolean }> = React.memo(({ isM
         shadow-bias={-0.0003}
       />
 
-      {/* Ambient Fill Lighting */}
+      {/* Ambient Fill Lighting - Rich atmospheric moonlight wash */}
       <ambientLight
-        intensity={isNight ? 0.45 : 1.25}
-        color={isNight ? '#162038' : '#dbeafe'}
+        intensity={isNight ? 1.20 : 1.25}
+        color={isNight ? '#466694' : '#dbeafe'}
       />
 
       {/* Ocean Reflection Hemisphere Fill */}
       <hemisphereLight
         args={
           isNight
-            ? ['#1e293b', '#090d16', 0.45]
+            ? ['#355687', '#132847', 1.05]
             : ['#60a5fa', '#0369a1', 1.15]
         }
       />
