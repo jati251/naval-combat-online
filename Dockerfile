@@ -1,11 +1,15 @@
 # syntax=docker/dockerfile:1
 
 # --- Stage 1: Build Frontend and Server ---
-FROM node:22-slim AS builder
+FROM ubuntu:24.04 AS builder
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm@latest
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y curl ca-certificates && \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y nodejs && \
+    npm install -g pnpm@latest && \
+    rm -rf /var/lib/apt/lists/*
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install
@@ -16,14 +20,18 @@ COPY . .
 RUN pnpm run build
 
 # --- Stage 2: Production Runtime ---
-FROM node:22-slim AS runner
+FROM ubuntu:24.04 AS runner
 WORKDIR /app
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y curl ca-certificates && \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y nodejs && \
+    npm install -g pnpm@latest && \
+    rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
 ENV PORT=3000
-
-# Install pnpm
-RUN npm install -g pnpm@latest
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --prod
