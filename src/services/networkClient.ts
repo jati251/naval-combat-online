@@ -10,6 +10,20 @@ class NetworkClient {
   private inputSeq: number = 0;
   private hasConnectedOnce: boolean = false;
 
+  constructor() {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', () => {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          try {
+            this.ws.send(JSON.stringify({ type: 'LEAVE_ROOM' }));
+          } catch {
+            // Ignore during page unload
+          }
+        }
+      });
+    }
+  }
+
   public getWsUrl(): string {
     const customUrl = useGameStore.getState().serverUrl;
     if (customUrl && customUrl.trim()) {
@@ -123,6 +137,9 @@ class NetworkClient {
       case 'GAME_STARTED': {
         navalAudio.playShipBell();
         store.setStage('BATTLE');
+        if (typeof msg.windAngle === 'number' && typeof msg.windSpeed === 'number') {
+          store.setWind(msg.windAngle, msg.windSpeed);
+        }
         store.addCombatLog('The battle has begun! All hands to battle stations!', 'info');
         break;
       }

@@ -6,7 +6,10 @@ import { OceanWater } from './OceanWater';
 import { ShipModel3D } from './ShipModel3D';
 import { CannonSystem3D } from './CannonSystem3D';
 import { Environment3D } from './Environment3D';
+import { Islands3D } from './Islands3D';
+import { PostProcessing3D } from './PostProcessing3D';
 import { useGameStore } from '@/stores/useGameStore';
+import { useBattleCamera } from '../../hooks/useBattleCamera';
 import type { ShipSnapshot } from '@/types/game';
 
 interface ShipEntityProps {
@@ -21,9 +24,12 @@ const ShipEntity: React.FC<ShipEntityProps> = ({ ship, isSelf }) => {
   useFrame((_, delta) => {
     if (!groupRef.current) return;
 
+    // Adjust ship buoyancy height so deck stays dry above ocean swells
+    const targetY = ship.isSunk ? ship.y : ship.y + 0.95;
+
     // Position interpolation (lerp)
     groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, ship.x, Math.min(1.0, 15 * delta));
-    groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, ship.y, Math.min(1.0, 15 * delta));
+    groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, targetY, Math.min(1.0, 15 * delta));
     groupRef.current.position.z = THREE.MathUtils.lerp(groupRef.current.position.z, ship.z, Math.min(1.0, 15 * delta));
 
     // Rotation interpolation
@@ -35,7 +41,7 @@ const ShipEntity: React.FC<ShipEntityProps> = ({ ship, isSelf }) => {
   const hpPercent = Math.max(0, Math.min(100, (ship.health / ship.maxHealth) * 100));
 
   return (
-    <group ref={groupRef} position={[ship.x, ship.y, ship.z]}>
+    <group ref={groupRef} position={[ship.x, ship.y + 0.95, ship.z]}>
       <ShipModel3D
         shipClass={ship.shipClass}
         sailState={ship.sail}
@@ -68,31 +74,7 @@ const ShipEntity: React.FC<ShipEntityProps> = ({ ship, isSelf }) => {
 };
 
 const CameraRig: React.FC = () => {
-  const selfId = useGameStore((s) => s.selfId);
-  const ships = useGameStore((s) => s.ships);
-
-  const targetShip = ships.find((s) => s.id === selfId) || ships.find((s) => !s.isSunk) || ships[0];
-
-  useFrame(({ camera }, delta) => {
-    if (!targetShip) return;
-
-    // Follow camera: behind ship along ship heading
-    const distance = 36;
-    const height = 15;
-
-    const targetCamX = targetShip.x - Math.sin(targetShip.rotationY) * distance;
-    const targetCamZ = targetShip.z - Math.cos(targetShip.rotationY) * distance;
-    const targetCamY = targetShip.y + height;
-
-    camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetCamX, Math.min(1.0, 5 * delta));
-    camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetCamY, Math.min(1.0, 5 * delta));
-    camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetCamZ, Math.min(1.0, 5 * delta));
-
-    // Look slightly above the ship
-    const lookTarget = new THREE.Vector3(targetShip.x, targetShip.y + 4, targetShip.z);
-    camera.lookAt(lookTarget);
-  });
-
+  useBattleCamera();
   return null;
 };
 
@@ -104,13 +86,20 @@ export const NavalCanvas: React.FC = () => {
   return (
     <div className="w-full h-full absolute inset-0 bg-slate-950">
       <Canvas
-        camera={{ position: [0, 25, -45], fov: 55, near: 0.5, far: 1200 }}
+        camera={{ position: [0, 25, -45], fov: 55, near: 0.5, far: 2000 }}
         shadows
         dpr={[1, 1.5]}
-        gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
+        gl={{
+          antialias: true,
+          alpha: false,
+          powerPreference: 'high-performance',
+          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMappingExposure: 1.15,
+        }}
       >
         <Environment3D />
         <OceanWater />
+        <Islands3D />
         <CameraRig />
 
         {/* Render Ships */}
@@ -120,7 +109,11 @@ export const NavalCanvas: React.FC = () => {
 
         {/* Render Cannonballs */}
         <CannonSystem3D cannonballs={cannonballs} />
+
+        {/* Subtle Bloom Post-processing on bright highlights */}
+        <PostProcessing3D />
       </Canvas>
     </div>
   );
 };
+

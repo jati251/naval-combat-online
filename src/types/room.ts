@@ -1,0 +1,22 @@
+import type { ShipClass } from './ship';
+
+export type GameStage = 'LOBBY' | 'BATTLE' | 'DEBRIEF';
+
+export interface RoomPlayer {
+  id: string;
+  name: string;
+  shipClass: ShipClass;
+  isReady: boolean;
+  isHost: boolean;
+  score: number;
+}
+
+export interface RoomInfo {
+  id: string;
+  name: string;
+  status: 'LOBBY' | 'IN_GAME' | 'FINISHED';
+  players: RoomPlayer[];
+  maxPlayers: number;
+  windAngle: number;
+  windSpeed: number;
+}

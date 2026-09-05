@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { useGameStore } from '@/stores/useGameStore';
 import type { CannonballSnapshot } from '@/types/game';
 
 interface CannonSystem3DProps {
@@ -6,13 +7,52 @@ interface CannonSystem3DProps {
 }
 
 export const CannonSystem3D: React.FC<CannonSystem3DProps> = ({ cannonballs }) => {
+  const selfId = useGameStore((s) => s.selfId);
+  const ships = useGameStore((s) => s.ships);
+  const isAiming = useGameStore((s) => s.isAiming);
+  const aimDirection = useGameStore((s) => s.aimDirection);
+
+  const selfShip = ships.find((s) => s.id === selfId);
+
+  // Ballistic aiming arc trajectory (Black Flag style)
+  const trajectoryPoints = useMemo(() => {
+    if (!isAiming || aimDirection === 'none' || !selfShip || selfShip.isSunk) {
+      return [];
+    }
+
+    const pts: number[] = [];
+    const fireAngle =
+      selfShip.rotationY + (aimDirection === 'port' ? -Math.PI * 0.5 : Math.PI * 0.5);
+    const speed = 40.0;
+    const gravity = 9.8;
+    const originX = selfShip.x + Math.sin(fireAngle) * 3.5;
+    const originY = selfShip.y + 1.8;
+    const originZ = selfShip.z + Math.cos(fireAngle) * 3.5;
+
+    const vx = Math.sin(fireAngle) * speed;
+    const vy = 5.5;
+    const vz = Math.cos(fireAngle) * speed;
+
+    for (let step = 0; step <= 25; step++) {
+      const t = step * 0.08;
+      const px = originX + vx * t;
+      const py = originY + vy * t - 0.5 * gravity * t * t;
+      const pz = originZ + vz * t;
+      pts.push(px, py, pz);
+      if (py < 0.0) break;
+    }
+
+    return pts;
+  }, [isAiming, aimDirection, selfShip]);
+
   return (
     <group>
+      {/* Active Cannonballs in Flight */}
       {cannonballs.map((ball) => (
         <group key={ball.id} position={[ball.x, ball.y, ball.z]}>
           {/* Iron Cannonball Mesh */}
           <mesh castShadow>
-            <sphereGeometry args={[0.32, 12, 12]} />
+            <sphereGeometry args={[0.34, 12, 12]} />
             <meshStandardMaterial
               color="#111827"
               roughness={0.4}
@@ -25,6 +65,20 @@ export const CannonSystem3D: React.FC<CannonSystem3DProps> = ({ cannonballs }) =
           <pointLight color="#f97316" intensity={1.5} distance={8} decay={2} />
         </group>
       ))}
+
+      {/* Ballistic Aiming Arc Projector Line */}
+      {isAiming && trajectoryPoints.length > 3 && (
+        <line>
+          <bufferGeometry>
+            <bufferAttribute
+              attach="attributes-position"
+              args={[new Float32Array(trajectoryPoints), 3]}
+            />
+          </bufferGeometry>
+          <lineBasicMaterial color="#38bdf8" linewidth={3} transparent opacity={0.75} />
+        </line>
+      )}
     </group>
   );
 };
+

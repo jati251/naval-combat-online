@@ -5,14 +5,15 @@ import { useGameStore } from '@/stores/useGameStore';
 import { networkClient } from '@/services/networkClient';
 
 export const DebriefModal: React.FC = () => {
+  const stage = useGameStore((s) => s.stage);
   const winnerName = useGameStore((s) => s.winnerName);
   const playerName = useGameStore((s) => s.playerName);
   const resetToLobby = useGameStore((s) => s.resetToLobby);
 
-  const isWinner = winnerName === playerName;
+  const isWinner = Boolean(winnerName && winnerName === playerName);
 
   React.useEffect(() => {
-    if (isWinner) {
+    if (isWinner && stage === 'DEBRIEF') {
       confetti({
         particleCount: 120,
         spread: 70,
@@ -20,7 +21,12 @@ export const DebriefModal: React.FC = () => {
         colors: ['#f59e0b', '#06b6d4', '#10b981', '#fbbf24'],
       });
     }
-  }, [isWinner]);
+  }, [isWinner, stage]);
+
+  // Only show debrief modal when match has actually concluded with a winner
+  if (stage !== 'DEBRIEF' || !winnerName) {
+    return null;
+  }
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-4">

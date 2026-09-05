@@ -12,6 +12,14 @@ const DIST_DIR = path.resolve(__dirname, '../../dist');
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
+// Global exception safety to keep game server running uninterrupted
+process.on('uncaughtException', (err) => {
+  console.error('🛡️ [Server] Uncaught Exception caught safely:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('🛡️ [Server] Unhandled Rejection caught safely:', reason);
+});
+
 interface SocketUserData {
   id: string;
   subscribedRoom?: string;
@@ -32,15 +40,24 @@ try {
 const roomManager = new RoomManager(
   // Broadcast to room topic or global lobby topic
   (topic: string, message: ServerMessage) => {
-    const payload = JSON.stringify(message);
-    const targetTopic = topic === 'lobby' ? 'lobby' : `room:${topic}`;
-    app.publish(targetTopic, payload, false);
+    try {
+      const payload = JSON.stringify(message);
+      const targetTopic = topic === 'lobby' ? 'lobby' : `room:${topic}`;
+      app.publish(targetTopic, payload, false);
+    } catch (err) {
+      console.warn(`[Broadcast] Publish to ${topic} failed:`, err);
+    }
   },
-  // Send direct to single client
+  // Send direct to single client safely without crashing on dead sockets
   (clientId: string, message: ServerMessage) => {
     const socket = clientSockets.get(clientId);
     if (socket) {
-      socket.send(JSON.stringify(message), false);
+      try {
+        socket.send(JSON.stringify(message), false);
+      } catch (err) {
+        console.warn(`[SendDirect] Failed to send to ${clientId}, removing dead socket:`, err);
+        clientSockets.delete(clientId);
+      }
     }
   }
 );
@@ -63,19 +80,21 @@ app.ws<SocketUserData>('/ws', {
   },
 
   open: (ws) => {
-    const data = ws.getUserData();
-    clientSockets.set(data.id, ws);
-    // Subscribe to client's own direct message topic and global lobby topic
-    ws.subscribe(`direct:${data.id}`);
-    ws.subscribe('lobby');
+    try {
+      const data = ws.getUserData();
+      clientSockets.set(data.id, ws);
+      ws.subscribe(`direct:${data.id}`);
+      ws.subscribe('lobby');
 
-    // Send available room list on connection
-    ws.send(
-      JSON.stringify({
-        type: 'ROOM_LIST',
-        rooms: roomManager.getRoomList(),
-      })
-    );
+      ws.send(
+        JSON.stringify({
+          type: 'ROOM_LIST',
+          rooms: roomManager.getRoomList(),
+        })
+      );
+    } catch (err) {
+      console.error('🛡️ [WSOpen] Error during socket open:', err);
+    }
   },
 
   message: (ws, message, _isBinary) => {
@@ -84,7 +103,11 @@ app.ws<SocketUserData>('/ws', {
     // Security & Anti-Cheat: Rate limit incoming packets
     const rateAction = SecurityGuard.checkMessageRate(data.id);
     if (rateAction === 'DISCONNECT') {
-      ws.close();
+      try {
+        ws.close();
+      } catch {
+        // Socket may already be closing
+      }
       return;
     }
     if (rateAction === 'DROP') {
@@ -104,7 +127,11 @@ app.ws<SocketUserData>('/ws', {
       // Unsubscribe previous room topic if creating/joining another room
       if (msg.type === 'CREATE_ROOM' || msg.type === 'JOIN_ROOM') {
         if (data.subscribedRoom) {
-          ws.unsubscribe(`room:${data.subscribedRoom}`);
+          try {
+            ws.unsubscribe(`room:${data.subscribedRoom}`);
+          } catch {
+            // Safe ignore
+          }
           data.subscribedRoom = undefined;
         }
       }
@@ -114,26 +141,36 @@ app.ws<SocketUserData>('/ws', {
       // Subscribe socket to room topic for BOTH CREATE_ROOM and JOIN_ROOM!
       if (res?.joinedRoomId) {
         data.subscribedRoom = res.joinedRoomId;
-        ws.subscribe(`room:${res.joinedRoomId}`);
+        try {
+          ws.subscribe(`room:${res.joinedRoomId}`);
+        } catch {
+          // Safe ignore
+        }
       }
 
       if (msg.type === 'LEAVE_ROOM' && data.subscribedRoom) {
-        ws.unsubscribe(`room:${data.subscribedRoom}`);
+        try {
+          ws.unsubscribe(`room:${data.subscribedRoom}`);
+        } catch {
+          // Safe ignore
+        }
         data.subscribedRoom = undefined;
       }
     } catch (err) {
-      console.error('Error handling websocket message:', err);
+      console.error('🛡️ [WSMessage] Error handling websocket message:', err);
     }
   },
 
   close: (ws, _code, _message) => {
-    const data = ws.getUserData();
-    clientSockets.delete(data.id);
-    SecurityGuard.removeClient(data.id);
-    if (data.subscribedRoom) {
-      ws.unsubscribe(`room:${data.subscribedRoom}`);
+    try {
+      const data = ws.getUserData();
+      clientSockets.delete(data.id);
+      SecurityGuard.removeClient(data.id);
+      // Note: In uWS, closing sockets are automatically purged from pub/sub topics.
+      roomManager.handleClientDisconnect(data.id);
+    } catch (err) {
+      console.error('🛡️ [WSClose] Error during socket close handling:', err);
     }
-    roomManager.handleClientDisconnect(data.id);
   },
 });
 

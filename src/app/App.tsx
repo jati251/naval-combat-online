@@ -1,11 +1,8 @@
 import React, { useEffect } from 'react';
 import { useGameStore } from '@/stores/useGameStore';
 import { networkClient } from '@/services/networkClient';
-import { LobbyView } from '@/features/lobby/components/LobbyView';
-import { NavalCanvas } from '@/features/battle/components/3d/NavalCanvas';
-import { BattleHUD } from '@/features/battle/components/hud/BattleHUD';
-import { DebriefModal } from '@/features/battle/components/hud/DebriefModal';
-
+import { LobbyView } from '@/features/lobby';
+import { NavalCanvas, BattleHUD } from '@/features/battle';
 import { ToastContainer } from '@/components/ui/ToastContainer';
 
 export const App: React.FC = () => {
@@ -25,7 +22,6 @@ export const App: React.FC = () => {
         <>
           <NavalCanvas />
           <BattleHUD />
-          {stage === 'DEBRIEF' && <DebriefModal />}
         </>
       )}
     </div>

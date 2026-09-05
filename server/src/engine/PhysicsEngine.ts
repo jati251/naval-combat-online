@@ -5,6 +5,13 @@ import {
   SERVER_SHIP_CONFIGS,
 } from '../types/protocol.js';
 
+export const SERVER_ISLANDS = [
+  { id: 'dead-mans-cay', x: -150, z: 140, radius: 42 },
+  { id: 'isla-de-la-muerte', x: 160, z: -130, radius: 50 },
+  { id: 'smugglers-reef', x: -110, z: -160, radius: 36 },
+  { id: 'tortuga-atoll', x: 170, z: 150, radius: 44 },
+];
+
 export class PhysicsEngine {
   /**
    * Updates ship physics for a single simulation delta time step.
@@ -83,6 +90,21 @@ export class PhysicsEngine {
       ship.speed *= 0.5; // Dampen speed on boundary collision
     }
 
+    // Tactical Caribbean Islands Collision & Run-Aground Deceleration
+    for (const isl of SERVER_ISLANDS) {
+      const dx = ship.x - isl.x;
+      const dz = ship.z - isl.z;
+      const dist = Math.hypot(dx, dz);
+      const minSafeDist = isl.radius + config.width * 0.5;
+      if (dist < minSafeDist && dist > 0.001) {
+        const nx = dx / dist;
+        const nz = dz / dist;
+        ship.x = isl.x + nx * minSafeDist;
+        ship.z = isl.z + nz * minSafeDist;
+        ship.speed *= 0.2; // Aground slowdown
+      }
+    }
+
     ship.vx = moveX / dt;
     ship.vz = moveZ / dt;
 
@@ -150,6 +172,19 @@ export class PhysicsEngine {
       const waterHeight = getWaveHeight(ball.x, ball.z, serverTime);
       if (ball.y <= waterHeight) {
         // Splashed in ocean!
+        continue;
+      }
+
+      // Island terrain obstruction check (cannonball hits island rock/sand)
+      let hitIsland = false;
+      for (const isl of SERVER_ISLANDS) {
+        const distToIsl = Math.hypot(ball.x - isl.x, ball.z - isl.z);
+        if (distToIsl <= isl.radius && ball.y <= 24) {
+          hitIsland = true;
+          break;
+        }
+      }
+      if (hitIsland) {
         continue;
       }
 

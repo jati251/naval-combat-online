@@ -61,42 +61,42 @@ export const ShipModel3D: React.FC<ShipModel3DProps> = ({
       {/* Main Wood Hull */}
       <mesh position={[0, 0.4, 0]} castShadow receiveShadow>
         <boxGeometry args={[width, 2.2, length]} />
-        <meshStandardMaterial color={hullColor} roughness={0.7} metalness={0.1} />
+        <meshStandardMaterial color={hullColor} roughness={0.65} metalness={0.08} />
       </mesh>
 
       {/* Gold/Wood Trim Gunwale */}
-      <mesh position={[0, 1.55, 0]}>
+      <mesh position={[0, 1.55, 0]} castShadow receiveShadow>
         <boxGeometry args={[width + 0.3, 0.25, length + 0.4]} />
-        <meshStandardMaterial color={trimColor} roughness={0.4} metalness={0.5} />
+        <meshStandardMaterial color={trimColor} roughness={0.35} metalness={0.45} />
       </mesh>
 
       {/* Pointed Bow / Front Protrusion */}
-      <mesh position={[0, 0.6, length * 0.5 + 1.2]} rotation={[Math.PI / 4, 0, 0]}>
+      <mesh position={[0, 0.6, length * 0.5 + 1.2]} rotation={[Math.PI / 4, 0, 0]} castShadow receiveShadow>
         <coneGeometry args={[width * 0.5, 2.8, 4]} />
-        <meshStandardMaterial color={hullColor} roughness={0.7} />
+        <meshStandardMaterial color={hullColor} roughness={0.65} />
       </mesh>
 
       {/* Bowsprit Spar Pole */}
-      <mesh position={[0, 1.8, length * 0.5 + 2.5]} rotation={[0.4, 0, 0]}>
+      <mesh position={[0, 1.8, length * 0.5 + 2.5]} rotation={[0.4, 0, 0]} castShadow>
         <cylinderGeometry args={[0.1, 0.15, 4.5, 8]} />
         <meshStandardMaterial color="#2d1c12" roughness={0.8} />
       </mesh>
 
       {/* Deck Planks */}
-      <mesh position={[0, 1.45, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[0, 1.45, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[width * 0.88, length * 0.92]} />
-        <meshStandardMaterial color="#8a5a36" roughness={0.9} />
+        <meshStandardMaterial color="#7a4c28" roughness={0.85} />
       </mesh>
 
       {/* Stern Cabin (Raised quarterdeck) */}
-      <mesh position={[0, 2.1, -length * 0.38]}>
+      <mesh position={[0, 2.1, -length * 0.38]} castShadow receiveShadow>
         <boxGeometry args={[width * 0.9, 1.4, length * 0.24]} />
         <meshStandardMaterial color={isEnemy ? '#4a1515' : '#1e293b'} roughness={0.6} />
       </mesh>
 
       {/* Rudder */}
       <group position={[0, 0.2, -length * 0.5]}>
-        <mesh ref={rudderMeshRef} position={[0, 0, -0.4]}>
+        <mesh ref={rudderMeshRef} position={[0, 0, -0.4]} castShadow>
           <boxGeometry args={[0.18, 1.8, 0.9]} />
           <meshStandardMaterial color="#1a110a" />
         </mesh>
@@ -106,14 +106,14 @@ export const ShipModel3D: React.FC<ShipModel3DProps> = ({
       {cannonPositions.map((posZ, idx) => (
         <group key={`cannons-${idx}`}>
           {/* Port cannon barrel */}
-          <mesh position={[-width * 0.5 - 0.3, 1.25, posZ]} rotation={[0, 0, Math.PI / 2]}>
+          <mesh position={[-width * 0.5 - 0.3, 1.25, posZ]} rotation={[0, 0, Math.PI / 2]} castShadow>
             <cylinderGeometry args={[0.12, 0.16, 1.1, 8]} />
-            <meshStandardMaterial color="#1a1c23" metalness={0.8} roughness={0.3} />
+            <meshStandardMaterial color="#1f2228" metalness={0.85} roughness={0.25} />
           </mesh>
           {/* Starboard cannon barrel */}
-          <mesh position={[width * 0.5 + 0.3, 1.25, posZ]} rotation={[0, 0, -Math.PI / 2]}>
+          <mesh position={[width * 0.5 + 0.3, 1.25, posZ]} rotation={[0, 0, -Math.PI / 2]} castShadow>
             <cylinderGeometry args={[0.12, 0.16, 1.1, 8]} />
-            <meshStandardMaterial color="#1a1c23" metalness={0.8} roughness={0.3} />
+            <meshStandardMaterial color="#1f2228" metalness={0.85} roughness={0.25} />
           </mesh>
         </group>
       ))}
@@ -124,44 +124,44 @@ export const ShipModel3D: React.FC<ShipModel3DProps> = ({
         return (
           <group key={`mast-${mIdx}`} position={[0, 1.5, mastZ]}>
             {/* Mast Pole */}
-            <mesh position={[0, mastHeight * 0.5, 0]}>
+            <mesh position={[0, mastHeight * 0.5, 0]} castShadow receiveShadow>
               <cylinderGeometry args={[0.16, 0.28, mastHeight, 8]} />
               <meshStandardMaterial color="#2d1c12" roughness={0.8} />
             </mesh>
 
             {/* Lower Yardarm & Sail */}
             <group position={[0, mastHeight * 0.45, 0]}>
-              <mesh position={[0, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+              <mesh position={[0, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
                 <cylinderGeometry args={[0.08, 0.08, width * 1.5, 8]} />
                 <meshStandardMaterial color="#2d1c12" />
               </mesh>
-              <mesh position={[0, -mastHeight * 0.16 * sailScaleY, 0.2]} scale={[1, sailScaleY, 1]}>
+              <mesh position={[0, -mastHeight * 0.16 * sailScaleY, 0.2]} scale={[1, sailScaleY, 1]} castShadow receiveShadow>
                 <planeGeometry args={[width * 1.4, mastHeight * 0.32]} />
-                <meshStandardMaterial color={sailColor} side={THREE.DoubleSide} roughness={0.9} />
+                <meshStandardMaterial color={sailColor} side={THREE.DoubleSide} roughness={0.85} />
               </mesh>
             </group>
 
             {/* Upper Yardarm & Top Sail */}
             <group position={[0, mastHeight * 0.82, 0]}>
-              <mesh position={[0, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+              <mesh position={[0, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
                 <cylinderGeometry args={[0.06, 0.06, width * 1.1, 8]} />
                 <meshStandardMaterial color="#2d1c12" />
               </mesh>
-              <mesh position={[0, -mastHeight * 0.12 * sailScaleY, 0.15]} scale={[1, sailScaleY, 1]}>
+              <mesh position={[0, -mastHeight * 0.12 * sailScaleY, 0.15]} scale={[1, sailScaleY, 1]} castShadow receiveShadow>
                 <planeGeometry args={[width * 1.0, mastHeight * 0.24]} />
-                <meshStandardMaterial color={sailColor} side={THREE.DoubleSide} roughness={0.9} />
+                <meshStandardMaterial color={sailColor} side={THREE.DoubleSide} roughness={0.85} />
               </mesh>
             </group>
 
             {/* Crow's Nest Platform */}
-            <mesh position={[0, mastHeight * 0.65, 0]}>
+            <mesh position={[0, mastHeight * 0.65, 0]} castShadow receiveShadow>
               <cylinderGeometry args={[0.5, 0.4, 0.4, 8]} />
               <meshStandardMaterial color="#1a110a" />
             </mesh>
 
             {/* Masthead Flag */}
             {mIdx === mastPositions.length - 1 && (
-              <mesh ref={flagRef} position={[0, mastHeight + 0.4, -0.6]} rotation={[0, 0, 0]}>
+              <mesh ref={flagRef} position={[0, mastHeight + 0.4, -0.6]} rotation={[0, 0, 0]} castShadow>
                 <planeGeometry args={[1.2, 0.65]} />
                 <meshStandardMaterial
                   color={isEnemy ? '#b91c1c' : '#1e3a8a'}

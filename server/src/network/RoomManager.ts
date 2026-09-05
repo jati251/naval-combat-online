@@ -80,8 +80,8 @@ export class RoomManager {
         }
 
         if (room.status === 'FINISHED') {
-          this.sendDirect(clientId, { type: 'ERROR', message: 'Pertempuran sudah selesai!' });
-          return;
+          // Reset room to lobby so captains can join for next battle
+          room.resetToLobby();
         }
 
         this.clientRoomMap.set(clientId, msg.roomId);
@@ -152,6 +152,12 @@ export class RoomManager {
         const room = this.rooms.get(roomId);
         const player = room?.players.get(clientId);
         if (!room || !player?.isHost) return;
+
+        if (room.status === 'FINISHED') {
+          room.resetToLobby();
+          this.broadcastLobbyUpdate();
+          return;
+        }
 
         // Verify that all players are ready before setting sail
         const unready = Array.from(room.players.values()).filter((p) => !p.isReady);

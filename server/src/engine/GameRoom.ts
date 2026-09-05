@@ -30,9 +30,11 @@ export class GameRoom {
   public windSpeed: number = 10 + Math.random() * 6; // knots
 
   private tickTimer: NodeJS.Timeout | null = null;
+  private autoResetTimer: NodeJS.Timeout | null = null;
   private tickSeq: number = 0;
   private startTime: number = 0;
   private lastTickTime: number = 0;
+  private wasMultiplayer: boolean = false;
 
   // Broadcast and direct send callbacks
   private broadcast: (roomId: string, message: ServerMessage) => void;
@@ -232,7 +234,13 @@ export class GameRoom {
   public startGame(): boolean {
     if (this.status !== 'LOBBY' || this.players.size < 1) return false;
 
+    if (this.autoResetTimer) {
+      clearTimeout(this.autoResetTimer);
+      this.autoResetTimer = null;
+    }
+
     this.status = 'IN_GAME';
+    this.wasMultiplayer = this.players.size > 1;
     this.startTime = Date.now();
     this.lastTickTime = this.startTime;
     this.cannonballs = [];
@@ -377,18 +385,61 @@ export class GameRoom {
     if (this.status !== 'IN_GAME') return;
 
     const aliveShips = Array.from(this.ships.values()).filter((s) => !s.isSunk);
-    // If only 1 ship left and there was more than 1 player, or all sunk
-    if (this.players.size > 1 && aliveShips.length <= 1) {
+    const totalPlayers = this.players.size;
+
+    // Trigger game over if:
+    // 1. All ships are sunk (mutual destruction)
+    // 2. Only 1 alive ship left in a multiplayer match
+    // 3. Only 1 player remains mid-game because other captains disconnected / retreated
+    const shouldEnd =
+      (aliveShips.length === 0 && totalPlayers > 0) ||
+      (this.wasMultiplayer && aliveShips.length <= 1) ||
+      (this.wasMultiplayer && totalPlayers <= 1);
+
+    if (shouldEnd) {
       this.status = 'FINISHED';
-      if (this.tickTimer) clearInterval(this.tickTimer);
+      if (this.tickTimer) {
+        clearInterval(this.tickTimer);
+        this.tickTimer = null;
+      }
 
       const winner = aliveShips[0] || Array.from(this.ships.values())[0];
+      const winnerName = winner?.name || (totalPlayers === 1 ? 'Sole Survivor' : 'No one');
       this.broadcast(this.id, {
         type: 'GAME_OVER',
         winnerId: winner?.id ?? '',
-        winnerName: winner?.name ?? 'No one',
+        winnerName,
       });
+
+      this.broadcastRoomState();
+
+      // Automatically reset room to LOBBY after 12s so remaining captains can fight again
+      if (this.autoResetTimer) clearTimeout(this.autoResetTimer);
+      this.autoResetTimer = setTimeout(() => {
+        if (this.status === 'FINISHED' && this.players.size > 0) {
+          this.resetToLobby();
+        }
+      }, 12000);
     }
+  }
+
+  public resetToLobby(): void {
+    if (this.autoResetTimer) {
+      clearTimeout(this.autoResetTimer);
+      this.autoResetTimer = null;
+    }
+    this.status = 'LOBBY';
+    this.ships.clear();
+    this.cannonballs = [];
+    if (this.tickTimer) {
+      clearInterval(this.tickTimer);
+      this.tickTimer = null;
+    }
+    // Unready all players except host
+    for (const player of this.players.values()) {
+      player.isReady = player.isHost;
+    }
+    this.broadcastRoomState();
   }
 
   public getRoomInfo(): RoomInfo {
@@ -425,6 +476,10 @@ export class GameRoom {
     if (this.tickTimer) {
       clearInterval(this.tickTimer);
       this.tickTimer = null;
+    }
+    if (this.autoResetTimer) {
+      clearTimeout(this.autoResetTimer);
+      this.autoResetTimer = null;
     }
     this.players.clear();
     this.ships.clear();
