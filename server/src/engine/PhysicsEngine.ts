@@ -141,6 +141,98 @@ export class PhysicsEngine {
   }
 
   /**
+   * Generates a randomized safe respawn point across the archipelago:
+   * - Never spawns on or near islands (+30m sand clearance)
+   * - Never spawns on shipwrecks (+25m clearance)
+   * - Safe tactical distance (>= 120m) from all active opponents to avoid spawn-camping
+   * - Selects the candidate that maximizes distance to the nearest opponent
+   */
+  public static findRandomSafeRespawnPoint(
+    existingAliveShips: Array<{ x: number; z: number }> = []
+  ): { x: number; z: number; rotationY: number } {
+    let bestCandidate: { x: number; z: number; rotationY: number; minOppDist: number } | null = null;
+
+    // Generate up to 48 randomized candidates sampled across the arena
+    for (let i = 0; i < 48; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 120 + Math.random() * 230; // Between 120m and 350m
+      const x = Math.sin(angle) * radius;
+      const z = Math.cos(angle) * radius;
+
+      let safe = true;
+
+      // 1. Island collision check
+      for (const isl of SERVER_ISLANDS) {
+        if (isl.elongation) {
+          const rx = x - isl.x;
+          const rz = z - isl.z;
+          const cosA = Math.cos(isl.elongation.angle);
+          const sinA = Math.sin(isl.elongation.angle);
+          const lx = rx * cosA - rz * sinA;
+          const lz = rx * sinA + rz * cosA;
+          const uX = lx / isl.elongation.scaleX;
+          const uZ = lz / isl.elongation.scaleZ;
+          const a = Math.atan2(uZ, uX);
+          const scaleFactor = Math.hypot(Math.cos(a) * isl.elongation.scaleX, Math.sin(a) * isl.elongation.scaleZ);
+          const minClearance = isl.sandRadius * 0.9 * scaleFactor + 30;
+          if (Math.hypot(lx, lz) < minClearance) {
+            safe = false;
+            break;
+          }
+        } else {
+          if (Math.hypot(x - isl.x, z - isl.z) < isl.sandRadius * 0.9 + 30) {
+            safe = false;
+            break;
+          }
+        }
+      }
+      if (!safe) continue;
+
+      // 2. Wreck clearance
+      for (const wreck of SERVER_WRECKS) {
+        if (Math.hypot(x - wreck.x, z - wreck.z) < wreck.radius + 25) {
+          safe = false;
+          break;
+        }
+      }
+      if (!safe) continue;
+
+      // 3. Opponent distance evaluation
+      let minOppDist = 99999;
+      for (const opp of existingAliveShips) {
+        const d = Math.hypot(x - opp.x, z - opp.z);
+        if (d < minOppDist) minOppDist = d;
+      }
+
+      const centerHeading = Math.atan2(-x, -z);
+      const headingJitter = (Math.random() - 0.5) * 1.2;
+      const rotationY = centerHeading + headingJitter;
+
+      const candidate = { x, z, rotationY, minOppDist };
+
+      // If at least 120m from all opponents, this is a prime candidate!
+      if (minOppDist >= 120) {
+        return candidate;
+      }
+
+      if (!bestCandidate || minOppDist > bestCandidate.minOppDist) {
+        bestCandidate = candidate;
+      }
+    }
+
+    if (bestCandidate) {
+      return { x: bestCandidate.x, z: bestCandidate.z, rotationY: bestCandidate.rotationY };
+    }
+
+    const fallbackAngle = Math.random() * Math.PI * 2;
+    return {
+      x: Math.sin(fallbackAngle) * 220,
+      z: Math.cos(fallbackAngle) * 220,
+      rotationY: Math.atan2(-Math.sin(fallbackAngle), -Math.cos(fallbackAngle)),
+    };
+  }
+
+  /**
    * Updates ship physics for a single simulation delta time step.
    */
   public static updateShip(

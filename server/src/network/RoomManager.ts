@@ -98,7 +98,7 @@ export class RoomManager {
 
         this.rooms.set(roomId, room);
         this.clientRoomMap.set(clientId, roomId);
-        room.addPlayer(clientId, msg.playerName, msg.shipClass);
+        room.addPlayer(clientId, msg.playerName, msg.shipClass, msg.sessionToken);
 
         this.sendDirect(clientId, {
           type: 'ROOM_STATE',
@@ -130,7 +130,7 @@ export class RoomManager {
 
         if (room.status === 'IN_GAME') {
           // Mid-game join directly into battle!
-          room.addPlayerMidGame(clientId, msg.playerName, msg.shipClass);
+          room.addPlayerMidGame(clientId, msg.playerName, msg.shipClass, msg.sessionToken);
 
           this.sendDirect(clientId, {
             type: 'ROOM_STATE',
@@ -147,7 +147,7 @@ export class RoomManager {
           });
         } else {
           // Normal lobby join
-          room.addPlayer(clientId, msg.playerName, msg.shipClass);
+          room.addPlayer(clientId, msg.playerName, msg.shipClass, msg.sessionToken);
 
           this.sendDirect(clientId, {
             type: 'ROOM_STATE',
@@ -160,6 +160,23 @@ export class RoomManager {
         return { joinedRoomId: msg.roomId };
       }
 
+      case 'RECONNECT': {
+        const room = this.rooms.get(msg.roomId);
+        if (!room) {
+          this.sendDirect(clientId, { type: 'ERROR', message: 'Fleet has sailed or anchorage closed.' });
+          return;
+        }
+
+        const success = room.reconnectPlayer(clientId, msg.sessionToken);
+        if (success) {
+          this.clientRoomMap.set(clientId, msg.roomId);
+          return { joinedRoomId: msg.roomId };
+        } else {
+          this.sendDirect(clientId, { type: 'ERROR', message: 'Reconnection session expired.' });
+          return;
+        }
+      }
+
       case 'GET_ROOMS': {
         this.sendDirect(clientId, {
           type: 'ROOM_LIST',
@@ -169,7 +186,7 @@ export class RoomManager {
       }
 
       case 'LEAVE_ROOM': {
-        this.handleClientDisconnect(clientId);
+        this.handleClientDisconnect(clientId, true);
         break;
       }
 
@@ -220,6 +237,37 @@ export class RoomManager {
         break;
       }
 
+      case 'ADD_BOT': {
+        const roomId = this.clientRoomMap.get(clientId);
+        if (!roomId) return;
+        const room = this.rooms.get(roomId);
+        const player = room?.players.get(clientId);
+        if (!room || !player?.isHost) return;
+        const added = room.addBot();
+        if (added) {
+          this.broadcastLobbyUpdate();
+        } else {
+          this.sendDirect(clientId, {
+            type: 'ERROR',
+            message: 'Armada telah penuh atau pertempuran sedang berlangsung!',
+          });
+        }
+        break;
+      }
+
+      case 'REMOVE_BOT': {
+        const roomId = this.clientRoomMap.get(clientId);
+        if (!roomId) return;
+        const room = this.rooms.get(roomId);
+        const player = room?.players.get(clientId);
+        if (!room || !player?.isHost) return;
+        const removed = room.removeBot(msg.botId);
+        if (removed) {
+          this.broadcastLobbyUpdate();
+        }
+        break;
+      }
+
       case 'INPUT': {
         const roomId = this.clientRoomMap.get(clientId);
         if (!roomId) return;
@@ -254,14 +302,14 @@ export class RoomManager {
     });
   }
 
-  public handleClientDisconnect(clientId: string): void {
+  public handleClientDisconnect(clientId: string, isExplicitLeave: boolean = false): void {
     const roomId = this.clientRoomMap.get(clientId);
     if (!roomId) return;
 
     this.clientRoomMap.delete(clientId);
     const room = this.rooms.get(roomId);
     if (room) {
-      room.removePlayer(clientId);
+      room.handlePlayerDisconnect(clientId, isExplicitLeave);
       if (room.players.size === 0) {
         room.destroy();
         this.rooms.delete(roomId);

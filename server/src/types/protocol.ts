@@ -189,6 +189,9 @@ export interface RoomPlayer {
   kills: number;
   deaths: number;
   respawnCountdown?: number;
+  sessionToken?: string;
+  isDisconnected?: boolean;
+  isBot?: boolean;
 }
 
 export type TimeOfDay = 'DAY' | 'NIGHT';
@@ -207,12 +210,15 @@ export interface RoomInfo {
 
 // Client to Server Message
 export type ClientMessage =
-  | { type: 'CREATE_ROOM'; roomName: string; playerName: string; shipClass: ShipClass; maxPlayers?: number; targetKills?: number; timeOfDay?: TimeOfDay | 'RANDOM' }
-  | { type: 'JOIN_ROOM'; roomId: string; playerName: string; shipClass: ShipClass }
+  | { type: 'CREATE_ROOM'; roomName: string; playerName: string; shipClass: ShipClass; maxPlayers?: number; targetKills?: number; timeOfDay?: TimeOfDay | 'RANDOM'; sessionToken?: string }
+  | { type: 'JOIN_ROOM'; roomId: string; playerName: string; shipClass: ShipClass; sessionToken?: string }
+  | { type: 'RECONNECT'; roomId: string; sessionToken: string }
   | { type: 'LEAVE_ROOM' }
   | { type: 'SELECT_SHIP'; shipClass: ShipClass }
   | { type: 'SET_READY'; ready: boolean }
   | { type: 'START_GAME' }
+  | { type: 'ADD_BOT' }
+  | { type: 'REMOVE_BOT'; botId?: string }
   | { type: 'GET_ROOMS' }
   | { type: 'INPUT'; seq: number; rudder: number; sail: SailState }
   | { type: 'FIRE_BROADSIDE'; side: 'port' | 'starboard'; angle: number }

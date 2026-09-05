@@ -5,6 +5,7 @@ import type { IslandDefinition } from './types';
 import { createIslandTerrainGeometry, createBeachGeometry, getIslandElevation } from './islandGeometries';
 import { PalmTree, JungleTree, TropicalBush } from './IslandVegetation';
 import { RockFormation } from './RockFormation';
+import { CoastalSettlement } from './CoastalSettlement';
 
 export interface IslandMaterials {
   sand: THREE.Material;
@@ -98,9 +99,6 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
       {/* Scaled Island Mass (Terrain, Beach, Shallows) */}
       <group scale={[scaleX, 1, scaleZ]}>
         {/* Tier 1: Core Geological Mountain Mass (Always rendered as horizon landmark) */}
-        <mesh position={[0, 2.0, 0]} receiveShadow material={materials.vegetation}>
-          <cylinderGeometry args={[island.radius * 0.96, island.radius * 1.06, 2.2, 48]} />
-        </mesh>
         <mesh
           position={[0, getIslandElevation(island) + 2.0, 0]}
           castShadow
@@ -161,9 +159,6 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
 
       {island.type === 'atoll' && (
         <>
-          <mesh position={[0, 1.2, 0]} material={materials.shallows}>
-            <cylinderGeometry args={[island.radius * 0.4, island.radius * 0.45, 0.5, 48]} />
-          </mesh>
           {[0, 1, 2, 3, 4].map((i) => {
             const a = (i / 5) * Math.PI * 2 + island.seed * 0.3;
             const d = island.radius * 0.55 + Math.sin(a + island.seed) * island.radius * 0.1;
@@ -230,6 +225,11 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
           />
         ))}
       </group>
+
+      {/* Coastal Pirate Haven / Colonial Settlement */}
+      {island.settlement && (
+        <CoastalSettlement settlement={island.settlement} isMobile={isMobile} />
+      )}
     </group>
   );
 });

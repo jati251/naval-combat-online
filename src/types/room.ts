@@ -13,6 +13,9 @@ export interface RoomPlayer {
   kills: number;
   deaths: number;
   respawnCountdown?: number;
+  sessionToken?: string;
+  isDisconnected?: boolean;
+  isBot?: boolean;
 }
 
 export interface RoomInfo {

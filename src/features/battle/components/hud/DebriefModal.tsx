@@ -30,7 +30,7 @@ export const DebriefModal: React.FC = () => {
   }
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 select-none">
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 select-none pointer-events-auto">
       <div className="pirate-parchment max-w-md w-full rounded-xl p-8 border-2 border-amber-600/60 shadow-2xl flex flex-col items-center text-center gap-6 relative">
         {/* Ornate Corner Brackets */}
         <div className="absolute top-2 left-2 w-3.5 h-3.5 border-t-2 border-l-2 border-amber-400/80" />

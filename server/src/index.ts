@@ -124,8 +124,8 @@ app.ws<SocketUserData>('/ws', {
         return; // Drop malformed / tampered packet
       }
 
-      // Unsubscribe previous room topic if creating/joining another room
-      if (msg.type === 'CREATE_ROOM' || msg.type === 'JOIN_ROOM') {
+      // Unsubscribe previous room topic if creating/joining/reconnecting another room
+      if (msg.type === 'CREATE_ROOM' || msg.type === 'JOIN_ROOM' || msg.type === 'RECONNECT') {
         if (data.subscribedRoom) {
           try {
             ws.unsubscribe(`room:${data.subscribedRoom}`);
@@ -138,7 +138,7 @@ app.ws<SocketUserData>('/ws', {
 
       const res = roomManager.handleClientMessage(data.id, msg);
 
-      // Subscribe socket to room topic for BOTH CREATE_ROOM and JOIN_ROOM!
+      // Subscribe socket to room topic for CREATE_ROOM, JOIN_ROOM, and RECONNECT!
       if (res?.joinedRoomId) {
         data.subscribedRoom = res.joinedRoomId;
         try {
@@ -167,7 +167,7 @@ app.ws<SocketUserData>('/ws', {
       clientSockets.delete(data.id);
       SecurityGuard.removeClient(data.id);
       // Note: In uWS, closing sockets are automatically purged from pub/sub topics.
-      roomManager.handleClientDisconnect(data.id);
+      roomManager.handleClientDisconnect(data.id, false);
     } catch (err) {
       console.error('🛡️ [WSClose] Error during socket close handling:', err);
     }

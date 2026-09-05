@@ -125,6 +125,8 @@ export class SecurityGuard {
           timeOfDay = raw.timeOfDay;
         }
 
+        const sessionToken = typeof raw.sessionToken === 'string' ? this.sanitizeString(raw.sessionToken, 64) : undefined;
+
         return {
           type: 'CREATE_ROOM',
           roomName: roomName || 'Fleet Battle',
@@ -132,6 +134,7 @@ export class SecurityGuard {
           shipClass,
           maxPlayers,
           timeOfDay,
+          sessionToken,
         };
       }
 
@@ -139,6 +142,7 @@ export class SecurityGuard {
         const roomId = this.sanitizeString(String(raw.roomId || ''), 40);
         const playerName = this.sanitizeString(String(raw.playerName || 'Captain'), 20);
         const shipClass = this.validateShipClass(raw.shipClass);
+        const sessionToken = typeof raw.sessionToken === 'string' ? this.sanitizeString(raw.sessionToken, 64) : undefined;
 
         if (!roomId) return null;
 
@@ -147,13 +151,31 @@ export class SecurityGuard {
           roomId,
           playerName: playerName || 'Captain',
           shipClass,
+          sessionToken,
+        };
+      }
+
+      case 'RECONNECT': {
+        const roomId = this.sanitizeString(String(raw.roomId || ''), 40);
+        const sessionToken = this.sanitizeString(String(raw.sessionToken || ''), 64);
+        if (!roomId || !sessionToken) return null;
+        return {
+          type: 'RECONNECT',
+          roomId,
+          sessionToken,
         };
       }
 
       case 'LEAVE_ROOM':
       case 'START_GAME':
       case 'GET_ROOMS':
+      case 'ADD_BOT':
         return { type: raw.type };
+
+      case 'REMOVE_BOT': {
+        const botId = typeof raw.botId === 'string' ? this.sanitizeString(raw.botId, 40) : undefined;
+        return { type: 'REMOVE_BOT', botId };
+      }
 
       case 'SET_READY':
         return {

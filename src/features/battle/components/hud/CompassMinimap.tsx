@@ -345,9 +345,9 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(() => {
       </div>
 
       {/* Integrated Wind & Sail Telemetry Bar */}
-      <div className="mt-1 flex items-center gap-1.5 px-3 py-0.5 naval-plaque text-[9px] font-fell border border-amber-600/40 rounded-sm shadow-md">
-        <Wind className="w-2.5 h-2.5 text-amber-400" />
-        <span ref={telemetryRef} className="text-amber-200 font-bold tracking-wide">
+      <div className="mt-1 flex items-center justify-center w-[148px] gap-1 px-1.5 py-0.5 naval-plaque text-[9px] font-fell border border-amber-600/40 rounded-sm shadow-md overflow-hidden">
+        <Wind className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+        <span ref={telemetryRef} className="text-amber-200 font-bold tracking-wide truncate tabular-nums text-center">
           -- KTS · RUNNING FREE (100%)
         </span>
       </div>

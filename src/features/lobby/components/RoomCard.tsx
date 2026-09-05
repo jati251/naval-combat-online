@@ -68,14 +68,16 @@ export const RoomCard: React.FC<RoomCardProps> = ({ room, onJoin }) => {
 
       <button
         onClick={() => onJoin(room.id)}
-        disabled={isFull || isPlaying}
+        disabled={isFull}
         className={`px-4 py-2 rounded-md font-cinzel text-xs font-bold uppercase tracking-wider transition-all duration-200 shadow-md cursor-pointer ${
-          isFull || isPlaying
+          isFull
             ? 'bg-stone-900/80 text-stone-600 border border-stone-800 cursor-not-allowed'
+            : isPlaying
+            ? 'bg-gradient-to-b from-rose-600 via-rose-700 to-amber-800 hover:from-rose-500 hover:to-amber-700 text-amber-100 font-black border border-amber-400 shadow-[0_0_15px_rgba(225,29,72,0.4)] active:scale-95 animate-pulse'
             : 'bg-gradient-to-b from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-stone-950 font-black border border-amber-300/80 shadow-[0_0_12px_rgba(212,175,55,0.3)] active:scale-95'
         }`}
       >
-        {isPlaying ? 'ENGAGED' : isFull ? 'FULL' : 'SIGN ARTICLES'}
+        {isFull ? 'FLEET FULL' : isPlaying ? 'REINFORCE BATTLE' : 'SIGN ARTICLES'}
       </button>
     </div>
   );

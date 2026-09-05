@@ -1,4 +1,6 @@
 import { PhysicsEngine } from './PhysicsEngine.js';
+import { BotAI } from './BotAI.js';
+import { getBroadsideTransform } from './NavalCombatMath.js';
 import {
   type ShipClass,
   type SailState,
@@ -14,6 +16,17 @@ import {
 export type { BroadsideFireCommand };
 
 export class GameRoom {
+  private static readonly BOT_NAMES = [
+    'Corsair Blackbeard',
+    'Captain Calico Jack',
+    'Corsair Anne Bonny',
+    'Captain Henry Morgan',
+    'Black Bart Roberts',
+    'Captain Edward Low',
+    'Captain Mary Read',
+    'Captain William Kidd',
+  ];
+
   public id: string;
   public name: string;
   public maxPlayers: number;
@@ -30,6 +43,8 @@ export class GameRoom {
 
   private autoResetTimer: NodeJS.Timeout | null = null;
   private respawnTimers: Map<string, NodeJS.Timeout> = new Map();
+  private playerSessions: Map<string, string> = new Map();
+  private pendingDisconnectTimers: Map<string, NodeJS.Timeout> = new Map();
   private tickSeq: number = 0;
   private startTime: number = 0;
   private lastTickTime: number = 0;
@@ -59,7 +74,7 @@ export class GameRoom {
     this.sendDirect = sendDirect;
   }
 
-  public addPlayer(id: string, name: string, shipClass: ShipClass): boolean {
+  public addPlayer(id: string, name: string, shipClass: ShipClass, sessionToken?: string): boolean {
     if (this.players.size >= this.maxPlayers || this.status !== 'LOBBY') {
       return false;
     }
@@ -74,13 +89,61 @@ export class GameRoom {
       score: 0,
       kills: 0,
       deaths: 0,
+      sessionToken,
+    });
+
+    if (sessionToken) {
+      this.playerSessions.set(sessionToken, id);
+    }
+
+    this.broadcastRoomState();
+    return true;
+  }
+
+  public addBot(): boolean {
+    if (this.players.size >= this.maxPlayers || this.status !== 'LOBBY') {
+      return false;
+    }
+
+    const botNumber = this.players.size + 1;
+    const nameIndex = this.players.size % GameRoom.BOT_NAMES.length;
+    const name = GameRoom.BOT_NAMES[nameIndex] || `Corsair Bot #${botNumber}`;
+    const botId = 'bot-' + Math.random().toString(36).substring(2, 8);
+
+    this.players.set(botId, {
+      id: botId,
+      name,
+      shipClass: 'brig', // Always brig as requested
+      isReady: true,
+      isHost: false,
+      score: 0,
+      kills: 0,
+      deaths: 0,
+      isBot: true,
     });
 
     this.broadcastRoomState();
     return true;
   }
 
-  public addPlayerMidGame(id: string, name: string, shipClass: ShipClass): void {
+  public removeBot(botId?: string): boolean {
+    if (this.status !== 'LOBBY') return false;
+
+    let targetId = botId;
+    if (!targetId) {
+      const bots = Array.from(this.players.values()).filter((p) => p.isBot);
+      if (bots.length === 0) return false;
+      targetId = bots[bots.length - 1].id;
+    }
+
+    const player = this.players.get(targetId);
+    if (!player || !player.isBot) return false;
+
+    this.removePlayer(targetId);
+    return true;
+  }
+
+  public addPlayerMidGame(id: string, name: string, shipClass: ShipClass, sessionToken?: string): void {
     const isHost = this.players.size === 0;
     this.players.set(id, {
       id,
@@ -91,7 +154,12 @@ export class GameRoom {
       score: 0,
       kills: 0,
       deaths: 0,
+      sessionToken,
     });
+
+    if (sessionToken) {
+      this.playerSessions.set(sessionToken, id);
+    }
 
     const config = SERVER_SHIP_CONFIGS[shipClass];
     const existingShips = Array.from(this.ships.values()).map((s) => ({ x: s.x, z: s.z }));
@@ -120,12 +188,135 @@ export class GameRoom {
       reloadTimerStarboard: 0,
     });
 
+    // Broadcast newly arrived ship to all captains so they see and hear respawn bell
+    this.broadcast(this.id, {
+      type: 'SHIP_RESPAWNED',
+      shipId: id,
+      x: spawn.x,
+      z: spawn.z,
+      rotationY: spawn.rotationY,
+      health: config.maxHealth,
+    });
+
     this.broadcastRoomState();
     this.broadcastSnapshot();
   }
 
+  public handlePlayerDisconnect(id: string, isExplicitLeave: boolean = false): void {
+    const player = this.players.get(id);
+    if (!player) return;
+
+    // If game has not started, or player explicitly clicked leave: remove immediately
+    if (this.status !== 'IN_GAME' || isExplicitLeave) {
+      this.removePlayer(id);
+      return;
+    }
+
+    // In active game: provide 25s grace period for client to reconnect
+    player.isDisconnected = true;
+    const ship = this.ships.get(id);
+    if (ship) {
+      ship.sail = 'ANCHOR';
+      ship.rudder = 0;
+    }
+
+    const existingTimer = this.pendingDisconnectTimers.get(id);
+    if (existingTimer) clearTimeout(existingTimer);
+
+    const timer = setTimeout(() => {
+      this.pendingDisconnectTimers.delete(id);
+      if (this.players.has(id)) {
+        this.removePlayer(id);
+      }
+    }, 25000);
+
+    this.pendingDisconnectTimers.set(id, timer);
+    this.broadcastRoomState();
+  }
+
+  public reconnectPlayer(newClientId: string, sessionToken: string): boolean {
+    let targetOldId: string | undefined = this.playerSessions.get(sessionToken);
+    if (!targetOldId) {
+      for (const [pid, player] of this.players.entries()) {
+        if (player.sessionToken === sessionToken) {
+          targetOldId = pid;
+          break;
+        }
+      }
+    }
+
+    if (!targetOldId || !this.players.has(targetOldId)) {
+      return false;
+    }
+
+    const pendingTimer = this.pendingDisconnectTimers.get(targetOldId);
+    if (pendingTimer) {
+      clearTimeout(pendingTimer);
+      this.pendingDisconnectTimers.delete(targetOldId);
+    }
+
+    const player = this.players.get(targetOldId)!;
+    player.id = newClientId;
+    player.isDisconnected = false;
+
+    this.players.delete(targetOldId);
+    this.players.set(newClientId, player);
+
+    const ship = this.ships.get(targetOldId);
+    if (ship) {
+      ship.id = newClientId;
+      this.ships.delete(targetOldId);
+      this.ships.set(newClientId, ship);
+    }
+
+    for (const ball of this.cannonballs) {
+      if (ball.ownerId === targetOldId) {
+        ball.ownerId = newClientId;
+      }
+    }
+
+    const respawnTimer = this.respawnTimers.get(targetOldId);
+    if (respawnTimer) {
+      this.respawnTimers.delete(targetOldId);
+      this.respawnTimers.set(newClientId, respawnTimer);
+    }
+
+    this.playerSessions.set(sessionToken, newClientId);
+
+    this.sendDirect(newClientId, {
+      type: 'ROOM_STATE',
+      room: this.getRoomInfo(),
+      selfId: newClientId,
+    });
+
+    if (this.status === 'IN_GAME') {
+      this.sendDirect(newClientId, {
+        type: 'GAME_STARTED',
+        startTime: this.startTime,
+        windAngle: this.windAngle,
+        windSpeed: this.windSpeed,
+        timeOfDay: this.timeOfDay,
+      });
+    }
+
+    this.broadcastRoomState();
+    this.broadcastSnapshot();
+    return true;
+  }
+
   public removePlayer(id: string): void {
-    const wasHost = this.players.get(id)?.isHost ?? false;
+    const pendingTimer = this.pendingDisconnectTimers.get(id);
+    if (pendingTimer) {
+      clearTimeout(pendingTimer);
+      this.pendingDisconnectTimers.delete(id);
+    }
+
+    const player = this.players.get(id);
+    if (player?.sessionToken) {
+      this.playerSessions.delete(player.sessionToken);
+    }
+
+    const wasHost = player?.isHost ?? false;
     this.players.delete(id);
     this.ships.delete(id);
 
@@ -203,31 +394,26 @@ export class GameRoom {
         if (!this.ships.has(id) || ship.isSunk || this.status !== 'IN_GAME') return;
 
         const serverTime = (Date.now() - this.startTime) / 1000;
-        const fireAngle = ship.rotationY + (side === 'port' ? -Math.PI * 0.5 : Math.PI * 0.5);
         const muzzleSpeed = 38 + Math.random() * 4;
 
         for (let i = startIndex; i <= endIndex; i++) {
           const offsetAlongLength = -span * 0.5 + i * step;
-
-          // Spawn position on deck side
-          const posX = ship.x + Math.sin(ship.rotationY) * offsetAlongLength + Math.sin(fireAngle) * (config.width * 0.5 + 0.2);
-          const posZ = ship.z + Math.cos(ship.rotationY) * offsetAlongLength + Math.cos(fireAngle) * (config.width * 0.5 + 0.2);
-          const posY = ship.y + 1.8;
+          const transform = getBroadsideTransform(ship.x, ship.z, ship.rotationY, side, config.width, offsetAlongLength);
 
           // Slight random spread
           const spreadX = (Math.random() - 0.5) * 0.06;
           const spreadY = (Math.random() - 0.5) * 0.04;
 
-          const vx = Math.sin(fireAngle + spreadX) * muzzleSpeed;
+          const vx = Math.sin(transform.fireAngle + spreadX) * muzzleSpeed;
           const vy = 5.5 + spreadY * 10;
-          const vz = Math.cos(fireAngle + spreadX) * muzzleSpeed;
+          const vz = Math.cos(transform.fireAngle + spreadX) * muzzleSpeed;
 
           this.cannonballs.push({
             id: `${ship.id}-${Date.now()}-${wave}-${i}`,
             ownerId: ship.id,
-            x: posX,
-            y: posY,
-            z: posZ,
+            x: transform.spawnX,
+            y: ship.y + 1.8,
+            z: transform.spawnZ,
             vx,
             vy,
             vz,
@@ -341,6 +527,14 @@ export class GameRoom {
       this.tickSeq++;
       const serverTime = (now - this.startTime) / 1000;
 
+      // Update Bot AI decisions (smart obstacle avoidance, targeting, broadside salvo)
+      for (const ship of this.ships.values()) {
+        const player = this.players.get(ship.id);
+        if (player?.isBot && !ship.isSunk) {
+          BotAI.update(ship, this);
+        }
+      }
+
       // Update each ship's physics with deterministic FIXED_DT
       for (const ship of this.ships.values()) {
         PhysicsEngine.updateShip(ship, this.FIXED_DT, serverTime, this.windAngle, this.windSpeed);
@@ -433,7 +627,7 @@ export class GameRoom {
         .filter((s) => s.id !== shipId && !s.isSunk)
         .map((s) => ({ x: s.x, z: s.z }));
 
-      const spawn = PhysicsEngine.findSafeSpawnPoint(this.players.size, 4, existingAliveShips);
+      const spawn = PhysicsEngine.findRandomSafeRespawnPoint(existingAliveShips);
       const config = SERVER_SHIP_CONFIGS[ship.shipClass];
 
       ship.x = spawn.x;
@@ -609,6 +803,9 @@ export class GameRoom {
     }
     this.respawnTimers.forEach((t) => clearTimeout(t));
     this.respawnTimers.clear();
+    this.pendingDisconnectTimers.forEach((t) => clearTimeout(t));
+    this.pendingDisconnectTimers.clear();
+    this.playerSessions.clear();
     this.activeVolleyTimers.forEach(t => clearTimeout(t));
     this.activeVolleyTimers.clear();
     this.players.clear();

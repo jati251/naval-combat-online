@@ -130,9 +130,9 @@ const BroadsideGaugesContainer: React.FC = React.memo(() => {
     if (aimDirection === 'port' || aimDirection === 'starboard') {
       fireBattery(aimDirection);
     } else {
-      fireBattery('starboard');
+      fireBattery(portProgress >= 1.0 ? 'port' : 'starboard');
     }
-  }, [aimDirection, fireBattery]);
+  }, [aimDirection, fireBattery, portProgress]);
 
   return (
     <BroadsideGauges
@@ -362,10 +362,10 @@ export const BattleHUD: React.FC = () => {
       {/* Floating Tactical Modules for Mobile Landscape Touch Mode */}
       {showTouchControls && (
         <>
-          <div className="pointer-events-none absolute top-12 sm:top-14 left-2 sm:left-4 z-20 scale-[0.68] sm:scale-75 origin-top-left">
+          <div className="pointer-events-none absolute top-[70px] sm:top-[78px] left-2 sm:left-4 z-20 scale-[0.68] sm:scale-75 origin-top-left">
             <CompassMinimap />
           </div>
-          <div className="pointer-events-none absolute top-12 sm:top-14 right-2 sm:right-4 z-20 scale-[0.82] sm:scale-90 origin-top-right">
+          <div className="pointer-events-none absolute top-[56px] sm:top-[64px] right-2 sm:right-4 z-20 scale-[0.78] sm:scale-85 origin-top-right max-w-[220px]">
             <CombatLogContainer />
           </div>
         </>

@@ -101,14 +101,14 @@ export function updateChaseCamera({
   let targetAimHeightMod = 0;
 
   if (aimDirection === 'port') {
-    // Camera shifts slightly starboard and forward to view over the port rail
+    // Camera shifts slightly starboard and forward to view over the port rail into the left ocean
     targetCamSide = 7.5;
     targetCamFwd = 2.0;
     targetLookSide = -35.0; // Look 35m into the left/port ocean
     targetAimDistMod = -6.0;
     targetAimHeightMod = -3.5;
   } else if (aimDirection === 'starboard') {
-    // Camera shifts slightly port and forward to view over the starboard rail
+    // Camera shifts slightly port and forward to view over the starboard rail into the right ocean
     targetCamSide = -7.5;
     targetCamFwd = 2.0;
     targetLookSide = 35.0; // Look 35m into the right/starboard ocean

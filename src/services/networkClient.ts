@@ -10,18 +10,21 @@ class NetworkClient {
   private inputSeq: number = 0;
   private hasConnectedOnce: boolean = false;
 
-  constructor() {
-    if (typeof window !== 'undefined') {
-      window.addEventListener('beforeunload', () => {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-          try {
-            this.ws.send(JSON.stringify({ type: 'LEAVE_ROOM' }));
-          } catch {
-            // Ignore during page unload
-          }
-        }
-      });
+  private sessionToken: string = (() => {
+    try {
+      let t = localStorage.getItem('naval_session_token');
+      if (!t) {
+        t = 'sess-' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+        localStorage.setItem('naval_session_token', t);
+      }
+      return t;
+    } catch {
+      return 'sess-' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
     }
+  })();
+
+  constructor() {
+    // Session token persisted across reloads and reconnects
   }
 
   public getWsUrl(): string {
@@ -65,8 +68,20 @@ class NetworkClient {
       this.ws.onopen = () => {
         useGameStore.getState().setIsConnected(true);
         this.startPing();
+        const store = useGameStore.getState();
         if (this.hasConnectedOnce) {
           useToastStore.getState().success('Connection to Admiralty fleet server restored.', 'Server Connected');
+          if (store.currentRoom?.id && (store.stage === 'BATTLE' || store.stage === 'DEBRIEF')) {
+            this.send({
+              type: 'RECONNECT',
+              roomId: store.currentRoom.id,
+              sessionToken: this.sessionToken,
+            });
+          } else {
+            this.send({ type: 'GET_ROOMS' });
+          }
+        } else {
+          this.send({ type: 'GET_ROOMS' });
         }
         this.hasConnectedOnce = true;
       };
@@ -131,9 +146,12 @@ class NetworkClient {
         break;
       }
       case 'ROOM_STATE': {
-        const room = msg.room as { timeOfDay?: 'DAY' | 'NIGHT' } | undefined;
+        const room = msg.room as { timeOfDay?: 'DAY' | 'NIGHT'; status?: string } | undefined;
         if (room?.timeOfDay) {
           store.setTimeOfDay(room.timeOfDay);
+        }
+        if (room?.status === 'LOBBY' && (store.stage === 'DEBRIEF' || store.stage === 'BATTLE')) {
+          store.setStage('LOBBY');
         }
         store.setCurrentRoom(msg.room as never, (msg.selfId as string) || undefined);
         break;
@@ -256,6 +274,7 @@ class NetworkClient {
       maxPlayers,
       targetKills,
       timeOfDay,
+      sessionToken: this.sessionToken,
     });
   }
 
@@ -281,12 +300,14 @@ class NetworkClient {
       roomId,
       playerName: store.playerName,
       shipClass: store.selectedShip,
+      sessionToken: this.sessionToken,
     });
   }
 
   public leaveRoom(): void {
     this.send({ type: 'LEAVE_ROOM' });
     useGameStore.getState().resetToLobby();
+    this.send({ type: 'GET_ROOMS' });
   }
 
   public setReady(ready: boolean): void {
@@ -300,6 +321,14 @@ class NetworkClient {
 
   public startGame(): void {
     this.send({ type: 'START_GAME' });
+  }
+
+  public addBot(): void {
+    this.send({ type: 'ADD_BOT' });
+  }
+
+  public removeBot(botId?: string): void {
+    this.send({ type: 'REMOVE_BOT', botId });
   }
 
   public sendInput(rudder: number, sail: SailState): void {

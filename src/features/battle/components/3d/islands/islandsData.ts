@@ -145,6 +145,12 @@ export const ARENA_ISLANDS: IslandDefinition[] = [
       [-30, 12, 1.8, 0.9], [28, -14, 1.9, 2.1], [-24, -20, 2.1, 1.4],
       [32, 8, 1.6, 0.3],
     ],
+    settlement: {
+      type: 'colonial-fort',
+      x: -16,
+      z: 18,
+      rotationY: -0.85,
+    },
   },
   // 6. Tortuga Atoll - Far Northwest shallow lagoon
   {
@@ -174,6 +180,12 @@ export const ARENA_ISLANDS: IslandDefinition[] = [
       [-24, 16, 1.6, 0.5], [20, -14, 1.4, 1.8], [-18, -20, 1.8, 2.5],
       [28, 4, 1.2, 0.9],
     ],
+    settlement: {
+      type: 'pirate-haven',
+      x: 12,
+      z: -14,
+      rotationY: 1.15,
+    },
   },
   // 7. Verdant Ridge - Far South highland cape
   {

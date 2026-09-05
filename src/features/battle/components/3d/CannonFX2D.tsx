@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
 import { SHIP_PRESETS } from '@/types/game';
+import { getBroadsideTransform } from '../../utils/navalCombatMath';
 import {
   MAX_FLASH,
   MAX_SMOKE,
@@ -66,11 +67,6 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
     if (!firingShip) return;
 
     const shipCfg = SHIP_PRESETS[firingShip.shipClass] || SHIP_PRESETS.brig;
-    const heading = firingShip.rotationY;
-    const sinH = Math.sin(heading);
-    const cosH = Math.cos(heading);
-    const sideSign = side === 'port' ? -1 : 1;
-    const halfWid = shipCfg.width * 0.5 + 0.5;
     const gunDeckY = firingShip.y + 1.8;
 
     // Mobile: cap at 6 guns to prevent frame hang from particle storm
@@ -79,12 +75,13 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
       : Math.min(16, Math.max(3, Math.floor(shipCfg.length / 2.0)));
     for (let g = 0; g < numGuns; g++) {
       const relZ = (g - (numGuns - 1) * 0.5) * ((shipCfg.length * 0.6) / numGuns);
-      const gx = firingShip.x + (cosH * sideSign * halfWid + sinH * relZ);
+      const transform = getBroadsideTransform(firingShip.x, firingShip.z, firingShip.rotationY, side, shipCfg.width, relZ);
+      const gx = transform.spawnX;
       const gy = gunDeckY + (Math.random() - 0.5) * 0.3;
-      const gz = firingShip.z + (-sinH * sideSign * halfWid + cosH * relZ);
+      const gz = transform.spawnZ;
 
-      const normX = cosH * sideSign;
-      const normZ = -sinH * sideSign;
+      const normX = transform.lateralX;
+      const normZ = transform.lateralZ;
 
       // Bright muzzle explosion burst
       spawnFlash(flashPool.current, gx, gy, gz, 5.0 + Math.random() * 2.5);

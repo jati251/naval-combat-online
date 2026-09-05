@@ -3,6 +3,7 @@ import React, { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
 import type { CannonballSnapshot } from '@/types/game';
+import { getBroadsideTransform } from '../../utils/navalCombatMath';
 
 interface CannonSystem3DProps {
   cannonballs?: CannonballSnapshot[];
@@ -87,17 +88,22 @@ export const CannonSystem3D: React.FC<CannonSystem3DProps> = React.memo(({ canno
       const { selfId, ships } = useGameStore.getState();
       const selfShip = ships.find((s) => s.id === selfId);
       if (selfShip && !selfShip.isSunk && lineGeoRef.current) {
-        const fireAngle =
-          selfShip.rotationY + (aimDirection === 'port' ? -Math.PI * 0.5 : Math.PI * 0.5);
+        const transform = getBroadsideTransform(
+          selfShip.x,
+          selfShip.z,
+          selfShip.rotationY,
+          aimDirection as 'port' | 'starboard',
+          6.0
+        );
         const speed = 40.0;
         const gravity = 9.81;
-        const originX = selfShip.x + Math.sin(fireAngle) * 3.5;
+        const originX = transform.spawnX;
         const originY = selfShip.y + 1.8;
-        const originZ = selfShip.z + Math.cos(fireAngle) * 3.5;
+        const originZ = transform.spawnZ;
 
-        const vx = Math.sin(fireAngle) * speed;
+        const vx = Math.sin(transform.fireAngle) * speed;
         const vy = 5.5;
-        const vz = Math.cos(fireAngle) * speed;
+        const vz = Math.cos(transform.fireAngle) * speed;
 
         let activeCount = 0;
         for (let step = 0; step < MAX_TRAJECTORY_STEPS; step++) {

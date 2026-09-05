@@ -23,4 +23,13 @@ export interface IslandDefinition {
     scaleZ: number;
     angle: number; // yaw angle in radians
   };
+  /** Optional coastal settlement / pirate town outpost */
+  settlement?: IslandSettlement;
+}
+
+export interface IslandSettlement {
+  type: 'pirate-haven' | 'colonial-fort';
+  x: number; // relative local X offset
+  z: number; // relative local Z offset
+  rotationY: number; // facing angle
 }
