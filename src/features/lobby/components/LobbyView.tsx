@@ -19,6 +19,8 @@ export const LobbyView: React.FC = () => {
   const selfId = useGameStore((s) => s.selfId);
   const isConnected = useGameStore((s) => s.isConnected);
 
+  const [mobileTab, setMobileTab] = React.useState<'rooms' | 'ships'>('rooms');
+
   const {
     isRefreshing,
     isDeploying,
@@ -37,9 +39,10 @@ export const LobbyView: React.FC = () => {
   } = useLobby();
 
   return (
-    <div className="w-full h-full min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-between p-6 relative overflow-x-hidden">
-      {/* Background Ambience / Radial Ocean Gradient */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#0c2538_0%,#020617_70%)] pointer-events-none" />
+    <div className="w-full h-full min-h-screen bg-[#05080e] text-[#e8ded1] flex flex-col items-center justify-between p-3 sm:p-6 relative overflow-x-hidden overflow-y-auto">
+      {/* Background Ambience: Deep Stormy Ocean Map Table */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,#0b1e32_0%,#05080e_80%)] pointer-events-none" />
+      <div className="absolute inset-0 cartography-grid opacity-30 pointer-events-none" />
 
       {/* Top Header Bar */}
       <LobbyHeader
@@ -49,8 +52,34 @@ export const LobbyView: React.FC = () => {
         onOpenServerModal={() => setShowServerModal(true)}
       />
 
+      {/* Mobile Navigation Tabs for small viewports (< lg) */}
+      {!currentRoom && (
+        <div className="lg:hidden flex items-center justify-center gap-2 mt-3 z-10 w-full max-w-sm">
+          <button
+            onClick={() => setMobileTab('rooms')}
+            className={`flex-1 py-1.5 px-3 rounded-md font-cinzel font-bold text-xs uppercase tracking-wider transition-all border cursor-pointer ${
+              mobileTab === 'rooms'
+                ? 'bg-amber-950/80 border-amber-400 text-amber-200 shadow-[0_0_8px_rgba(212,175,55,0.4)]'
+                : 'pirate-panel border-stone-800 text-stone-400'
+            }`}
+          >
+            ⚓ Anchorages ({availableRooms.length})
+          </button>
+          <button
+            onClick={() => setMobileTab('ships')}
+            className={`flex-1 py-1.5 px-3 rounded-md font-cinzel font-bold text-xs uppercase tracking-wider transition-all border cursor-pointer ${
+              mobileTab === 'ships'
+                ? 'bg-amber-950/80 border-amber-400 text-amber-200 shadow-[0_0_8px_rgba(212,175,55,0.4)]'
+                : 'pirate-panel border-stone-800 text-stone-400'
+            }`}
+          >
+            🛠 Shipwright
+          </button>
+        </div>
+      )}
+
       {/* Main Content Area */}
-      <main className="w-full max-w-6xl my-auto py-6 flex items-center justify-center z-10">
+      <main className="w-full max-w-6xl my-auto py-2 sm:py-4 flex items-center justify-center z-10">
         {currentRoom ? (
           <RoomLobby
             room={currentRoom}
@@ -65,26 +94,39 @@ export const LobbyView: React.FC = () => {
             onLeaveRoom={() => networkClient.leaveRoom()}
           />
         ) : (
-          <div className="w-full flex gap-6 items-stretch justify-center">
-            <RoomList
-              rooms={availableRooms}
-              isRefreshing={isRefreshing}
-              onRefresh={handleRefresh}
-              onOpenCreateModal={() => setShowCreateModal(true)}
-              onJoinRoom={(roomId) => networkClient.joinRoom(roomId)}
-            />
-            <ShipSelector
-              selectedShip={selectedShip}
-              onSelectShip={setSelectedShip}
-            />
+          <div className="w-full flex flex-col lg:flex-row gap-4 lg:gap-6 items-stretch justify-center">
+            {/* Harbor Anchorages / Rooms */}
+            <div className={`flex-1 ${mobileTab === 'rooms' ? 'block' : 'hidden lg:block'}`}>
+              <RoomList
+                rooms={availableRooms}
+                isRefreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                onOpenCreateModal={() => setShowCreateModal(true)}
+                onJoinRoom={(roomId) => networkClient.joinRoom(roomId)}
+              />
+            </div>
+            {/* Master Shipwright / Ship Selector */}
+            <div className={`${mobileTab === 'ships' ? 'block' : 'hidden lg:block'} flex justify-center`}>
+              <ShipSelector
+                selectedShip={selectedShip}
+                onSelectShip={setSelectedShip}
+              />
+            </div>
           </div>
         )}
       </main>
 
-      {/* Footer Instructions */}
-      <footer className="w-full max-w-6xl flex items-center justify-between text-slate-500 text-[11px] font-mono z-10 pt-4 border-t border-slate-900">
-        <span>Controls: W/S Sails • A/D Steer • Q/E Aim Broadside • Space/Click Fire</span>
-        <span>Naval Combat Online v2.4 • WebGL & uWebSockets</span>
+      {/* Footer Instructions: Vintage Helmsman's Standing Orders */}
+      <footer className="w-full max-w-6xl flex items-center justify-between text-amber-200/50 text-[11px] font-fell italic z-10 pt-3 border-t border-amber-600/20">
+        <span className="flex items-center gap-2">
+          <span className="font-cinzel font-bold not-italic text-amber-400 text-[10px] tracking-wider uppercase">
+            Standing Helm Orders:
+          </span>
+          <span>[W/S] Rig Sails • [A/D] Rudder • [Q/E] Aim Battery • [Space / LMB] Salvo Fire</span>
+        </span>
+        <span className="font-cinzel text-[10px] tracking-widest text-amber-400/60 uppercase">
+          Naval Combat Online • Fleet Warfare of the Golden Age
+        </span>
       </footer>
 
       {/* Modals */}

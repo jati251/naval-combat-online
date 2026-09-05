@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users } from 'lucide-react';
+import { Users, Swords, Anchor, Moon, Sun } from 'lucide-react';
 import type { RoomInfo } from '@/types';
 
 interface RoomCardProps {
@@ -12,50 +12,70 @@ export const RoomCard: React.FC<RoomCardProps> = ({ room, onJoin }) => {
   const isPlaying = room.status === 'IN_GAME';
 
   return (
-    <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 hover:border-amber-500/40 hover:bg-slate-900 transition duration-150">
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <span className="font-cinzel font-bold text-slate-200 text-sm tracking-wide">
+    <div className="flex items-center justify-between p-3.5 rounded-lg pirate-panel border border-amber-600/30 hover:border-amber-400/60 transition-all duration-200 group shadow-md">
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-2.5">
+          <span className="font-cinzel font-bold text-amber-100 text-sm tracking-wider group-hover:text-amber-300 transition-colors">
             {room.name}
           </span>
+
+          {/* Engagement Status Badge */}
           <span
-            className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+            className={`text-[9px] font-cinzel font-bold px-2 py-0.5 rounded border flex items-center gap-1 ${
               isPlaying
-                ? 'bg-rose-950/60 text-rose-400 border-rose-800/40'
-                : 'bg-emerald-950/60 text-emerald-400 border-emerald-800/40'
+                ? 'bg-rose-950/80 text-rose-300 border-rose-700/60 shadow-[0_0_8px_rgba(225,29,72,0.2)]'
+                : 'bg-emerald-950/80 text-emerald-300 border-emerald-700/60 shadow-[0_0_8px_rgba(16,185,129,0.2)]'
             }`}
           >
-            {isPlaying ? 'IN BATTLE' : 'WAITING'}
+            {isPlaying ? <Swords className="w-2.5 h-2.5 text-rose-400" /> : <Anchor className="w-2.5 h-2.5 text-emerald-400" />}
+            <span>{isPlaying ? 'CANVASES ENGAGED' : 'HARBOR ANCHORAGE'}</span>
           </span>
+
+          {/* Maritime Atmosphere */}
           <span
-            className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${
+            className={`text-[9px] font-cinzel font-bold px-2 py-0.5 rounded border flex items-center gap-1 ${
               room.timeOfDay === 'NIGHT'
-                ? 'bg-indigo-950/70 text-indigo-300 border-indigo-700/50'
-                : 'bg-amber-950/70 text-amber-300 border-amber-700/50'
+                ? 'bg-indigo-950/80 text-indigo-200 border-indigo-700/60'
+                : 'bg-amber-950/80 text-amber-200 border-amber-700/60'
             }`}
           >
-            {room.timeOfDay === 'NIGHT' ? '🌙 NIGHT' : '☀️ DAY'}
+            {room.timeOfDay === 'NIGHT' ? (
+              <>
+                <Moon className="w-2.5 h-2.5 text-indigo-300" />
+                <span>MOONLIT SEA</span>
+              </>
+            ) : (
+              <>
+                <Sun className="w-2.5 h-2.5 text-amber-300" />
+                <span>DAYLIGHT SQUALL</span>
+              </>
+            )}
           </span>
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-slate-400">
-          <Users className="w-3.5 h-3.5 text-slate-500" />
-          <span>
-            Captains: {room.players.length} / {room.maxPlayers}
-          </span>
+        <div className="flex items-center gap-3 text-xs font-fell text-amber-200/70">
+          <div className="flex items-center gap-1.5">
+            <Users className="w-3.5 h-3.5 text-amber-500/80" />
+            <span>
+              Captains Commissioned:{' '}
+              <strong className="text-amber-100 font-mono text-[11px]">{room.players.length}</strong>
+              <span className="text-stone-500"> / </span>
+              <strong className="text-amber-100 font-mono text-[11px]">{room.maxPlayers}</strong>
+            </span>
+          </div>
         </div>
       </div>
 
       <button
         onClick={() => onJoin(room.id)}
         disabled={isFull || isPlaying}
-        className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
+        className={`px-4 py-2 rounded-md font-cinzel text-xs font-bold uppercase tracking-wider transition-all duration-200 shadow-md cursor-pointer ${
           isFull || isPlaying
-            ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
-            : 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-black shadow-[0_0_12px_rgba(245,158,11,0.3)]'
+            ? 'bg-stone-900/80 text-stone-600 border border-stone-800 cursor-not-allowed'
+            : 'bg-gradient-to-b from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-stone-950 font-black border border-amber-300/80 shadow-[0_0_12px_rgba(212,175,55,0.3)] active:scale-95'
         }`}
       >
-        {isPlaying ? 'Engaged' : isFull ? 'Full' : 'Join'}
+        {isPlaying ? 'ENGAGED' : isFull ? 'FULL' : 'SIGN ARTICLES'}
       </button>
     </div>
   );

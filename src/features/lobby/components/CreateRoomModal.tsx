@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Swords, Sun, Moon, Dices } from 'lucide-react';
+import { Swords, Sun, Moon, Dices, X } from 'lucide-react';
 
 interface CreateRoomModalProps {
   isOpen: boolean;
@@ -27,83 +27,101 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-amber-500/40 rounded-2xl p-6 max-w-md w-full shadow-2xl animate-scaleUp">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
-            <Swords className="w-5 h-5" />
+    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+      <div className="pirate-parchment border-2 border-amber-600/50 rounded-xl p-5 sm:p-6 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl relative">
+        {/* Corner Brackets */}
+        <div className="absolute top-1.5 left-1.5 w-3 h-3 border-t-2 border-l-2 border-amber-400/80" />
+        <div className="absolute top-1.5 right-1.5 w-3 h-3 border-t-2 border-r-2 border-amber-400/80" />
+        <div className="absolute bottom-1.5 left-1.5 w-3 h-3 border-b-2 border-l-2 border-amber-400/80" />
+        <div className="absolute bottom-1.5 right-1.5 w-3 h-3 border-b-2 border-r-2 border-amber-400/80" />
+
+        <div className="flex items-center justify-between pb-3.5 border-b border-amber-600/30 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg pirate-panel border border-amber-500/50 flex items-center justify-center text-amber-400 shadow-md">
+              <Swords className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-cinzel font-black text-amber-100 text-lg tracking-wider gold-emboss">
+                LETTERS OF MARQUE
+              </h3>
+              <p className="text-[10px] font-fell italic text-amber-200/60">Commission a naval fleet for high seas combat</p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-cinzel font-black text-amber-200 text-lg tracking-wider">
-              FOUND NEW FLEET
-            </h3>
-            <p className="text-xs text-slate-400">Assemble a naval battle fleet for engagement</p>
-          </div>
+          <button
+            onClick={onClose}
+            className="text-amber-400/60 hover:text-amber-200 transition cursor-pointer p-1"
+            title="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Fleet Anchorage Name */}
           <div>
-            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-              Fleet Anchorage Name
+            <label className="block text-[10px] font-cinzel font-bold text-amber-300 uppercase tracking-widest mb-1">
+              Anchorage Designation
             </label>
             <input
               type="text"
               value={roomName}
               onChange={(e) => setRoomName(e.target.value)}
               placeholder="e.g. Tortuga Buccaneers"
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-amber-500 transition"
+              className="w-full bg-stone-950/80 border border-amber-600/40 rounded-md px-3.5 py-2 font-fell text-sm text-amber-100 placeholder:text-stone-600 focus:outline-none focus:border-amber-400 transition"
               maxLength={24}
               autoFocus
             />
           </div>
 
+          {/* Battle Atmosphere */}
           <div>
-            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-              Battle Atmosphere & Lighting
+            <label className="block text-[10px] font-cinzel font-bold text-amber-300 uppercase tracking-widest mb-1">
+              Battle Atmosphere & Weather
             </label>
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => setTimeOfDay('DAY')}
-                className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`py-2 px-2 rounded-md text-xs font-cinzel font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
                   timeOfDay === 'DAY'
-                    ? 'bg-amber-500/20 border-amber-500 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
-                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                    ? 'bg-amber-950/80 border-amber-400 text-amber-200 shadow-[0_0_10px_rgba(212,175,55,0.3)]'
+                    : 'bg-stone-950/60 border-stone-800 text-stone-400 hover:text-amber-200'
                 }`}
               >
                 <Sun className="w-3.5 h-3.5 text-amber-400" />
-                <span>Day</span>
+                <span>Noon Tide</span>
               </button>
               <button
                 type="button"
                 onClick={() => setTimeOfDay('NIGHT')}
-                className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`py-2 px-2 rounded-md text-xs font-cinzel font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
                   timeOfDay === 'NIGHT'
-                    ? 'bg-indigo-500/20 border-indigo-400 text-indigo-300 shadow-[0_0_10px_rgba(99,102,241,0.25)]'
-                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                    ? 'bg-indigo-950/80 border-indigo-400 text-indigo-200 shadow-[0_0_10px_rgba(99,102,241,0.3)]'
+                    : 'bg-stone-950/60 border-stone-800 text-stone-400 hover:text-indigo-200'
                 }`}
               >
                 <Moon className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Night</span>
+                <span>Moonlit</span>
               </button>
               <button
                 type="button"
                 onClick={() => setTimeOfDay('RANDOM')}
-                className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`py-2 px-2 rounded-md text-xs font-cinzel font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
                   timeOfDay === 'RANDOM'
-                    ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.2)]'
-                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                    ? 'bg-amber-900/60 border-amber-400 text-amber-200 shadow-[0_0_10px_rgba(212,175,55,0.3)]'
+                    : 'bg-stone-950/60 border-stone-800 text-stone-400 hover:text-amber-200'
                 }`}
               >
-                <Dices className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Random</span>
+                <Dices className="w-3.5 h-3.5 text-amber-300" />
+                <span>Fortune</span>
               </button>
             </div>
           </div>
 
+          {/* Max Warships */}
           <div>
-            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-              Max Warships
+            <label className="block text-[10px] font-cinzel font-bold text-amber-300 uppercase tracking-widest mb-1">
+              Armada Warship Capacity
             </label>
             <div className="grid grid-cols-6 gap-1.5">
               {[2, 4, 6, 8, 12, 16].map((num) => (
@@ -111,10 +129,10 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                   type="button"
                   key={num}
                   onClick={() => setMaxPlayers(num)}
-                  className={`py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                  className={`py-1.5 rounded-md text-xs font-mono font-bold border transition cursor-pointer ${
                     maxPlayers === num
-                      ? 'bg-amber-500/20 border-amber-500 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
-                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                      ? 'bg-amber-950/80 border-amber-400 text-amber-200 shadow-[0_0_8px_rgba(212,175,55,0.3)]'
+                      : 'bg-stone-950/60 border-stone-800 text-stone-400 hover:text-amber-200'
                   }`}
                 >
                   {num}
@@ -123,19 +141,20 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-3">
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-amber-600/30">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-200 transition cursor-pointer"
+              className="px-4 py-2 rounded-md text-xs font-cinzel font-bold text-amber-200/60 hover:text-amber-200 transition cursor-pointer"
             >
-              Cancel
+              Withdraw
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider transition shadow-[0_0_15px_rgba(245,158,11,0.3)] cursor-pointer"
+              className="px-5 py-2 rounded-md bg-gradient-to-b from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-stone-950 font-cinzel font-bold text-xs uppercase tracking-wider transition-all duration-200 shadow-[0_0_15px_rgba(212,175,55,0.35)] cursor-pointer border border-amber-300/80 active:scale-95"
             >
-              Found Fleet
+              Commission Fleet
             </button>
           </div>
         </form>

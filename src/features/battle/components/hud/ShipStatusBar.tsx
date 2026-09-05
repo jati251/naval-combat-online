@@ -18,40 +18,47 @@ export const ShipStatusBar: React.FC<ShipStatusBarProps> = React.memo(({
   hpPercent,
 }) => {
   return (
-    <div className="pointer-events-auto flex items-center gap-2.5 naval-plaque px-3.5 py-2 select-none">
-      {/* Anchor Medallion */}
-      <div className="w-8 h-8 rounded-full bg-stone-900/80 border border-amber-500/40 flex items-center justify-center text-amber-300 shrink-0">
-        <Anchor className="w-4 h-4" />
+    <div className="pointer-events-auto flex items-center gap-3 naval-plaque px-4 py-2 select-none rounded-md border border-amber-600/40 shadow-xl relative">
+      {/* Corner Filigree Screws */}
+      <div className="absolute top-1 left-1 w-1 h-1 rounded-full bg-amber-400/80 shadow-[0_0_2px_rgba(0,0,0,0.8)]" />
+      <div className="absolute top-1 right-1 w-1 h-1 rounded-full bg-amber-400/80 shadow-[0_0_2px_rgba(0,0,0,0.8)]" />
+      <div className="absolute bottom-1 left-1 w-1 h-1 rounded-full bg-amber-400/80 shadow-[0_0_2px_rgba(0,0,0,0.8)]" />
+      <div className="absolute bottom-1 right-1 w-1 h-1 rounded-full bg-amber-400/80 shadow-[0_0_2px_rgba(0,0,0,0.8)]" />
+
+      {/* Admiralty Anchor Medallion */}
+      <div className="w-9 h-9 rounded-full pirate-panel border border-amber-500/60 flex items-center justify-center text-amber-300 shrink-0 shadow-inner">
+        <Anchor className="w-4 h-4 stroke-[2]" />
       </div>
 
-      <div className="flex flex-col gap-0.5 min-w-[150px]">
+      <div className="flex flex-col gap-1 min-w-[165px]">
         {/* Vessel Name & Class Banner */}
-        <div className="flex items-baseline justify-between gap-2 border-b border-stone-800 pb-0.5">
-          <span className="font-cinzel font-bold text-amber-100 tracking-wider text-xs truncate">
+        <div className="flex items-baseline justify-between gap-3 border-b border-amber-600/30 pb-0.5">
+          <span className="font-cinzel font-bold text-amber-100 tracking-wider text-xs truncate gold-emboss">
             {shipName}
           </span>
-          <span className="text-[8px] font-mono font-bold uppercase tracking-widest px-1 py-0.2 rounded bg-stone-900 text-amber-300/90 border border-amber-700/40">
+          <span className="text-[8px] font-cinzel font-bold uppercase tracking-widest px-1.5 py-0.2 rounded bg-stone-950/80 text-amber-300 border border-amber-600/50">
             {shipClass}
           </span>
         </div>
 
-        {/* Nautical Hull Integrity Bar */}
-        <div className="flex items-center gap-1.5 pt-0.5">
-          <Shield className="w-2.5 h-2.5 text-stone-400 shrink-0" />
-          <div className="flex-1 h-1.5 bg-stone-950 rounded-sm overflow-hidden border border-stone-800 relative">
+        {/* Nautical Hull Timber Integrity */}
+        <div className="flex items-center gap-2 pt-0.5">
+          <Shield className="w-3 h-3 text-amber-400/80 shrink-0" />
+          <div className="flex-1 h-2 bg-stone-950 rounded-sm overflow-hidden border border-amber-900/60 relative shadow-inner">
+            {/* Segmented health gauge */}
             <div
-              className={`h-full rounded-[1px] transition-all duration-300 ${
+              className={`h-full rounded-sm transition-all duration-300 ${
                 hpPercent > 50
-                  ? 'bg-emerald-500'
+                  ? 'bg-gradient-to-r from-emerald-600 to-emerald-400'
                   : hpPercent > 25
-                  ? 'bg-amber-500'
-                  : 'bg-rose-500'
+                  ? 'bg-gradient-to-r from-amber-600 to-amber-400'
+                  : 'bg-gradient-to-r from-rose-700 to-rose-500 animate-pulse'
               }`}
               style={{ width: `${hpPercent}%` }}
             />
           </div>
-          <span className="text-[9px] font-mono font-bold text-stone-300 shrink-0">
-            {Math.round(currentHp)}<span className="text-stone-600">/</span>{config.maxHealth}
+          <span className="text-[9px] font-mono font-bold text-amber-100 shrink-0">
+            {Math.round(currentHp)}<span className="text-amber-500/60">/</span>{config.maxHealth}
           </span>
         </div>
       </div>

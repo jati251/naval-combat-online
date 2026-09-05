@@ -66,7 +66,7 @@ class NetworkClient {
         useGameStore.getState().setIsConnected(true);
         this.startPing();
         if (this.hasConnectedOnce) {
-          useToastStore.getState().success('Koneksi ke armada server berhasil dipulihkan.', 'Server Connected');
+          useToastStore.getState().success('Connection to Admiralty fleet server restored.', 'Server Connected');
         }
         this.hasConnectedOnce = true;
       };
@@ -84,7 +84,7 @@ class NetworkClient {
         useGameStore.getState().setIsConnected(false);
         this.stopPing();
         if (this.hasConnectedOnce) {
-          useToastStore.getState().warning('Koneksi server terputus. Mencoba menghubungkan kembali...', 'Koneksi Terputus');
+          useToastStore.getState().warning('Admiralty connection severed. Attempting reconnection to fleet...', 'Connection Severed');
         }
         this.scheduleReconnect();
       };
@@ -210,7 +210,7 @@ class NetworkClient {
 
   public refreshRooms(): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      useToastStore.getState().warning('Menghubungkan ke server armada...', 'Server Reconnecting');
+      useToastStore.getState().warning('Signaling Admiralty fleet server...', 'Reconnecting');
     }
     this.send({ type: 'GET_ROOMS' });
   }
@@ -223,12 +223,12 @@ class NetworkClient {
     const store = useGameStore.getState();
 
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      useToastStore.getState().error('Tidak dapat membuat fleet: Anda belum terhubung ke server!', 'Koneksi Terputus');
+      useToastStore.getState().error('Cannot found fleet: Not connected to Admiralty server!', 'Connection Severed');
       return;
     }
 
     if (!roomName.trim()) {
-      useToastStore.getState().warning('Nama armada pertempuran tidak boleh kosong!', 'Input Diperlukan');
+      useToastStore.getState().warning('Fleet Anchorage designation cannot be empty!', 'Input Required');
       return;
     }
 
@@ -246,15 +246,15 @@ class NetworkClient {
     const store = useGameStore.getState();
 
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      useToastStore.getState().error('Tidak dapat bergabung: Anda belum terhubung ke server!', 'Koneksi Terputus');
+      useToastStore.getState().error('Cannot sign articles: Not connected to Admiralty server!', 'Connection Severed');
       return;
     }
 
     const targetRoom = store.availableRooms.find((r) => r.id === roomId);
     if (targetRoom && targetRoom.players.length >= targetRoom.maxPlayers) {
       useToastStore.getState().warning(
-        `Room "${targetRoom.name}" sudah penuh (${targetRoom.players.length}/${targetRoom.maxPlayers} Captains)! Silakan pilih atau buat room lain.`,
-        'Fleet Penuh'
+        `Fleet "${targetRoom.name}" has reached full complement (${targetRoom.players.length}/${targetRoom.maxPlayers} Captains)! Please select another anchorage.`,
+        'Fleet Full'
       );
       return;
     }

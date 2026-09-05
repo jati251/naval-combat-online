@@ -1,5 +1,5 @@
 import React from 'react';
-import { Anchor, Compass } from 'lucide-react';
+import { Anchor, Compass, Feather } from 'lucide-react';
 
 interface LobbyHeaderProps {
   playerName: string;
@@ -15,53 +15,70 @@ export const LobbyHeader: React.FC<LobbyHeaderProps> = ({
   onOpenServerModal,
 }) => {
   return (
-    <header className="w-full max-w-6xl flex items-center justify-between z-10">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.2)]">
-          <Anchor className="w-5 h-5" />
+    <header className="w-full max-w-6xl flex items-center justify-between z-10 py-1">
+      {/* Admiralty Emblem & Royal Title */}
+      <div className="flex items-center gap-3.5">
+        <div className="w-12 h-12 rounded-lg pirate-panel flex items-center justify-center text-amber-400 border border-amber-500/40 shadow-lg relative group">
+          <Anchor className="w-6 h-6 stroke-[1.75] text-amber-300 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]" />
+          <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full wax-seal-red flex items-center justify-center text-[7px] font-bold text-amber-100 font-cinzel">
+            ★
+          </div>
         </div>
         <div>
-          <h1 className="text-xl font-cinzel font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-yellow-500">
-            NAVAL COMBAT ONLINE
-          </h1>
-          <p className="text-[10px] text-slate-400 tracking-wider uppercase font-semibold">
-            Black Flag 3D Multiplayer Fleet Warfare
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-cinzel font-black tracking-[0.2em] text-amber-100 gold-emboss">
+              NAVAL COMBAT ONLINE
+            </h1>
+          </div>
+          <p className="text-[11px] font-fell italic text-amber-200/70 tracking-wider">
+            Articles of War & High Seas Fleet Engagements • Anno 1720
           </p>
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        {/* Captain Name Input */}
-        <div className="flex items-center gap-2 bg-slate-900/80 border border-slate-800 rounded-xl px-3 py-1.5 focus-within:border-amber-500/60 transition shadow-inner">
-          <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">
-            Captain:
-          </span>
-          <input
-            type="text"
-            value={playerName}
-            onChange={(e) => onPlayerNameChange(e.target.value)}
-            className="bg-transparent text-sm font-medium text-slate-100 focus:outline-none w-36"
-            placeholder="Enter Captain Name"
-            maxLength={18}
-          />
+      {/* Captain's Registry & Admiralty Telegraph */}
+      <div className="flex items-center gap-3">
+        {/* Captain Logbook Inscription */}
+        <div className="flex items-center gap-2.5 pirate-parchment px-3.5 py-1.5 rounded-md border border-amber-600/40 shadow-md">
+          <Feather className="w-3.5 h-3.5 text-amber-400/90 shrink-0" />
+          <div className="flex flex-col">
+            <span className="text-[9px] font-cinzel font-bold text-amber-400/80 uppercase tracking-widest leading-none">
+              Commanding Captain
+            </span>
+            <input
+              type="text"
+              value={playerName}
+              onChange={(e) => onPlayerNameChange(e.target.value)}
+              className="bg-transparent text-sm font-fell text-amber-100 focus:outline-none w-40 placeholder:text-stone-600 font-semibold"
+              placeholder="e.g. Captain Edward"
+              maxLength={18}
+            />
+          </div>
         </div>
 
-        {/* Server & Status Indicator */}
+        {/* Admiralty Signal Lantern */}
         <button
           onClick={onOpenServerModal}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-300 hover:text-amber-400 hover:border-amber-500/40 transition cursor-pointer text-xs"
-          title="Configure WebSocket Endpoint"
+          className="flex items-center gap-2.5 px-3.5 py-2 rounded-md pirate-panel border border-amber-600/40 text-amber-200/90 hover:text-amber-100 hover:border-amber-400 transition-all cursor-pointer shadow-md text-xs group"
+          title="Admiralty Signal Gateway Configuration"
         >
-          <Compass className="w-3.5 h-3.5 text-cyan-400" />
-          <div className="flex items-center gap-1.5">
-            <div
-              className={`w-2 h-2 rounded-full ${
-                isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'
-              }`}
-            />
-            <span className="text-[11px] font-mono">
-              {isConnected ? 'ONLINE' : 'CONNECTING...'}
+          <Compass className="w-4 h-4 text-amber-400 group-hover:rotate-45 transition-transform duration-300" />
+          <div className="flex flex-col items-start leading-tight">
+            <span className="text-[8px] font-cinzel font-bold tracking-widest text-amber-400/80 uppercase">
+              Admiralty Gateway
             </span>
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isConnected
+                    ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]'
+                    : 'bg-rose-600 animate-pulse shadow-[0_0_6px_rgba(225,29,72,0.8)]'
+                }`}
+              />
+              <span className="text-[10px] font-mono tracking-wider text-stone-300 font-bold uppercase">
+                {isConnected ? 'SIGNAL SOUND' : 'SEEKING BEACON'}
+              </span>
+            </div>
           </div>
         </button>
       </div>

@@ -14,17 +14,16 @@ interface CompassMinimapProps {
   windSpeed?: number;
 }
 
-const CANVAS_SIZE = 144; // CSS display size (144x144px)
-const RADAR_RADIUS = 62; // inner radar active clipping radius
+const CANVAS_SIZE = 148; // CSS display size (148x148px)
+const RADAR_RADIUS = 64; // inner radar active clipping radius
 const SCALE = CONTROL_CONFIG.RADAR_SCALE; // 0.14
 
 /**
- * Ultra-Lightweight 60-144 FPS HTML5 Canvas Tactical Naval Binnacle
- * - Heading-Up Navigation Mode (Google Maps style):
- *   Player's ship is ALWAYS locked at the center pointing straight UP (forward).
- * - Ocean world, islands, wrecks, and enemies smoothly rotate relative to ship heading.
- * - Floating North compass needle & cardinal rim (N, E, S, W) show true magnetic bearing.
- * - Native 2D Canvas rendering eliminates React DOM thrashing, reflows, and memory churn.
+ * Master Navigator's 18th-Century Antique Brass Binnacle (60-144 FPS)
+ * - Heading-Up Navigation: Player's vessel is locked at center pointing forward.
+ * - Antique Nautical Chart rendering with vintage cartography styling.
+ * - Rotating Fleur-de-lis Compass Rose with true magnetic bearing.
+ * - Pure native HTML5 canvas: zero React state thrashing during 30Hz snapshots.
  */
 export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(() => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -49,14 +48,14 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(() => {
       const cx = CANVAS_SIZE * 0.5;
       const cy = CANVAS_SIZE * 0.5;
 
-      // Throttle telemetry text updates to once every 15 frames (~250ms) without React re-rendering
+      // Throttle telemetry text updates to once every 15 frames (~250ms)
       if (frameCount % 15 === 0 && telemetryRef.current) {
         if (curSelf) {
           const shipHeading = curSelf.rotationY || 0;
           const angleDiff = Math.abs((((shipHeading - curWindAngle + Math.PI) % (Math.PI * 2)) - Math.PI));
           const efficiencyRatio = 0.88 + 0.12 * Math.sin(angleDiff * 0.5);
           const efficiencyPercent = Math.round(efficiencyRatio * 100);
-          const stateText = efficiencyPercent < 91 ? 'HEADWIND' : efficiencyPercent < 97 ? 'CROSSWIND' : 'TAILWIND';
+          const stateText = efficiencyPercent < 91 ? 'CLOSE-HAULED' : efficiencyPercent < 97 ? 'CROSSWIND' : 'RUNNING FREE';
           telemetryRef.current.textContent = `${curWindSpeed.toFixed(1)} KTS · ${stateText} (${efficiencyPercent}%)`;
         }
       }
@@ -75,33 +74,48 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(() => {
       const sinH = Math.sin(heading);
       const cosH = Math.cos(heading);
 
-      // 1. Radar Ocean Background (Dark Nautical Navy)
+      // 1. Antique Nautical Chart Water (Deep Oceanic Abyss)
       ctx.save();
       ctx.beginPath();
       ctx.arc(cx, cy, RADAR_RADIUS, 0, Math.PI * 2);
       ctx.clip();
 
-      const bgGrad = ctx.createRadialGradient(cx, cy, 4, cx, cy, RADAR_RADIUS);
-      bgGrad.addColorStop(0, '#031726');
-      bgGrad.addColorStop(0.7, '#020e1a');
-      bgGrad.addColorStop(1, '#01080f');
+      const bgGrad = ctx.createRadialGradient(cx, cy, 2, cx, cy, RADAR_RADIUS);
+      bgGrad.addColorStop(0, '#091c2b');
+      bgGrad.addColorStop(0.65, '#05111d');
+      bgGrad.addColorStop(1, '#02070c');
       ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-      // 2. Tactical Range Rings (120m & 240m)
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.16)';
+      // Antique Cartography Lat/Long fine gridlines
+      ctx.strokeStyle = 'rgba(212, 175, 55, 0.08)';
+      ctx.lineWidth = 0.75;
+      for (let offset = -40; offset <= 40; offset += 20) {
+        ctx.beginPath();
+        ctx.moveTo(cx + offset, cy - RADAR_RADIUS);
+        ctx.lineTo(cx + offset, cy + RADAR_RADIUS);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(cx - RADAR_RADIUS, cy + offset);
+        ctx.lineTo(cx + RADAR_RADIUS, cy + offset);
+        ctx.stroke();
+      }
+
+      // 2. Nautical Range Rings (120m & 240m) in vintage chart gold
+      ctx.strokeStyle = 'rgba(212, 175, 55, 0.22)';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.arc(cx, cy, 120 * SCALE, 0, Math.PI * 2);
       ctx.stroke();
 
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.10)';
+      ctx.strokeStyle = 'rgba(212, 175, 55, 0.14)';
       ctx.beginPath();
       ctx.arc(cx, cy, 240 * SCALE, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Heading-Up Sight Guideline (Straight UP from player ship)
-      ctx.strokeStyle = 'rgba(245, 158, 11, 0.22)';
+      // Heading-Up Gunner's Sightline (Straight UP)
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.35)';
       ctx.setLineDash([2, 3]);
       ctx.beginPath();
       ctx.moveTo(cx, cy);
@@ -109,7 +123,7 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(() => {
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // 3. Islands (Projected in Heading-Up player coordinate space)
+      // 3. Islands (Vintage Cartography styling with golden sand and green interior)
       for (let i = 0; i < ARENA_ISLANDS.length; i++) {
         const isl = ARENA_ISLANDS[i];
         const dx = isl.x - curSelf.x;
@@ -133,28 +147,28 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(() => {
         // Golden beach sand base
         ctx.beginPath();
         ctx.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI * 2);
-        ctx.fillStyle = '#b45309';
+        ctx.fillStyle = '#92400e';
         ctx.fill();
-        ctx.strokeStyle = '#f59e0b';
-        ctx.lineWidth = 0.7;
+        ctx.strokeStyle = '#d97706';
+        ctx.lineWidth = 0.8;
         ctx.stroke();
 
-        // Lush jungle canopy
+        // Lush jungle interior
         ctx.beginPath();
         ctx.ellipse(0, 0, radiusX * 0.7, radiusY * 0.7, 0, 0, Math.PI * 2);
-        ctx.fillStyle = '#047857';
+        ctx.fillStyle = '#065f46';
         ctx.fill();
         ctx.restore();
 
-        // Island Code Label (upright)
+        // Island Inscription
         ctx.fillStyle = '#fef3c7';
-        ctx.font = 'bold 7px monospace';
+        ctx.font = 'bold 7px serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(isl.name.slice(0, 3).toUpperCase(), ix, iy);
       }
 
-      // 4. Shipwrecks (Flotsam cross markers)
+      // 4. Shipwrecks (Sunken Prize crossed bones / markers)
       for (let i = 0; i < ARENA_SHIPWRECKS.length; i++) {
         const wreck = ARENA_SHIPWRECKS[i];
         const dx = wreck.x - curSelf.x;
@@ -165,8 +179,8 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(() => {
         const wy = cy - fwd * SCALE;
 
         if (Math.hypot(wx - cx, wy - cy) <= RADAR_RADIUS) {
-          ctx.strokeStyle = '#fbbf24';
-          ctx.lineWidth = 1.2;
+          ctx.strokeStyle = '#f59e0b';
+          ctx.lineWidth = 1.3;
           ctx.beginPath();
           ctx.moveTo(wx - 2.5, wy - 2.5);
           ctx.lineTo(wx + 2.5, wy + 2.5);
@@ -176,7 +190,7 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(() => {
         }
       }
 
-      // 5. Enemy Warships (Chevrons with true relative heading)
+      // 5. Enemy Warships (Red Privateer Galleons with Heading)
       for (let i = 0; i < curShips.length; i++) {
         const s = curShips[i];
         if (s.id === curId || s.isSunk) continue;
@@ -189,11 +203,11 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(() => {
         let ey = cy - fwd * SCALE;
         const dist = Math.hypot(ex - cx, ey - cy);
 
-        // Clamp to perimeter if out of radar view so player always maintains situational awareness
-        if (dist > RADAR_RADIUS - 3) {
+        // Clamp to edge of binnacle
+        if (dist > RADAR_RADIUS - 4) {
           const clampAngle = Math.atan2(ey - cy, ex - cx);
-          ex = cx + Math.cos(clampAngle) * (RADAR_RADIUS - 4);
-          ey = cy + Math.sin(clampAngle) * (RADAR_RADIUS - 4);
+          ex = cx + Math.cos(clampAngle) * (RADAR_RADIUS - 5);
+          ey = cy + Math.sin(clampAngle) * (RADAR_RADIUS - 5);
         }
 
         const enemyRelAngle = heading - s.rotationY;
@@ -202,87 +216,86 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(() => {
         ctx.rotate(enemyRelAngle);
 
         ctx.beginPath();
-        ctx.moveTo(0, -5.5);
-        ctx.lineTo(4, 4.5);
-        ctx.lineTo(0, 2);
-        ctx.lineTo(-4, 4.5);
+        ctx.moveTo(0, -6);
+        ctx.lineTo(4.5, 5);
+        ctx.lineTo(0, 2.5);
+        ctx.lineTo(-4.5, 5);
         ctx.closePath();
-        ctx.fillStyle = '#f43f5e';
+        ctx.fillStyle = '#dc2626';
         ctx.fill();
-        ctx.strokeStyle = '#ffffff';
+        ctx.strokeStyle = '#fee2e2';
         ctx.lineWidth = 1;
         ctx.stroke();
         ctx.restore();
       }
 
-      // 6. Dynamic Wind Streamer on Radar
+      // 6. Dynamic Wind Rose Streamer
       const blowX = -Math.sin(curWindAngle);
       const blowZ = -Math.cos(curWindAngle);
       const windFwd = blowX * sinH + blowZ * cosH;
       const windRight = -blowX * cosH + blowZ * sinH;
       const windRelAngle = Math.atan2(windRight, -windFwd);
 
-      // Draw subtle wind flow line through center
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate(windRelAngle);
-      const windGrad = ctx.createLinearGradient(0, 18, 0, -RADAR_RADIUS + 6);
-      windGrad.addColorStop(0, 'rgba(52, 211, 153, 0)');
-      windGrad.addColorStop(1, 'rgba(52, 211, 153, 0.45)');
+      const windGrad = ctx.createLinearGradient(0, 20, 0, -RADAR_RADIUS + 8);
+      windGrad.addColorStop(0, 'rgba(212, 175, 55, 0)');
+      windGrad.addColorStop(1, 'rgba(251, 191, 36, 0.45)');
       ctx.strokeStyle = windGrad;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.moveTo(0, 18);
-      ctx.lineTo(0, -RADAR_RADIUS + 6);
+      ctx.moveTo(0, 20);
+      ctx.lineTo(0, -RADAR_RADIUS + 8);
       ctx.stroke();
       ctx.restore();
 
-      // End clipped radar contents
+      // End clipped ocean chart
       ctx.restore();
 
-      // 7. Center Player Warship (Heading-Up: ALWAYS centered, ALWAYS points UP!)
+      // 7. Center Flagship (Heading-Up: Golden Galleon Silhouette)
       ctx.save();
       ctx.translate(cx, cy);
       ctx.beginPath();
-      ctx.moveTo(0, -7);
-      ctx.lineTo(5.5, 6);
-      ctx.lineTo(0, 3);
-      ctx.lineTo(-5.5, 6);
+      ctx.moveTo(0, -7.5);
+      ctx.lineTo(6, 6.5);
+      ctx.lineTo(0, 3.5);
+      ctx.lineTo(-6, 6.5);
       ctx.closePath();
-      ctx.fillStyle = '#f59e0b';
-      ctx.shadowColor = '#f59e0b';
-      ctx.shadowBlur = 6;
+      ctx.fillStyle = '#fbbf24';
+      ctx.shadowColor = '#d97706';
+      ctx.shadowBlur = 8;
       ctx.fill();
-      ctx.strokeStyle = '#0f172a';
-      ctx.lineWidth = 1.6;
+      ctx.strokeStyle = '#1c1917';
+      ctx.lineWidth = 1.5;
       ctx.stroke();
       ctx.restore();
 
-      // 8. Rotating Compass Rose Bezel (Floating Cardinal Bearings N, E, S, W)
+      // 8. Rotating Compass Rose Bezel (Floating Cardinal Points N, E, S, W)
       const northAngle = Math.atan2(-sinH, -cosH);
       const drawCardinal = (angle: number, label: string, isNorth: boolean) => {
-        const lx = cx + Math.sin(angle) * (RADAR_RADIUS - 6);
-        const ly = cy - Math.cos(angle) * (RADAR_RADIUS - 6);
+        const lx = cx + Math.sin(angle) * (RADAR_RADIUS - 7);
+        const ly = cy - Math.cos(angle) * (RADAR_RADIUS - 7);
 
-        ctx.font = isNorth ? '900 8.5px monospace' : '700 6.5px monospace';
-        ctx.fillStyle = isNorth ? '#f59e0b' : '#64748b';
+        ctx.font = isNorth ? 'bold 9px Cinzel, serif' : '600 7px Cinzel, serif';
+        ctx.fillStyle = isNorth ? '#fde047' : '#94a3b8';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(label, lx, ly);
 
         if (isNorth) {
-          // Pointy North indicator arrow
-          const tx = cx + Math.sin(angle) * (RADAR_RADIUS - 1);
-          const ty = cy - Math.cos(angle) * (RADAR_RADIUS - 1);
+          // Fleur-de-lis / North Arrow
+          const tx = cx + Math.sin(angle) * (RADAR_RADIUS - 1.5);
+          const ty = cy - Math.cos(angle) * (RADAR_RADIUS - 1.5);
           ctx.save();
           ctx.translate(tx, ty);
           ctx.rotate(angle);
           ctx.beginPath();
-          ctx.moveTo(0, -3.5);
-          ctx.lineTo(2.5, 1.5);
-          ctx.lineTo(-2.5, 1.5);
+          ctx.moveTo(0, -4);
+          ctx.lineTo(3, 1.5);
+          ctx.lineTo(-3, 1.5);
           ctx.closePath();
-          ctx.fillStyle = '#f59e0b';
+          ctx.fillStyle = '#fde047';
           ctx.fill();
           ctx.restore();
         }
@@ -293,8 +306,8 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(() => {
       drawCardinal(northAngle + Math.PI, 'S', false);
       drawCardinal(northAngle - Math.PI * 0.5, 'W', false);
 
-      // 9. Brass Compass Rim
-      ctx.strokeStyle = 'rgba(245, 158, 11, 0.65)';
+      // 9. Ornate Antique Brass Compass Rim with Tick Marks
+      ctx.strokeStyle = '#d4af37';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(cx, cy, RADAR_RADIUS, 0, Math.PI * 2);
@@ -310,22 +323,22 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(() => {
 
   return (
     <div className="relative flex flex-col items-center select-none pointer-events-auto">
-      {/* Ship Binnacle Compass */}
-      <div className="relative flex items-center justify-center w-36 h-36 rounded-full bg-stone-950/80 border border-amber-500/40 shadow-md p-0 overflow-hidden">
+      {/* Heavy Carved Binnacle Housing with Brass Bezel */}
+      <div className="relative flex items-center justify-center w-[148px] h-[148px] rounded-full pirate-panel border-2 border-amber-600/60 shadow-2xl p-0 overflow-hidden">
         <canvas
           ref={canvasRef}
           style={{ width: `${CANVAS_SIZE}px`, height: `${CANVAS_SIZE}px` }}
           className="block pointer-events-none"
         />
-        {/* Subtle Bezel Overlay */}
-        <div className="absolute inset-0 rounded-full border border-amber-300/15 pointer-events-none" />
+        {/* Inner Brass Shadow Bezel */}
+        <div className="absolute inset-0 rounded-full border border-amber-400/25 pointer-events-none shadow-[inset_0_0_12px_rgba(0,0,0,0.8)]" />
       </div>
 
-      {/* Integrated Wind & Sail Efficiency Telemetry Bar */}
-      <div className="mt-1 flex items-center gap-1.5 px-2.5 py-0.5 naval-plaque text-[9px] font-mono shadow-sm">
-        <Wind className="w-2.5 h-2.5 text-cyan-400" />
-        <span ref={telemetryRef} className="text-amber-200 font-bold">
-          -- KTS · TAILWIND (100%)
+      {/* Integrated Wind & Sail Telemetry Bar */}
+      <div className="mt-1 flex items-center gap-1.5 px-3 py-0.5 naval-plaque text-[9px] font-fell border border-amber-600/40 rounded-sm shadow-md">
+        <Wind className="w-2.5 h-2.5 text-amber-400" />
+        <span ref={telemetryRef} className="text-amber-200 font-bold tracking-wide">
+          -- KTS · RUNNING FREE (100%)
         </span>
       </div>
     </div>

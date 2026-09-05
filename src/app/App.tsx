@@ -4,6 +4,7 @@ import { networkClient } from '@/services/networkClient';
 import { LobbyView } from '@/features/lobby';
 import { NavalCanvas, BattleHUD, SpeedMotionBlurOverlay } from '@/features/battle';
 import { ToastContainer } from '@/components/ui/ToastContainer';
+import { OrientationLockOverlay } from '@/components/ui/OrientationLockOverlay';
 
 export const App: React.FC = () => {
   const stage = useGameStore((s) => s.stage);
@@ -14,7 +15,8 @@ export const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="w-screen h-screen overflow-hidden bg-slate-950 text-slate-100 relative">
+    <div className="w-screen h-screen overflow-hidden bg-[#05080e] text-[#e8ded1] relative">
+      <OrientationLockOverlay />
       <ToastContainer />
       {stage === 'LOBBY' && <LobbyView />}
 

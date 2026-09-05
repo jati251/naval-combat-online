@@ -42,7 +42,7 @@ export const useLobby = () => {
       useToastStore
         .getState()
         .warning(
-          `Menunggu semua captain siap (${unreadyNames || 'Captain'} belum Ready)!`,
+          `Awaiting all captains to sign articles (${unreadyNames || 'Captain'} not yet ready)!`,
           'Captains Not Ready'
         );
       return;
@@ -62,15 +62,15 @@ export const useLobby = () => {
       if (!roomName.trim()) {
         useToastStore
           .getState()
-          .warning('Nama fleet armada tidak boleh kosong!', 'Input Diperlukan');
+          .warning('Fleet Anchorage designation cannot be empty!', 'Input Required');
         return false;
       }
       if (!playerName.trim()) {
         useToastStore
           .getState()
           .warning(
-            'Harap tentukan Nama Captain Anda terlebih dahulu!',
-            'Nama Captain Diperlukan'
+            'Commanding Captain name must be specified first!',
+            'Captain Name Required'
           );
         return false;
       }

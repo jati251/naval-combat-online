@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, CheckCircle, LogOut, Loader2, Clock } from 'lucide-react';
+import { CheckCircle, LogOut, Loader2, Hourglass, Anchor, Shield } from 'lucide-react';
 import { networkClient } from '@/services/networkClient';
 import type { RoomInfo, RoomPlayer } from '@/types';
 
@@ -29,50 +29,60 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
   onLeaveRoom,
 }) => {
   return (
-    <div className="w-full max-w-4xl flex flex-col bg-slate-950/80 border border-amber-500/30 rounded-3xl p-8 backdrop-blur-xl shadow-2xl z-10">
-      <div className="flex items-center justify-between pb-6 border-b border-slate-800">
+    <div className="w-full max-w-4xl flex flex-col pirate-parchment rounded-xl p-7 shadow-2xl relative border border-amber-600/40 z-10">
+      {/* Corner Filigree Brackets */}
+      <div className="absolute top-1.5 left-1.5 w-3 h-3 border-t-2 border-l-2 border-amber-400/80" />
+      <div className="absolute top-1.5 right-1.5 w-3 h-3 border-t-2 border-r-2 border-amber-400/80" />
+      <div className="absolute bottom-1.5 left-1.5 w-3 h-3 border-b-2 border-l-2 border-amber-400/80" />
+      <div className="absolute bottom-1.5 right-1.5 w-3 h-3 border-b-2 border-r-2 border-amber-400/80" />
+
+      {/* Wardroom Header */}
+      <div className="flex items-center justify-between pb-5 border-b border-amber-600/30">
         <div>
           <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-cinzel font-black text-amber-200 tracking-wider">
+            <h2 className="text-2xl font-cinzel font-black text-amber-100 tracking-wider gold-emboss">
               {room.name}
             </h2>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
-              FLEET ANCHORAGE
+            <span className="text-[9px] font-cinzel font-bold px-2.5 py-0.5 rounded-full bg-amber-950/80 text-amber-300 border border-amber-500/50 shadow-sm">
+              COUNCIL OF WAR
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Captains in Anchorage: {room.players.length} / {room.maxPlayers}
+          <p className="text-xs font-fell italic text-amber-200/70 mt-1">
+            Captains Assembled in Wardroom:{' '}
+            <strong className="text-amber-100 font-mono not-italic">{room.players.length}</strong> of{' '}
+            <strong className="text-amber-100 font-mono not-italic">{room.maxPlayers}</strong> vessels
           </p>
         </div>
 
         <button
           onClick={onLeaveRoom}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 border border-rose-900/60 text-rose-400 hover:bg-rose-950/40 hover:border-rose-500 transition cursor-pointer text-xs font-bold"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-md pirate-panel border border-rose-800/60 text-rose-300 hover:text-white hover:border-rose-500 transition-all cursor-pointer text-xs font-cinzel font-bold tracking-wider shadow-sm"
         >
-          <LogOut className="w-4 h-4" />
-          <span>Leave Fleet</span>
+          <LogOut className="w-3.5 h-3.5" />
+          <span>Abandon Fleet</span>
         </button>
       </div>
 
-      {/* Players Roster Grid */}
-      <div className="grid grid-cols-2 gap-4 my-8">
+      {/* Captains Roster Grid */}
+      <div className="grid grid-cols-2 gap-3.5 my-6">
         {room.players.map((p) => {
           const isMe = p.id === selfId;
           return (
             <div
               key={p.id}
-              className={`flex items-center justify-between p-4 rounded-2xl border transition ${
+              className={`flex items-center justify-between p-3.5 rounded-lg border transition-all ${
                 isMe
-                  ? 'bg-amber-500/10 border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.15)]'
-                  : 'bg-slate-900/60 border-slate-800'
+                  ? 'pirate-panel border-amber-400 shadow-[0_0_15px_rgba(212,175,55,0.25)] ring-1 ring-amber-400/40'
+                  : 'bg-stone-950/70 border-stone-800/90'
               }`}
             >
               <div className="flex items-center gap-3">
+                {/* Captain Monogram Crest */}
                 <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center font-cinzel font-bold text-sm ${
+                  className={`w-10 h-10 rounded-lg flex items-center justify-center font-cinzel font-bold text-sm border shadow-md ${
                     p.isHost
-                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                      : 'bg-slate-800 text-slate-300'
+                      ? 'bg-amber-950/80 text-amber-300 border-amber-500/60'
+                      : 'bg-stone-900 text-stone-300 border-stone-700/60'
                   }`}
                 >
                   {p.name.charAt(0).toUpperCase()}
@@ -80,33 +90,37 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
 
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-slate-100">{p.name}</span>
+                    <span className="font-cinzel font-bold text-sm text-amber-100 tracking-wide">
+                      {p.name}
+                    </span>
                     {p.isHost && (
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800/60">
-                        HOST
+                      <span className="text-[8px] font-cinzel font-bold px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-600/60">
+                        COMMODORE
                       </span>
                     )}
                     {isMe && (
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800/60">
+                      <span className="text-[8px] font-cinzel font-bold px-1.5 py-0.5 rounded bg-stone-800 text-amber-200 border border-amber-600/40">
                         YOU
                       </span>
                     )}
                   </div>
-                  <span className="text-[11px] font-mono text-slate-400 uppercase">
+                  <span className="text-[10px] font-mono text-amber-400/80 uppercase flex items-center gap-1 mt-0.5">
+                    <Shield className="w-2.5 h-2.5" />
                     Vessel: {p.shipClass}
                   </span>
                 </div>
               </div>
 
+              {/* Ready Status Stamp */}
               <div>
                 {p.isReady ? (
-                  <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold bg-emerald-950/40 px-3 py-1 rounded-lg border border-emerald-800/40">
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    <span>READY</span>
+                  <div className="flex items-center gap-1.5 text-amber-200 text-[10px] font-cinzel font-bold bg-amber-950/70 px-2.5 py-1 rounded border border-amber-500/50 shadow-sm">
+                    <div className="w-2 h-2 rounded-full wax-seal-red" />
+                    <span>ARTICLES SIGNED</span>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1.5 text-slate-500 text-xs font-bold bg-slate-900 px-3 py-1 rounded-lg border border-slate-800">
-                    <Clock className="w-3.5 h-3.5" />
+                  <div className="flex items-center gap-1.5 text-stone-400 text-[10px] font-cinzel font-bold bg-stone-900/80 px-2.5 py-1 rounded border border-stone-800">
+                    <Hourglass className="w-3 h-3 text-stone-500 animate-pulse" />
                     <span>PREPARING</span>
                   </div>
                 )}
@@ -116,58 +130,58 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
         })}
       </div>
 
-      {/* Action Footer */}
-      <div className="flex items-center justify-between pt-6 border-t border-slate-800">
+      {/* Action Footer Bar */}
+      <div className="flex items-center justify-between pt-5 border-t border-amber-600/30">
         <div className="flex items-center gap-2">
           {/* Captain Ready Toggle */}
           <button
             onClick={() => networkClient.setReady(!selfPlayer?.isReady)}
             disabled={isDeploying}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider transition cursor-pointer border ${
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-md font-cinzel font-bold text-xs uppercase tracking-wider transition-all cursor-pointer border shadow-md ${
               selfPlayer?.isReady
-                ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 hover:bg-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
-                : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-500'
-            } ${isDeploying ? 'opacity-50 cursor-not-allowed' : ''}`}
+                ? 'bg-amber-950/80 border-amber-400 text-amber-200 shadow-[0_0_15px_rgba(212,175,55,0.3)]'
+                : 'pirate-panel border-stone-700 text-stone-300 hover:border-amber-500/60 hover:text-amber-100'
+            } ${isDeploying ? 'opacity-50 cursor-not-allowed' : 'active:scale-95'}`}
           >
-            <CheckCircle className="w-4 h-4" />
-            <span>{selfPlayer?.isReady ? 'Ready for Battle' : 'Mark as Ready'}</span>
+            <CheckCircle className={`w-4 h-4 ${selfPlayer?.isReady ? 'text-amber-400' : 'text-stone-500'}`} />
+            <span>{selfPlayer?.isReady ? 'Aye, Ready for Battle' : 'Sign Articles (Ready)'}</span>
           </button>
         </div>
 
-        {/* Host Start Game Button */}
+        {/* Host Deploy Armada Action */}
         {isHost ? (
-          <div className="flex flex-col items-end gap-1.5">
+          <div className="flex flex-col items-end gap-1">
             <button
               onClick={onStartGame}
               disabled={isDeploying}
-              className={`flex items-center gap-2 px-8 py-3.5 rounded-xl font-black text-sm uppercase tracking-wider transition shadow-2xl ${
+              className={`flex items-center gap-2 px-8 py-3 rounded-md font-cinzel font-black text-xs uppercase tracking-[0.15em] transition-all shadow-xl cursor-pointer ${
                 isDeploying
-                  ? 'bg-amber-600 text-slate-950 cursor-wait opacity-90'
+                  ? 'bg-amber-800 text-stone-950 cursor-wait opacity-90'
                   : allCaptainsReady
-                  ? 'bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 shadow-[0_0_25px_rgba(245,158,11,0.5)] cursor-pointer'
-                  : 'bg-slate-800 text-slate-500 border border-slate-700 hover:bg-slate-700/80 hover:text-slate-300 cursor-pointer'
+                  ? 'bg-gradient-to-b from-amber-400 via-amber-500 to-amber-700 hover:from-amber-300 hover:to-amber-600 text-stone-950 border border-amber-200 shadow-[0_0_25px_rgba(212,175,55,0.6)] active:scale-95'
+                  : 'bg-stone-900 text-stone-400 border border-stone-800 hover:border-amber-600/40 hover:text-amber-200'
               }`}
             >
               {isDeploying ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Deploying Armada...</span>
+                  <Loader2 className="w-4 h-4 animate-spin text-stone-950" />
+                  <span>Unfurling Canvases...</span>
                 </>
               ) : (
                 <>
-                  <Play className="w-5 h-5 fill-current" />
-                  <span>Deploy Game</span>
+                  <Anchor className="w-4 h-4 text-stone-950 stroke-[2.5]" />
+                  <span>Weigh Anchor & Engage</span>
                 </>
               )}
             </button>
-            <span className="text-[10px] font-mono text-slate-400">
-              {readyCount} of {totalCount} Captains Ready
+            <span className="text-[10px] font-fell italic text-amber-200/60">
+              {readyCount} of {totalCount} Captains Prepared for Engagement
             </span>
           </div>
         ) : (
-          <div className="flex items-center gap-2 text-xs font-mono text-amber-400/80 bg-amber-950/30 px-4 py-2 rounded-xl border border-amber-500/20">
-            <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
-            <span>Awaiting Host Admiral to Deploy Armada...</span>
+          <div className="flex items-center gap-2 text-xs font-fell italic text-amber-300/80 pirate-panel px-4 py-2 rounded-md border border-amber-600/40">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+            <span>Awaiting the Commodore's Signal Gun to Weigh Anchor...</span>
           </div>
         )}
       </div>
