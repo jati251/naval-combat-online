@@ -1,3 +1,4 @@
+import { HullDetails } from '../common/HullDetails';
 import React, { useMemo } from 'react';
 import * as THREE from 'three';
 import type { SubModelProps } from '../types';
@@ -88,6 +89,7 @@ export const GalleonModel: React.FC<SubModelProps> = React.memo(({
 
   return (
     <group>
+      <HullDetails hull={hullGeo} trimColor={trimColor} />
       {/* High-Sided Crimson & Mahogany Curved Hull */}
       <mesh geometry={hullGeo} castShadow receiveShadow>
         <ShipWoodMaterial map={hullTexture} />

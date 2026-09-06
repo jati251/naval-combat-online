@@ -37,7 +37,9 @@ export function createBillowedSailGeometry(
 
     // Forward wind pouch displacement
     const belly = Math.max(0, spanCamber * vertProfile);
-    pos.setZ(i, belly * depth);
+    const folds = Math.sin(u * Math.PI * 9 + v * 1.4) * 0.022 * (1 - v * v) * spanCamber;
+    pos.setZ(i, belly * depth + folds);
+    pos.setX(i, x * (0.86 + 0.14 * (v + 1) * 0.5));
 
     // Scalloped roach (cutaway arc along the bottom edge v < -0.6)
     if (v < -0.3) {
@@ -213,7 +215,7 @@ export function createCurvedHullGeometry(options: CurvedHullOptions): THREE.Buff
       vertices.push(x, y, z);
 
       // UV coordinates: u along length, v along girth
-      uvs.push(uZ * (length * 0.5), (j / numG) * 4);
+      uvs.push(uZ * length / 7, (j / numG) * depth / 2);
     }
   }
 
@@ -368,7 +370,7 @@ export function createCurvedDeckGeometry(options: CurvedHullOptions, inset = -0.
       const y = sheerY + camber;
 
       vertices.push(x, y, z);
-      uvs.push(j / segmentsX, uZ * (length * 0.4));
+      uvs.push(z / 7, x / 3);
     }
   }
 

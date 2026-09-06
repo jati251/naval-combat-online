@@ -1,3 +1,5 @@
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { constructionMaterial } from '../textures/constructionMaterials';
 import React, { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import type { IslandSettlement } from './types';
@@ -17,31 +19,31 @@ interface MayanPyramidProps {
  * - Ancient ruined colonnades overgrown with coastal jungle vines
  */
 export const MayanPyramid: React.FC<MayanPyramidProps> = React.memo(({ settlement, isMobile = false }) => {
+  const stairs = useMemo(() => {
+    const parts: THREE.BufferGeometry[] = [];
+    for (let side = 0; side < 4; side++) for (let step = 0; step < 36; step++) {
+      const height = (step + 1) * 19.1 / 36;
+      parts.push(new THREE.BoxGeometry(5.5, height, 0.43)
+        .translate(0, height / 2, 20.5 - step * 0.4).rotateY(side * Math.PI / 2));
+    }
+    for (let side = 0; side < 4; side++) parts.push(new THREE.BoxGeometry(5.5, 0.4, 1.5).translate(0, 18.9, 6).rotateY(side * Math.PI / 2));
+    const geometry = mergeGeometries(parts)!;
+    parts.forEach(g => g.dispose());
+    return geometry;
+  }, []);
+  useEffect(() => () => stairs.dispose(), [stairs]);
   const mats = useMemo(() => {
     return {
-      limestoneBase: new THREE.MeshStandardMaterial({
-        color: '#a8a29e', // Weathered Mesoamerican limestone
-        roughness: 0.95,
-        metalness: 0.02,
-      }),
-      limestoneCarved: new THREE.MeshStandardMaterial({
-        color: '#78716c',
-        roughness: 0.92,
-      }),
-      ancientMoss: new THREE.MeshStandardMaterial({
-        color: '#4d7c0f', // Jungle moss and lichen patina
-        roughness: 0.88,
-      }),
+      limestoneBase: constructionMaterial('stone', '#a8a29e', 4),
+      limestoneCarved: constructionMaterial('stone', '#78716c', 4),
+      ancientMoss: constructionMaterial('rock', '#697057', 8),
       fireGlow: new THREE.MeshStandardMaterial({
         color: '#f97316',
         emissive: '#ea580c',
         emissiveIntensity: 3.5,
         roughness: 0.1,
       }),
-      darkBasalt: new THREE.MeshStandardMaterial({
-        color: '#292524',
-        roughness: 0.96,
-      }),
+      darkBasalt: constructionMaterial('rock', '#292524', 8),
       goldAltar: new THREE.MeshStandardMaterial({
         color: '#eab308',
         metalness: 0.5,
@@ -92,39 +94,7 @@ export const MayanPyramid: React.FC<MayanPyramidProps> = React.memo(({ settlemen
         {/* =========================================================================
             2. MONUMENTAL CEREMONIAL STAIRWAYS (Four Cardinal Faces)
             ========================================================================= */}
-        {/* Front Stairway (Z+) */}
-        <group position={[0, 9.5, 12]}>
-          <mesh rotation={[-Math.PI * 0.28, 0, 0]} material={mats.limestoneCarved} castShadow>
-            <boxGeometry args={[6.5, 23.5, 1.8]} />
-          </mesh>
-          {/* Stairway Balustrades (Serpent ramps) */}
-          {[-3.6, 3.6].map((bx, i) => (
-            <mesh key={`bal-front-${i}`} position={[bx, 0, 0]} rotation={[-Math.PI * 0.28, 0, 0]} material={mats.darkBasalt}>
-              <boxGeometry args={[0.8, 24, 2.2]} />
-            </mesh>
-          ))}
-        </group>
-
-        {/* Back Stairway (Z-) */}
-        <group position={[0, 9.5, -12]}>
-          <mesh rotation={[Math.PI * 0.28, 0, 0]} material={mats.limestoneCarved} castShadow>
-            <boxGeometry args={[5.5, 23.5, 1.8]} />
-          </mesh>
-        </group>
-
-        {/* Left Stairway (X-) */}
-        <group position={[-12, 9.5, 0]}>
-          <mesh rotation={[0, 0, -Math.PI * 0.28]} material={mats.limestoneCarved} castShadow>
-            <boxGeometry args={[1.8, 23.5, 5.5]} />
-          </mesh>
-        </group>
-
-        {/* Right Stairway (X+) */}
-        <group position={[12, 9.5, 0]}>
-          <mesh rotation={[0, 0, Math.PI * 0.28]} material={mats.limestoneCarved} castShadow>
-            <boxGeometry args={[1.8, 23.5, 5.5]} />
-          </mesh>
-        </group>
+        <mesh geometry={stairs} material={mats.limestoneCarved} castShadow receiveShadow />
 
         {/* =========================================================================
             3. SUMMIT SANCTUARY SHRINE (Temple of the Sun)
@@ -135,6 +105,7 @@ export const MayanPyramid: React.FC<MayanPyramidProps> = React.memo(({ settlemen
             <boxGeometry args={[8.0, 4.8, 8.0]} />
           </mesh>
 
+          <mesh position={[0, 1.9, 4.02]} material={mats.darkBasalt}><boxGeometry args={[2.2, 3.8, 0.08]} /></mesh>
           {/* Entrance Portico Columns */}
           {[-2.0, 2.0].map((cx) => (
             <mesh key={`temple-col-${cx}`} position={[cx, 2.2, 4.2]} material={mats.limestoneCarved}>

@@ -1,3 +1,4 @@
+import { HullDetails } from '../common/HullDetails';
 import React, { useMemo } from 'react';
 import * as THREE from 'three';
 import type { SubModelProps } from '../types';
@@ -82,6 +83,7 @@ export const CarrackModel: React.FC<SubModelProps> = React.memo(({
 
   return (
     <group>
+      <HullDetails hull={hullGeo} trimColor={config.trimColor} />
       {/* Charred Dark Timber Curved Hull */}
       <mesh geometry={hullGeo} castShadow receiveShadow>
         <ShipWoodMaterial map={hullTexture} color="#6b6460" />

@@ -1,3 +1,4 @@
+import { jungleTrunkGeometry, jungleCrownGeometry, jungleTrunkMaterial, jungleCrownMaterial } from './jungleGeometries';
 import { memo, useMemo, useRef } from 'react';
 import type { Group } from 'three';
 import { useFrame } from '@react-three/fiber';
@@ -24,14 +25,17 @@ export const IslandFoliage = memo(function IslandFoliage({ island, isMobile }: {
   const nearPalms = useRef<Group>(null);
   const farPalms = useRef<Group>(null);
 
-  const { palms, solidPalms, jungle, bushes, smallBushes } = useMemo(() => {
+  const { palms, solidPalms, solidJungle, jungle, bushes, smallBushes } = useMemo(() => {
     const palms: InstanceTransform[] = [];
     const solidPalms: InstanceTransform[] = [];
     const jungle: InstanceTransform[] = [];
+    const solidJungle: InstanceTransform[] = [];
     const bushes: InstanceTransform[] = [];
     const smallBushes: InstanceTransform[] = [];
 
     function cross(target: InstanceTransform[], x: number, y: number, z: number, scale: number, angle: number, planes: number) {
+      if (y < 0.8) return;
+      if (target === jungle) solidJungle.push({ position: [x, y, z], rotation: [0, angle, 0], scale: [scale, scale, scale] });
       for (let i = 0; i < planes; i++) {
         target.push({
           position: [x, y, z],
@@ -44,6 +48,7 @@ export const IslandFoliage = memo(function IslandFoliage({ island, isMobile }: {
     // 1. Authored coconut palms & companion groves
     island.palms.forEach(([x, z, scale], i) => {
       const y = getTerrainSurfaceY(island, x, z);
+      if (y < 0.8) return;
       solidPalms.push({ position: [x, y, z], rotation: [0, (i + island.seed) * 1.618, 0], scale: [scale, scale, scale] });
       cross(palms, x, y, z, scale, (i + island.seed) * 1.618, 3);
       cross(bushes, x + 0.5 * scale, y - 0.1, z + 0.4 * scale, scale * 0.55, (i * 7 + 3) * 2.11, 3);
@@ -192,12 +197,12 @@ export const IslandFoliage = memo(function IslandFoliage({ island, isMobile }: {
       }
     }
 
-    return { palms, solidPalms, jungle, bushes, smallBushes };
+    return { palms, solidPalms, solidJungle, jungle, bushes, smallBushes };
   }, [island, isMobile]);
 
   useFrame(({ camera }) => {
     if (!nearPalms.current || !farPalms.current) return;
-    const threshold = (isMobile ? 90 : 170) + island.radius * 0.5 + (nearPalms.current.visible ? 20 : 0);
+    const threshold = (isMobile ? 90 : 260) + island.radius * Math.max(island.elongation?.scaleX ?? 1, island.elongation?.scaleZ ?? 1) + (nearPalms.current.visible ? 20 : 0);
     const close = (camera.position.x - island.x) ** 2 + (camera.position.z - island.z) ** 2 < threshold ** 2;
     nearPalms.current.visible = close;
     farPalms.current.visible = !close;
@@ -210,16 +215,17 @@ export const IslandFoliage = memo(function IslandFoliage({ island, isMobile }: {
       {/* 2D Crossed Billboard Palms (Distant LOD) */}
       <group ref={farPalms}>
         <StaticInstances geometry={palmPlaneGeo} material={palmMat} instances={palms} />
+        <StaticInstances geometry={junglePlaneGeo} material={jungleMat} instances={jungle} />
       </group>
 
       {/* 3D Solid Meshed Palms (Close-up LOD) */}
       <group ref={nearPalms} visible={false}>
         <StaticInstances geometry={palmTrunkGeometry} material={palmTrunkMaterial} instances={solidPalms} castShadow={!isMobile} />
         <StaticInstances geometry={palmCrownGeometry} material={palmCrownMaterial} instances={solidPalms} castShadow={!isMobile} />
+        <StaticInstances geometry={jungleTrunkGeometry} material={jungleTrunkMaterial} instances={solidJungle} castShadow={!isMobile} />
+        <StaticInstances geometry={jungleCrownGeometry} material={jungleCrownMaterial} instances={solidJungle} castShadow={!isMobile} />
       </group>
 
-      {/* Dense Rainforest Hardwood Canopy */}
-      <StaticInstances geometry={junglePlaneGeo} material={jungleMat} instances={jungle} castShadow={!isMobile} />
 
       {/* Medium Tropical Bush Clusters */}
       <StaticInstances geometry={bushPlaneGeo} material={bushMat} instances={bushes} />

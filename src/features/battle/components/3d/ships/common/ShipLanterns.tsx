@@ -1,3 +1,4 @@
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import React, { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import { useGameStore } from '@/stores/useGameStore';
@@ -9,7 +10,16 @@ interface ShipLanternsProps {
 }
 
 // Shared static geometries and base brass material to prevent memory leaks and GC stalls
-const lanternCasingGeo = new THREE.CylinderGeometry(0.18, 0.24, 0.55, 6);
+const casingParts: THREE.BufferGeometry[] = [
+  new THREE.CylinderGeometry(0.18, 0.22, 0.09, 6).translate(0, 0.25, 0),
+  new THREE.CylinderGeometry(0.24, 0.22, 0.09, 6).translate(0, -0.25, 0),
+];
+for (let i = 0; i < 6; i++) {
+  const a = i * Math.PI / 3;
+  casingParts.push(new THREE.CylinderGeometry(0.018, 0.018, 0.48, 4).translate(Math.cos(a) * 0.18, 0, Math.sin(a) * 0.18));
+}
+const lanternCasingGeo = mergeGeometries(casingParts)!;
+casingParts.forEach(g => g.dispose());
 const lanternGlassGeo = new THREE.CylinderGeometry(0.14, 0.19, 0.42, 6);
 const brassMat = new THREE.MeshStandardMaterial({
   color: '#291d10',
@@ -68,7 +78,8 @@ export const ShipLanterns: React.FC<ShipLanternsProps> = React.memo(({ shipClass
 
   // Lantern offsets based on ship dimensions
   const sternZ = -halfLen * 0.88;
-  const sternY = config.length > 30 ? 5.8 : 3.8;
+  const [depth, sheer] = { gunboat: [2.1, 0.45], sloop: [2.8, 0.95], corvette: [3, 0.85], brig: [3.3, 1.15], carrack: [3.6, 1.45], galleon: [3.8, 1.8], frigate: [3.8, 1.4], man_o_war: [4.2, 1.65] }[shipClass];
+  const sternY = depth + sheer * 0.74 + 0.85;
   const bowZ = halfLen * 0.85;
   const bowY = config.length > 30 ? 4.2 : 2.5;
   const bowX = halfWid * 0.65;
@@ -77,6 +88,7 @@ export const ShipLanterns: React.FC<ShipLanternsProps> = React.memo(({ shipClass
     <group>
       {/* 1. Large Stern Center Transom Admiral Lantern */}
       <group position={[0, sternY, sternZ]}>
+        <mesh position={[0, -0.65, 0]} material={brassMat}><cylinderGeometry args={[0.035, 0.06, 0.85, 6]} /></mesh>
         <mesh geometry={lanternCasingGeo} material={brassMat} />
         <mesh geometry={lanternGlassGeo} material={amberGlassMat} />
         {isNight && (

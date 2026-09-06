@@ -4,23 +4,34 @@ import { useFrame } from '@react-three/fiber';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { StaticInstances, type InstanceTransform } from '../shared/StaticInstances';
 import { createWoodPlankTexture } from '../textures/shipTextures';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { getSurfaceBump } from '../textures/surfaceTextures';
 
 const barrel = new THREE.LatheGeometry([
   new THREE.Vector2(0, 0), new THREE.Vector2(0.27, 0),
   new THREE.Vector2(0.32, 0.12), new THREE.Vector2(0.36, 0.43),
   new THREE.Vector2(0.32, 0.74), new THREE.Vector2(0.27, 0.86), new THREE.Vector2(0, 0.86),
-], 12);
+], 24);
+const barrelUV = barrel.getAttribute('uv');
+for (let i = 0; i < barrelUV.count; i++) {
+  const u = barrelUV.getX(i), v = barrelUV.getY(i);
+  barrelUV.setXY(i, v * 0.35, u * 2);
+}
 const ringParts = [0.13, 0.43, 0.73].map((y) =>
-  new THREE.CylinderGeometry(y === 0.43 ? 0.365 : 0.33, y === 0.43 ? 0.365 : 0.33, 0.045, 12, 1, true).translate(0, y, 0));
+  new THREE.CylinderGeometry(y === 0.43 ? 0.365 : 0.33, y === 0.43 ? 0.365 : 0.33, 0.045, 24, 1, true).translate(0, y, 0));
+ringParts.push(new THREE.CylinderGeometry(0.045, 0.045, 0.012, 10).translate(0.1, 0.866, 0));
 const hoops = mergeGeometries(ringParts)!;
 ringParts.forEach((geometry) => geometry.dispose());
-const crate = new THREE.BoxGeometry(0.8, 0.7, 0.7).translate(0, 0.35, 0);
+const crate = new RoundedBoxGeometry(0.8, 0.7, 0.7, 2, 0.025).translate(0, 0.35, 0);
 const braceParts = [-0.36, 0.36].flatMap((z) => [
   new THREE.BoxGeometry(0.88, 0.085, 0.055).translate(0, 0.08, z),
   new THREE.BoxGeometry(0.88, 0.085, 0.055).translate(0, 0.62, z),
   new THREE.BoxGeometry(0.88, 0.07, 0.055).rotateZ(0.6).translate(0, 0.35, z),
 ]);
+for (const x of [-0.42, 0.42]) {
+  for (const z of [-0.34, 0.34]) braceParts.push(new THREE.BoxGeometry(0.065, 0.72, 0.075).translate(x, 0.35, z));
+  for (const y of [0.08, 0.62]) braceParts.push(new THREE.BoxGeometry(0.065, 0.085, 0.75).translate(x, y, 0));
+}
 const braces = mergeGeometries(braceParts)!;
 braceParts.forEach((geometry) => geometry.dispose());
 const coilParts = [0.13, 0.2, 0.27, 0.34].map((radius) =>

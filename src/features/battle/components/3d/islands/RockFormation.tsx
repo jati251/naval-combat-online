@@ -1,3 +1,4 @@
+import { constructionMaterial } from '../textures/constructionMaterials';
 import React from 'react';
 import * as THREE from 'three';
 
@@ -33,6 +34,19 @@ const rockMatMoss = new THREE.MeshStandardMaterial({
   metalness: 0.03,
 });
 
+let surfacesReady = false;
+function applyRockSurfaces() {
+  if (surfacesReady) return;
+  for (const material of [rockMat, rockMatDark, rockMatMoss]) {
+    const textured = constructionMaterial('rock', '#' + material.color.getHexString(), 1.5);
+    material.copy(textured);
+    material.onBeforeCompile = textured.onBeforeCompile;
+    material.customProgramCacheKey = textured.customProgramCacheKey;
+    textured.dispose();
+  }
+  surfacesReady = true;
+}
+
 import { StaticInstances, type InstanceTransform } from '../shared/StaticInstances';
 import { getTerrainSurfaceY } from './islandGeometries';
 import type { IslandDefinition } from './types';
@@ -45,6 +59,7 @@ export const RockFormation: React.FC<{
   scale?: number;
   rotation?: number;
 }> = React.memo(({ position, scale = 1, rotation = 0 }) => {
+  applyRockSurfaces();
   return (
     <group position={position} rotation={[0, rotation, 0]} scale={scale}>
       <mesh castShadow receiveShadow geometry={rockGeoLarge} material={rockMat} scale={[1, 0.7, 1.1]} />
@@ -62,6 +77,7 @@ export const IslandRocks: React.FC<{
   island: IslandDefinition;
   isMobile?: boolean;
 }> = React.memo(({ island, isMobile = false }) => {
+  applyRockSurfaces();
   const { large, medium, small } = React.useMemo(() => {
     const large: InstanceTransform[] = [];
     const medium: InstanceTransform[] = [];

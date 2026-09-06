@@ -1,3 +1,4 @@
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import React, { useMemo, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
@@ -35,7 +36,18 @@ export const MAP_BUOYS: Record<string, BuoyDefinition[]> = {
 };
 
 const barrelGeo = new THREE.CylinderGeometry(0.7, 0.55, 1.4, 10);
-const cageGeo = new THREE.CylinderGeometry(0.4, 0.72, 1.6, 6, 1, true);
+const cageParts: THREE.BufferGeometry[] = [
+  new THREE.TorusGeometry(0.72, 0.035, 6, 24).rotateX(Math.PI / 2).translate(0, -0.8, 0),
+  new THREE.TorusGeometry(0.4, 0.035, 6, 24).rotateX(Math.PI / 2).translate(0, 0.8, 0),
+];
+for (let i = 0; i < 6; i++) {
+  const angle = i * Math.PI / 3;
+  const a = new THREE.Vector3(Math.cos(angle) * 0.72, -0.8, Math.sin(angle) * 0.72);
+  const b = new THREE.Vector3(Math.cos(angle) * 0.4, 0.8, Math.sin(angle) * 0.4);
+  cageParts.push(new THREE.TubeGeometry(new THREE.LineCurve3(a, b), 1, 0.035, 6, false));
+}
+const cageGeo = mergeGeometries(cageParts)!;
+cageParts.forEach(g => g.dispose());
 const lanternGeo = new THREE.BoxGeometry(0.35, 0.45, 0.35);
 const postGeo = new THREE.CylinderGeometry(0.06, 0.08, 2.2, 6);
 

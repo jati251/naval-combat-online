@@ -1,3 +1,4 @@
+import { HullDetails } from '../common/HullDetails';
 import React, { useMemo } from 'react';
 import * as THREE from 'three';
 import type { SubModelProps } from '../types';
@@ -88,6 +89,7 @@ export const BrigModel: React.FC<SubModelProps> = React.memo(({
 
   return (
     <group>
+      <HullDetails hull={hullGeo} trimColor={trimColor} />
       {/* Sturdy Curved Oak Hull */}
       <mesh geometry={hullGeo} castShadow receiveShadow>
         <ShipWoodMaterial map={hullTexture} />

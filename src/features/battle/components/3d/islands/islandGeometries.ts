@@ -1,569 +1,114 @@
 import * as THREE from 'three';
+import { createNoise2D } from 'simplex-noise';
 import type { IslandDefinition } from './types';
 
-// ────────────────────────────────────────────────────────────────────────
-// Fast math helpers for ridged mountain relief
-// ────────────────────────────────────────────────────────────────────────
-function ridgedNoise(val: number): number {
-  return 1.0 - Math.abs(Math.sin(val));
+const RESOLUTION = 112;
+const smooth = (a: number, b: number, x: number) => THREE.MathUtils.smoothstep(x, a, b);
+const extent = (island: IslandDefinition) => Math.max(island.sandRadius * 1.32, island.radius * 1.45);
+
+let noiseSeed = 271828;
+const noise = createNoise2D(() => {
+  noiseSeed = (Math.imul(noiseSeed, 1664525) + 1013904223) >>> 0;
+  return noiseSeed / 4294967296;
+});
+function relief(x: number, z: number, seed: number) {
+  const sx = x + seed * 0.731, sz = z - seed * 0.419;
+  return noise(sx * 2, sz * 2) * 0.55 + noise(sx * 5, sz * 5) * 0.27 + noise(sx * 12, sz * 12) * 0.12;
 }
 
-/**
- * Generates high-detail procedural terrain geometry with archetype-based mountain morphology:
- * - High geometric density (120 segments × 56 rings) for smooth, sharp ridges and gullies
- * - World-scaled UV mapping to eliminate texture stretching and maximize texture clarity
- * - Ridged multifractal mountain spines, volcanic caldera rims, and stepped karst cliffs
- * - Slope-aware (tri-planar style) vertex color splatting exposing sheer rock cliffs and lush turf plateaus
- */
-export function createIslandTerrainGeometry(
-  island: IslandDefinition
-): THREE.BufferGeometry {
-  const { radius, height, type, seed } = island;
-  const segments = 120; // High radial resolution for crisp mountain crags
-  const rings = 56;     // High vertical resolution for stratified rock ledges
-
-  const geo = new THREE.CylinderGeometry(
-    radius * 0.08,  // Sharp mountain summit peak
-    radius * 1.15,  // Base radius merging with beach
-    height,
-    segments,
-    rings,
-    false
-  );
-
-  const pos = geo.attributes.position as THREE.BufferAttribute;
-
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i);
-    const y = pos.getY(i);
-    const z = pos.getZ(i);
-
-    const t = (y + height / 2) / height;
-    const angle = Math.atan2(z, x);
-
-    let dx = 0, dy = 0, dz = 0;
-
-    if (type === 'volcanic') {
-      // Jagged caldera rim with craggy teeth at the summit
-      const craterRim = t > 0.82
-        ? (Math.sin(angle * 6 + seed * 0.5) * 0.6 + ridgedNoise(angle * 12 + 0.8) * 0.4) * radius * 0.12 * ((t - 0.82) / 0.18)
-        : 0;
-      // Radiating lava flow ribs and vertical erosion chutes
-      const lavaRibs = ridgedNoise(angle * 8 + 0.5) * radius * 0.16 * t;
-      const erosionGully = Math.sin(angle * 5 + 1.3) * Math.sin(angle * 11 + 2.7) * radius * 0.08 * t;
-      const basaltButtress = Math.sin(angle * 3 + 0.7) * radius * 0.14 * (1 - t) * (1 - t);
-      
-      dx = Math.cos(angle) * (erosionGully + basaltButtress + craterRim + lavaRibs);
-      dz = Math.sin(angle) * (erosionGully + basaltButtress + craterRim + lavaRibs);
-      
-      // Basalt columnar steps and sheer drops
-      const stepTerracing = Math.sin(t * Math.PI * 5) * 0.5 * t;
-      dy = Math.sin(angle * 11 + y * 0.3) * 0.9 * t +
-           Math.sin(angle * 19 + y * 0.7) * 0.45 * t +
-           stepTerracing;
-
-    } else if (type === 'sea-stack') {
-      // Sheer vertical limestone cliffs, undercut wave notch, and jagged summit spires
-      const cliff = (Math.abs(Math.sin(angle * 4 + 0.5)) + ridgedNoise(angle * 8 + 1.2) * 0.6) * radius * 0.16 * t;
-      const overhang = t > 0.55 ? Math.sin(angle * 6 + 2.1) * radius * 0.12 * ((t - 0.55) / 0.45) : 0;
-      const waveNotch = (t < 0.15) ? -Math.sin((t / 0.15) * Math.PI) * radius * 0.08 : 0;
-      const baseSpread = (1 - t) * (1 - t) * radius * 0.25 * (1 + Math.sin(angle * 3) * 0.3);
-
-      dx = Math.cos(angle) * (cliff + overhang + waveNotch + baseSpread);
-      dz = Math.sin(angle) * (cliff + overhang + waveNotch + baseSpread);
-
-      const peakBias = Math.max(0, Math.cos(angle * 2 - 1.0)) * height * 0.18 * t * t;
-      dy = peakBias + Math.sin(angle * 9 + y * 0.4) * 1.3 * t;
-
-    } else if (type === 'atoll') {
-      // Reef ring with coral limestone outcrops and central lagoon depression
-      const ringFactor = Math.sin(t * Math.PI);
-      const ringRadius = radius * 0.3 * ringFactor;
-      const irregularity = Math.sin(angle * 5 + 1.7) * radius * 0.09 + Math.sin(angle * 11) * radius * 0.05;
-      const reefLedge = ridgedNoise(angle * 7) * radius * 0.06 * (1 - t);
-
-      dx = Math.cos(angle) * (ringRadius + irregularity + reefLedge);
-      dz = Math.sin(angle) * (ringRadius + irregularity + reefLedge);
-      dy = -t * t * height * 0.28 + Math.sin(angle * 7 + y * 0.5) * 0.35;
-
-    } else if (type === 'lush-flat') {
-      // Undulating savannah knolls and coastal dune swells
-      const gentleHill = Math.sin(angle * 2 + 0.4) * radius * 0.16 * (1 - t);
-      const coastalVariation = Math.sin(angle * 8 + 2.3) * radius * 0.07 * (1 - t * t);
-      const duneWobble = ridgedNoise(angle * 6 + seed) * radius * 0.06 * (1 - t);
-
-      dx = Math.cos(angle) * (gentleHill + coastalVariation + duneWobble);
-      dz = Math.sin(angle) * (gentleHill + coastalVariation + duneWobble);
-      dy = Math.sin(angle * 3 + 0.8) * Math.sin(t * Math.PI) * height * 0.14 +
-           Math.cos(angle * 5 - 1.2) * height * 0.07 * t;
-
-    } else if (type === 'verdant-hills') {
-      // Broad rolling hills, sharp connecting mountain spine, and stepped knolls
-      const hillSwelling = Math.sin(angle * 3 + 0.5) * Math.cos(angle * 2 - 0.7) * radius * 0.22 * (1 - t * 0.6);
-      const ridgeSpine = ridgedNoise(angle * 4 + seed * 0.25) * radius * 0.14 * (1 - t * 0.3);
-      const knollRidge = Math.sin(angle * 7 + seed * 0.5) * radius * 0.08 * (1 - t);
-
-      dx = Math.cos(angle) * (hillSwelling + ridgeSpine + knollRidge);
-      dz = Math.sin(angle) * (hillSwelling + ridgeSpine + knollRidge);
-
-      // Rolling terraced dome + spine crest
-      const rollingDome = Math.sin(t * Math.PI * 0.95) * height * 0.26;
-      const saddle = Math.cos(angle * 2 + 1.1) * height * 0.16 * t;
-      const terracedLedges = (Math.sin(t * Math.PI * 6.0) * 0.35 + Math.cos(angle * 5 + t * 4) * 0.4) * (1 - t * 0.4);
-      dy = rollingDome + saddle + terracedLedges;
-
-    } else if (type === 'dense-jungle') {
-      // Knife-edge razor spine ridges (Na Pali / Jurassic Park style) and fluted valleys
-      const spine = ridgedNoise(angle * 5 + 1.2) * radius * 0.22 * (1 - t * 0.4);
-      const ravine = Math.cos(angle * 9 - 0.8) * radius * 0.12 * t;
-      const spur = Math.sin(angle * 3 + seed * 0.4) * radius * 0.14 * (1 - t * 0.6);
-
-      dx = Math.cos(angle) * (spine + ravine + spur);
-      dz = Math.sin(angle) * (spine + ravine + spur);
-
-      const fluting = Math.sin(t * Math.PI * 4.0) * 0.7 * (1 - t);
-      dy = fluting + Math.sin(angle * 6 + seed * 0.5) * height * 0.15 * t;
-    }
-
-    // High-frequency geological micro-noise
-    const noise1 = Math.sin(angle * 13 + y * 0.55 + seed * 0.1) * 0.65;
-    const noise2 = Math.sin(angle * 27 + y * 1.2 + seed * 0.3) * 0.3;
-    const noise3 = Math.sin(angle * 43 + y * 2.5 + seed * 0.7) * 0.15;
-    const combinedNoise = (noise1 + noise2 + noise3) * (1 - t * 0.35);
-
-    dx += Math.cos(angle) * combinedNoise;
-    dz += Math.sin(angle) * combinedNoise;
-    dy += combinedNoise * 0.4;
-
-    const finalX = x + dx;
-    let finalY = y + dy;
-    const finalZ = z + dz;
-
-    // Coastal & Plateau Terrace Flattening for Settlements
-    if (island.settlement && island.settlement.type !== 'sea-arch') {
-      const sx = island.settlement.x;
-      const sz = island.settlement.z;
-      const targetTerrace = island.settlement.terraceElevation ?? (
-        island.settlement.type === 'kingston-city' ? 3.2 :
-        island.settlement.type === 'mayan-temple' ? 12.0 :
-        island.settlement.type === 'pirate-haven' ? 2.5 : 3.0
-      );
-      const terraceRad = island.settlement.terraceRadius ?? (
-        island.settlement.type === 'kingston-city' ? 56.0 :
-        island.settlement.type === 'mayan-temple' ? 36.0 : 24.0
-      );
-
-      const distSettlement = Math.sqrt((finalX - sx) ** 2 + (finalZ - sz) ** 2);
-      if (distSettlement < terraceRad) {
-        const flatZone = terraceRad * 0.72;
-        let blend = 1.0;
-        if (distSettlement > flatZone) {
-          const u = (distSettlement - flatZone) / (terraceRad - flatZone);
-          blend = 1.0 - u * u * (3 - 2 * u);
-        }
-        const elevOffset = getIslandElevation(island) + 2.0;
-        const currentWorldY = finalY + elevOffset;
-        const blendedWorldY = currentWorldY * (1 - blend) + targetTerrace * blend;
-        finalY = blendedWorldY - elevOffset;
-      }
-    }
-
-    pos.setXYZ(i, finalX, finalY, finalZ);
+function surface(island: IslandDefinition, x: number, z: number): number {
+  const { radius, height, seed, type } = island;
+  const nx = x / radius, nz = z / radius;
+  const angle = Math.atan2(nz, nx);
+  const coast = 1 + 0.08 * Math.sin(angle * 3 + seed) + 0.045 * Math.cos(angle * 7 - seed);
+  const r = Math.hypot(nx, nz) / coast;
+  const beachEnd = Math.max(1.13, island.sandRadius / radius);
+  const shore = 1.65 - smooth(0.92, beachEnd * 1.13, r) * 5.65;
+  const envelope = 1 - smooth(0.55, 1.04, r);
+  const n = relief(nx, nz, seed);
+  let peak: number;
+  if (type === 'volcanic') {
+    const crater = Math.hypot(nx + 0.13, nz - 0.08);
+    peak = Math.exp(-crater * crater * 2.8) * (0.86 + n * 0.16)
+      - Math.exp(-crater * crater * 65) * 0.48;
+  } else if (type === 'sea-stack') {
+    peak = (1 - smooth(0.48 + n * 0.09, 0.83 + n * 0.08, r)) * (0.76 + n * 0.18);
+  } else if (type === 'atoll') {
+    peak = Math.exp(-(((r - 0.72) / 0.21) ** 2)) * (0.42 + n * 0.1);
+  } else if (type === 'lush-flat') {
+    peak = (0.22 + n * 0.12) * (1 - smooth(0.25, 0.96, r));
+  } else {
+    const spine = nz + Math.sin(nx * 3 + seed) * 0.18;
+    const ridge = Math.exp(-spine * spine * (type === 'dense-jungle' ? 10 : 5));
+    const shoulders = Math.exp(-((nx + 0.38) ** 2 + (nz - 0.28) ** 2) * 6);
+    peak = (ridge * 0.62 + shoulders * 0.24 + n * 0.16) * (1 - smooth(0.25, 1.1, r));
   }
+  let y = shore + Math.max(0, peak) * height * envelope;
+  if (type === 'atoll') y -= (1 - smooth(0.25, 0.56, r)) * 4.5;
+  const gullies = 1 - Math.abs(noise(nx * 9 + seed, nz * 9 - seed));
+  const erosion = type === 'lush-flat' || type === 'atoll' ? 0.015 : 0.045;
+  y += (gullies - 0.55) * height * erosion * envelope * smooth(2, 7, y);
+  y += n * 0.28 * envelope;
 
-  geo.computeVertexNormals();
-
-  // ────────────────────────────────────────────────────────────────────────
-  // World-Scaled UV Mapping (preserves CylinderGeometry's native seam-split vertices)
-  // Scaling native UV avoids atan2 wrap-around jumps that cause vertical mipmap blur ramps.
-  // ────────────────────────────────────────────────────────────────────────
-  const uvAttr = geo.attributes.uv as THREE.BufferAttribute;
-  const uRepeat = Math.max(4, Math.round((2 * Math.PI * radius) / 22)); // 1 tile per ~22m circumference
-  const vRepeat = Math.max(3, Math.round(height / 9));                 // 1 tile per ~9m height
-
-  for (let i = 0; i < uvAttr.count; i++) {
-    uvAttr.setXY(i, uvAttr.getX(i) * uRepeat, uvAttr.getY(i) * vRepeat);
+  const s = island.settlement;
+  if (s && s.type !== 'sea-arch') {
+    // Settlements and vegetation live outside the elongated terrain group.
+    const wx = x * (island.elongation?.scaleX ?? 1);
+    const wz = z * (island.elongation?.scaleZ ?? 1);
+    const terrace = s.terraceElevation ?? (s.type === 'kingston-city' ? 3.2 : s.type === 'mayan-temple' ? 12 : s.type === 'pirate-haven' ? 2.5 : 3);
+    const terraceRadius = s.terraceRadius ?? (s.type === 'kingston-city' ? 56 : s.type === 'mayan-temple' ? 36 : 24);
+    const blend = 1 - smooth(terraceRadius * 0.72, terraceRadius, Math.hypot(wx - s.x, wz - s.z));
+    y = THREE.MathUtils.lerp(y, terrace, blend);
   }
-
-  // ────────────────────────────────────────────────────────────────────────
-  // Slope-Aware & Elevation-Aware Vertex Color Splatting
-  // ────────────────────────────────────────────────────────────────────────
-  const norms = geo.attributes.normal as THREE.BufferAttribute;
-  const colors = new Float32Array(pos.count * 3);
-  const color = new THREE.Color();
-
-  // Natural Deep Caribbean Tropical Palette (AC Black Flag aesthetic)
-  const colSunlitTurf  = new THREE.Color('#224810'); // Deep tropical grass turf
-  const colWarmMeadow  = new THREE.Color('#183a0a'); // Rich dark rainforest canopy green
-  const colDenseRain   = new THREE.Color('#0e2606'); // Deep jungle emerald moss
-  const colGoldenRidge = new THREE.Color('#284e14'); // Dark knoll ridge
-  const colSoil        = new THREE.Color('#322414'); // Warm dark tropical loam & humus
-  const colLichen      = new THREE.Color('#203e10'); // Clinging dark rock moss/lichen
-  const colSandBase    = new THREE.Color('#8a7952'); // Sandy coastal earth base
-  // Authentic Rock Tints (Preserves the 1024x1024 rock texture with strata & fissures)
-  const colRockCliff   = new THREE.Color('#9c9082'); // Weathered Caribbean limestone cliff
-  const colRockDark    = new THREE.Color('#685e54'); // Dark volcanic crags
-  const colPeakCrag    = new THREE.Color('#504840'); // Exposed rock scarps
-
-  for (let i = 0; i < pos.count; i++) {
-    const y = pos.getY(i);
-    const t = Math.max(0, Math.min(1, (y + height / 2) / height));
-    const ny = norms.getY(i); // Steepness factor: 1 = flat horizontal, 0 = vertical cliff
-
-    // Base vegetative tone along height
-    const baseGreen = new THREE.Color();
-    if (type === 'verdant-hills') {
-      if (t < 0.25) {
-        baseGreen.lerpColors(colSunlitTurf, colWarmMeadow, t / 0.25);
-      } else if (t < 0.68) {
-        baseGreen.lerpColors(colWarmMeadow, colGoldenRidge, (t - 0.25) / 0.43);
-      } else {
-        baseGreen.lerpColors(colGoldenRidge, colLichen, (t - 0.68) / 0.32);
-      }
-    } else if (type === 'dense-jungle') {
-      if (t < 0.3) {
-        baseGreen.lerpColors(colSunlitTurf, colDenseRain, t / 0.3);
-      } else if (t < 0.75) {
-        baseGreen.lerpColors(colDenseRain, colLichen, (t - 0.3) / 0.45);
-      } else {
-        baseGreen.lerpColors(colLichen, colRockDark, (t - 0.75) / 0.25);
-      }
-    } else if (type === 'volcanic') {
-      if (t < 0.2) {
-        baseGreen.lerpColors(colWarmMeadow, colSoil, t / 0.2);
-      } else if (t < 0.55) {
-        baseGreen.lerpColors(colSoil, colRockDark, (t - 0.2) / 0.35);
-      } else {
-        baseGreen.lerpColors(colRockDark, colPeakCrag, (t - 0.55) / 0.45);
-      }
-    } else {
-      if (t < 0.35) {
-        baseGreen.lerpColors(colSunlitTurf, colWarmMeadow, t / 0.35);
-      } else {
-        baseGreen.lerpColors(colWarmMeadow, colSoil, (t - 0.35) / 0.65);
-      }
-    }
-
-    // High-frequency ridge and ravine perturbation:
-    const ridgeNoise = ridgedNoise(pos.getX(i) * 0.08 + pos.getZ(i) * 0.08 + seed * 0.4) * 0.10;
-    const effectiveNy = ny - ridgeNoise;
-
-    // AC Black Flag Tropical Island Terrain Splatting:
-    // Caribbean mountains are dense lush rainforest over all slopes, hillsides, and summits.
-    // Rock is only exposed on sheer vertical cliffs (ny < 0.48) and steep rocky scarps (ny < 0.70).
-    if (effectiveNy < 0.48) {
-      // Sheer vertical cliff face / crags: exposed rock strata
-      const cliffT = Math.max(0, Math.min(1, effectiveNy / 0.48));
-      color.lerpColors(colPeakCrag, colRockCliff, cliffT);
-    } else if (effectiveNy < 0.70) {
-      // Steep slope with rock ledges, creeping jungle vines, moss, and fertile soil
-      const transT = (effectiveNy - 0.48) / 0.22;
-      const transSoilRock = new THREE.Color().lerpColors(colSoil, colRockCliff, 0.45);
-      const transMossRock = new THREE.Color().lerpColors(transSoilRock, colLichen, transT);
-      color.lerpColors(transMossRock, baseGreen, transT * 0.80);
-    } else {
-      // Slopes, valleys, ridges, and summit plateaus: rich, deep verdant rainforest canopy!
-      color.copy(baseGreen);
-    }
-
-    // Coastal waterline blend at base (t < 0.12)
-    if (t < 0.12) {
-      const sandBlend = 1.0 - t / 0.12;
-      color.lerp(colSandBase, sandBlend * 0.75);
-    }
-
-    // Kingston City paved cobblestone plaza
-    if (island.settlement && island.settlement.type === 'kingston-city') {
-      const sx = island.settlement.x;
-      const sz = island.settlement.z;
-      const vx = pos.getX(i);
-      const vz = pos.getZ(i);
-      const dist = Math.sqrt((vx - sx) ** 2 + (vz - sz) ** 2);
-      if (dist < 48) {
-        const colPavement = new THREE.Color('#78716c'); // Colonial cobblestone
-        const blend = Math.max(0, Math.min(1, (48 - dist) / 12));
-        color.lerp(colPavement, blend * 0.9);
-      }
-    }
-
-    // ────────────────────────────────────────────────────────────────────────
-    // Macro Ambient Occlusion & Soft Atmospheric Skylight Tinting
-    // ────────────────────────────────────────────────────────────────────────
-    // Celestial sun vector in sky: normalized [70, 140, -50] -> (0.428, 0.857, -0.306)
-    const sunDot = norms.getX(i) * 0.428 + norms.getY(i) * 0.857 - norms.getZ(i) * 0.306;
-    const sunDiffuse = THREE.MathUtils.clamp((sunDot + 0.1) / 0.9, 0.0, 1.0);
-
-    // Directional shadow factor: 1 = shadow, 0 = sun
-    const shadowFactor = 1.0 - sunDiffuse;
-    const colShadowSky = new THREE.Color('#4a5c6e'); // Soft Caribbean atmospheric ambient tint
-
-    // Micro-concavity ambient occlusion (valleys, ravines, cliff undercuts)
-    const aoNoise = (Math.sin(pos.getX(i) * 0.15 + pos.getZ(i) * 0.15) + 1) * 0.5;
-    const heightExposure = 0.88 + t * 0.22; // Ridge crests get clean sky exposure
-    const aoFactor = (0.88 + aoNoise * 0.18) * heightExposure;
-
-    // Apply gentle macro AO and warm/cool hemispheric grading (prevents double-shadowing black smudges)
-    color.multiplyScalar((0.84 + sunDiffuse * 0.24) * aoFactor);
-    color.lerp(colShadowSky, shadowFactor * 0.10);
-
-    colors[i * 3]     = color.r;
-    colors[i * 3 + 1] = color.g;
-    colors[i * 3 + 2] = color.b;
-  }
-  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-  return geo;
-}
-
-/**
- * Procedural beach / sandbank geometry with realistic wet/dry tide line
- * vertex coloring, directional sun shading, irregular coastal shoreline wobble,
- * and world-scaled UV mapping.
- */
-export function createBeachGeometry(island: IslandDefinition): THREE.BufferGeometry {
-  const segments = 96;
-  const { sandRadius, radius, seed } = island;
-
-  const geo = new THREE.CylinderGeometry(
-    radius * 1.08,
-    sandRadius * 1.2,
-    2.8,
-    segments,
-    10,
-    false
-  );
-
-  const pos = geo.attributes.position as THREE.BufferAttribute;
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i);
-    const y = pos.getY(i);
-    const z = pos.getZ(i);
-    const angle = Math.atan2(z, x);
-    const t = (y + 1.4) / 2.8;
-
-    const coastNoise =
-      Math.sin(angle * 5 + seed * 0.1) * sandRadius * 0.08 +
-      Math.sin(angle * 11 + seed * 0.3) * sandRadius * 0.04 +
-      Math.sin(angle * 17 + seed * 0.7) * sandRadius * 0.02;
-
-    const dx = Math.cos(angle) * coastNoise * (1 - t * 0.5);
-    const dz = Math.sin(angle) * coastNoise * (1 - t * 0.5);
-    let dy = Math.sin(angle * 7 + y * 2) * 0.15;
-
-    // Waterfront harbor cutout for Kingston City
-    if (island.settlement && island.settlement.type === 'kingston-city') {
-      const sx = island.settlement.x;
-      const sz = island.settlement.z;
-      const distHarbor = Math.sqrt((x + dx - sx) ** 2 + (z + dz - sz) ** 2);
-      if (distHarbor < 45) {
-        const blend = (1 - distHarbor / 45);
-        dy -= blend * blend * 2.8;
-      }
-    }
-
-    pos.setXYZ(i, x + dx, y + dy, z + dz);
-  }
-
-  geo.computeVertexNormals();
-
-  // World-scaled UV mapping for beach sand ripples (preserves native seam vertices)
-  const uvAttr = geo.attributes.uv as THREE.BufferAttribute;
-  const uRepeat = Math.max(6, Math.round((2 * Math.PI * sandRadius) / 16));
-  for (let i = 0; i < uvAttr.count; i++) {
-    uvAttr.setXY(i, uvAttr.getX(i) * uRepeat, uvAttr.getY(i) * 3);
-  }
-
-  // AAA Realistic Sand Tide Gradient Vertex Colors:
-  // Wet saturated waterline sand -> Warm sunlit coral sand -> Coastal earth
-  const norms = geo.attributes.normal as THREE.BufferAttribute;
-  const colors = new Float32Array(pos.count * 3);
-  const color = new THREE.Color();
-  const colWetSand = new THREE.Color('#6b4c27');      // Saturated ocean wash tide line
-  const colDampSand = new THREE.Color('#9e7947');     // Damp waterline sand
-  const colDryCoralSand = new THREE.Color('#eed49e'); // Sun-warmed Caribbean coral sand
-  const colUpperSand = new THREE.Color('#d2b57b');    // Upper beach sand
-  const colCoastalLoam = new THREE.Color('#786544');  // Blending into coastal terrain base
-
-  for (let i = 0; i < pos.count; i++) {
-    const py = pos.getY(i);
-    const t = Math.max(0, Math.min(1, (py + 1.4) / 2.8));
-
-    if (t < 0.25) {
-      color.lerpColors(colWetSand, colDampSand, t / 0.25);
-    } else if (t < 0.68) {
-      color.lerpColors(colDampSand, colDryCoralSand, (t - 0.25) / 0.43);
-    } else if (t < 0.88) {
-      color.lerpColors(colDryCoralSand, colUpperSand, (t - 0.68) / 0.2);
-    } else {
-      color.lerpColors(colUpperSand, colCoastalLoam, (t - 0.88) / 0.12);
-    }
-
-    // Directional sun lighting on beach sand - soft natural skylight fill
-    const sunDot = norms.getX(i) * 0.428 + norms.getY(i) * 0.857 - norms.getZ(i) * 0.306;
-    const sunDiffuse = THREE.MathUtils.clamp((sunDot + 0.1) / 0.9, 0.0, 1.0);
-    color.multiplyScalar(0.88 + sunDiffuse * 0.18);
-    color.lerp(new THREE.Color('#4a5c6e'), (1.0 - sunDiffuse) * 0.08);
-
-    colors[i * 3]     = color.r;
-    colors[i * 3 + 1] = color.g;
-    colors[i * 3 + 2] = color.b;
-  }
-  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-  return geo;
+  return y;
 }
 
 export function getIslandElevation(island: IslandDefinition): number {
-  switch (island.type) {
-    case 'volcanic': return island.height * 0.42;
-    case 'sea-stack': return island.height * 0.48;
-    case 'atoll': return island.height * 0.2;
-    case 'lush-flat': return island.height * 0.25;
-    case 'verdant-hills': return island.height * 0.35;
-    case 'dense-jungle': return island.height * 0.38;
-  }
+  return island.height * 0.5 - 2;
 }
 
-/**
- * Calculates the exact terrain surface height Y at any (relX, relZ) coordinate
- * on the island, matching both the procedural mountain profile, terrace flattening,
- * and coastal beach transitions.
- */
-export function getTerrainSurfaceY(
-  island: IslandDefinition,
-  relX: number,
-  relZ: number
-): number {
-  const { settlement } = island;
-
-  // Check terrace blend first if a settlement exists
-  if (settlement && settlement.type !== 'sea-arch') {
-    const sx = settlement.x;
-    const sz = settlement.z;
-    const targetTerrace = settlement.terraceElevation ?? (
-      settlement.type === 'kingston-city' ? 3.2 :
-      settlement.type === 'mayan-temple' ? 12.0 :
-      settlement.type === 'pirate-haven' ? 2.5 : 3.0
-    );
-    const terraceRad = settlement.terraceRadius ?? (
-      settlement.type === 'kingston-city' ? 56.0 :
-      settlement.type === 'mayan-temple' ? 36.0 : 24.0
-    );
-
-    const distSettlement = Math.sqrt((relX - sx) ** 2 + (relZ - sz) ** 2);
-    const flatZone = terraceRad * 0.72;
-    if (distSettlement <= flatZone) {
-      return targetTerrace;
-    }
-    if (distSettlement < terraceRad) {
-      const u = (distSettlement - flatZone) / (terraceRad - flatZone);
-      const blend = 1.0 - u * u * (3 - 2 * u);
-      const naturalY = computeNaturalSlopeY(island, relX, relZ);
-      return naturalY * (1 - blend) + targetTerrace * blend;
-    }
+export function createIslandTerrainGeometry(island: IslandDefinition): THREE.BufferGeometry {
+  const size = extent(island);
+  const geo = new THREE.PlaneGeometry(size * 2, size * 2, RESOLUTION, RESOLUTION);
+  geo.rotateX(-Math.PI / 2);
+  const p = geo.getAttribute('position');
+  const uv = geo.getAttribute('uv');
+  for (let i = 0; i < p.count; i++) {
+    p.setY(i, surface(island, p.getX(i), p.getZ(i)) - island.height * 0.5);
+    uv.setXY(i, p.getX(i) / 8, p.getZ(i) / 8);
   }
-
-  return computeNaturalSlopeY(island, relX, relZ);
+  geo.computeVertexNormals();
+  const normal = geo.getAttribute('normal');
+  const colors: number[] = [];
+  const sand = new THREE.Color('#dfce9e');
+  const rock = new THREE.Color(island.type === 'volcanic' ? '#77756e' : '#b7b1a0');
+  const grass = new THREE.Color(island.type === 'dense-jungle' ? '#52663a' : '#78864c');
+  const c = new THREE.Color();
+  for (let i = 0; i < p.count; i++) {
+    const y = p.getY(i) + island.height * 0.5;
+    const vegetation = smooth(0.58, 0.91, normal.getY(i)) * smooth(2, 5, y)
+      * (island.type === 'volcanic' ? 1 - smooth(island.height * 0.25, island.height * 0.65, y) : 1);
+    c.copy(rock).lerp(grass, vegetation).lerp(sand, 1 - smooth(1.4, 3.8, y));
+    c.multiplyScalar((0.93 + relief(p.getX(i) / 17, p.getZ(i) / 17, island.seed) * 0.1) * (0.72 + smooth(-0.8, 1.5, y) * 0.28));
+    colors.push(c.r, c.g, c.b);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.computeBoundingSphere();
+  return geo;
 }
 
-function computeNaturalSlopeY(
-  island: IslandDefinition,
-  relX: number,
-  relZ: number
-): number {
-  const { radius, height, sandRadius, type, seed } = island;
-
-  // 1. Account for elongation transformation
-  let nx = relX;
-  let nz = relZ;
-  if (island.elongation) {
-    const cos = Math.cos(-island.elongation.angle);
-    const sin = Math.sin(-island.elongation.angle);
-    const rx = relX * cos - relZ * sin;
-    const rz = relX * sin + relZ * cos;
-    nx = rx / (island.elongation.scaleX || 1);
-    nz = rz / (island.elongation.scaleZ || 1);
-  }
-
-  const r = Math.sqrt(nx * nx + nz * nz);
-  const angle = Math.atan2(nz, nx);
-
-  // 2. Deep in ocean water
-  if (r >= sandRadius * 1.12) {
-    return 0.1;
-  }
-
-  // 3. Sandy Shoreline / Coastal Beach zone
-  if (r >= radius * 1.15) {
-    const beachT = Math.max(0, Math.min(1, (sandRadius * 1.12 - r) / (sandRadius * 1.12 - radius * 1.15)));
-    return 0.4 + beachT * 1.8;
-  }
-
-  // 4. Exact Mathematical Terrain Mesh Elevation
-  const elevOffset = getIslandElevation(island) + 2.0;
-
-  // Fractional height t on the truncated cone: r(t) = radius * (1.15 - 1.07 * t)
-  const t = Math.max(0, Math.min(1, (radius * 1.15 - r) / (radius * 1.07)));
-  const yCyl = (t - 0.5) * height;
-
-  // Exact vertical displacement matching createIslandTerrainGeometry
-  let dy = 0;
-  if (type === 'volcanic') {
-    const stepTerracing = Math.sin(t * Math.PI * 5) * 0.5 * t;
-    dy = Math.sin(angle * 11 + yCyl * 0.3) * 0.9 * t +
-         Math.sin(angle * 19 + yCyl * 0.7) * 0.45 * t +
-         stepTerracing;
-  } else if (type === 'sea-stack') {
-    const peakBias = Math.max(0, Math.cos(angle * 2 - 1.0)) * height * 0.18 * t * t;
-    dy = peakBias + Math.sin(angle * 9 + yCyl * 0.4) * 1.3 * t;
-  } else if (type === 'atoll') {
-    dy = -t * t * height * 0.28 + Math.sin(angle * 7 + yCyl * 0.5) * 0.35;
-  } else if (type === 'lush-flat') {
-    dy = Math.sin(angle * 3 + 0.8) * Math.sin(t * Math.PI) * height * 0.14 +
-         Math.cos(angle * 5 - 1.2) * height * 0.07 * t;
-  } else if (type === 'verdant-hills') {
-    const rollingDome = Math.sin(t * Math.PI * 0.95) * height * 0.26;
-    const saddle = Math.cos(angle * 2 + 1.1) * height * 0.16 * t;
-    const terracedLedges = (Math.sin(t * Math.PI * 6.0) * 0.35 + Math.cos(angle * 5 + t * 4) * 0.4) * (1 - t * 0.4);
-    dy = rollingDome + saddle + terracedLedges;
-  } else if (type === 'dense-jungle') {
-    const fluting = Math.sin(t * Math.PI * 4.0) * 0.7 * (1 - t);
-    dy = fluting + Math.sin(angle * 6 + seed * 0.5) * height * 0.15 * t;
-  }
-
-  // High-frequency geological micro-noise
-  const noise1 = Math.sin(angle * 13 + yCyl * 0.55 + seed * 0.1) * 0.65;
-  const noise2 = Math.sin(angle * 27 + yCyl * 1.2 + seed * 0.3) * 0.3;
-  dy += (noise1 + noise2) * (1 - t * 0.35) * 0.4;
-
-  // Add a clean resting surface elevation so foliage and props sit firmly on terrain
-  const surfaceY = elevOffset + yCyl + dy + 0.4;
-
-  // Account for settlement plateau terrace flattening (flush seating for buildings & props)
-  if (island.settlement && island.settlement.type !== 'sea-arch') {
-    const sx = island.settlement.x;
-    const sz = island.settlement.z;
-    const targetTerrace = island.settlement.terraceElevation ?? (
-      island.settlement.type === 'kingston-city' ? 3.2 :
-      island.settlement.type === 'mayan-temple' ? 12.0 :
-      island.settlement.type === 'pirate-haven' ? 2.5 : 3.0
-    );
-    const terraceRad = island.settlement.terraceRadius ?? (
-      island.settlement.type === 'kingston-city' ? 56.0 :
-      island.settlement.type === 'mayan-temple' ? 36.0 : 24.0
-    );
-
-    const distSettlement = Math.sqrt((relX - sx) ** 2 + (relZ - sz) ** 2);
-    if (distSettlement < terraceRad) {
-      const flatZone = terraceRad * 0.72;
-      let blend = 1.0;
-      if (distSettlement > flatZone) {
-        const u = (distSettlement - flatZone) / (terraceRad - flatZone);
-        blend = 1.0 - u * u * (3 - 2 * u);
-      }
-      return targetTerrace * blend + Math.max(1.2, surfaceY) * (1.0 - blend);
-    }
-  }
-
-  return Math.max(1.2, surfaceY);
+/** Interpolate the same triangles as the rendered grid, including elongated islands. */
+export function getTerrainSurfaceY(island: IslandDefinition, relX: number, relZ: number): number {
+  const size = extent(island), step = size * 2 / RESOLUTION;
+  const x = relX / (island.elongation?.scaleX ?? 1);
+  const z = relZ / (island.elongation?.scaleZ ?? 1);
+  if (Math.abs(x) > size || Math.abs(z) > size) return -4;
+  const gx = (x + size) / step, gz = (z + size) / step;
+  const ix = Math.min(RESOLUTION - 1, Math.floor(gx));
+  const iz = Math.min(RESOLUTION - 1, Math.floor(gz));
+  const u = gx - ix, v = gz - iz;
+  const x0 = -size + ix * step, z0 = -size + iz * step;
+  const a = surface(island, x0, z0), b = surface(island, x0 + step, z0);
+  const c = surface(island, x0, z0 + step), d = surface(island, x0 + step, z0 + step);
+  return u + v <= 1 ? a + (b - a) * u + (c - a) * v : d + (c - d) * (1 - u) + (b - d) * (1 - v);
 }

@@ -1,3 +1,5 @@
+import { createGableRoof, ShutterWindow } from './BuildingDetails';
+import { constructionMaterial } from '../textures/constructionMaterials';
 import React, { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import type { IslandSettlement } from './types';
@@ -30,42 +32,19 @@ interface KingstonCityProps {
  * - Shore artillery defense battery with brass naval cannons
  */
 export const KingstonCity: React.FC<KingstonCityProps> = React.memo(({ settlement, isMobile = false }) => {
+  const roofs = useMemo(() => [[12, 18.4, 5], [15, 10.6, 4.8], [8.3, 8.4, 3.4], [8.8, 8, 3.5], [12.8, 7.4, 3.2]].map(([w, d, h]) => createGableRoof(w, d, h)), []);
+  useEffect(() => () => roofs.forEach(roof => roof.dispose()), [roofs]);
   // Shared materials for colonial city architecture
   const mats = useMemo(() => {
     return {
-      fortStone: new THREE.MeshStandardMaterial({
-        color: '#8c857b',
-        roughness: 0.92,
-        metalness: 0.05,
-      }),
-      darkStone: new THREE.MeshStandardMaterial({
-        color: '#57534e',
-        roughness: 0.95,
-      }),
-      wharfStone: new THREE.MeshStandardMaterial({
-        color: '#78716c',
-        roughness: 0.88,
-      }),
-      brickWall: new THREE.MeshStandardMaterial({
-        color: '#9a3412',
-        roughness: 0.85,
-      }),
-      whiteStucco: new THREE.MeshStandardMaterial({
-        color: '#f1f5f9',
-        roughness: 0.75,
-      }),
-      timberDeck: new THREE.MeshStandardMaterial({
-        color: '#451a03',
-        roughness: 0.82,
-      }),
-      terracottaRoof: new THREE.MeshStandardMaterial({
-        color: '#c2410c',
-        roughness: 0.7,
-      }),
-      slateRoof: new THREE.MeshStandardMaterial({
-        color: '#334155',
-        roughness: 0.65,
-      }),
+      fortStone: constructionMaterial('stone', '#8c857b', 4),
+      darkStone: constructionMaterial('stone', '#57534e', 4),
+      wharfStone: constructionMaterial('stone', '#78716c', 4),
+      brickWall: constructionMaterial('brick', '#9a3412', 4),
+      whiteStucco: constructionMaterial('plaster', '#f1f5f9', 4),
+      timberDeck: constructionMaterial('wood', '#451a03', 4),
+      terracottaRoof: constructionMaterial('tile', '#c2410c', 4),
+      slateRoof: constructionMaterial('tile', '#334155', 4),
       copperRoof: new THREE.MeshStandardMaterial({
         color: '#0d9488',
         roughness: 0.5,
@@ -82,10 +61,7 @@ export const KingstonCity: React.FC<KingstonCityProps> = React.memo(({ settlemen
         emissiveIntensity: 2.5,
         roughness: 0.2,
       }),
-      woodCrane: new THREE.MeshStandardMaterial({
-        color: '#3e2723',
-        roughness: 0.88,
-      }),
+      woodCrane: constructionMaterial('wood', '#3e2723', 4),
       flagRed: new THREE.MeshStandardMaterial({
         color: '#dc2626',
         roughness: 0.7,
@@ -165,9 +141,7 @@ export const KingstonCity: React.FC<KingstonCityProps> = React.memo(({ settlemen
           <boxGeometry args={[11, 7.2, 18]} />
         </mesh>
         {/* Steep church roof */}
-        <mesh position={[0, 8.8, 0]} rotation={[0, 0, Math.PI * 0.25]} material={mats.slateRoof}>
-          <boxGeometry args={[8.2, 8.2, 18.4]} />
-        </mesh>
+        <mesh position={[0, 7.8, 0]} geometry={roofs[0]} material={mats.slateRoof} castShadow />
 
         {/* Tall square clock & bell tower */}
         <group position={[0, 0, 9.5]}>
@@ -194,9 +168,8 @@ export const KingstonCity: React.FC<KingstonCityProps> = React.memo(({ settlemen
           <boxGeometry args={[14, 8.0, 10]} />
         </mesh>
         {/* Terracotta tiled hipped roof */}
-        <mesh position={[0, 9.2, 0]} rotation={[0, 0, Math.PI * 0.25]} material={mats.terracottaRoof}>
-          <boxGeometry args={[8.8, 8.8, 10.6]} />
-        </mesh>
+        <mesh position={[0, 8, 0]} geometry={roofs[1]} material={mats.terracottaRoof} castShadow />
+        {[-2.5, 0, 2.5].map(x => <ShutterWindow key={x} position={[x, 6.5, 5.1]} />)}
 
         {/* Portico Entrance with classical columns */}
         <group position={[0, 0, 5.5]}>
@@ -227,9 +200,8 @@ export const KingstonCity: React.FC<KingstonCityProps> = React.memo(({ settlemen
         <mesh position={[0, 3.5, 0]} material={mats.brickWall} castShadow receiveShadow>
           <boxGeometry args={[7.5, 7.0, 8.0]} />
         </mesh>
-        <mesh position={[0, 8.2, 0]} rotation={[0, 0, Math.PI * 0.25]} material={mats.terracottaRoof}>
-          <boxGeometry args={[6.0, 6.0, 8.4]} />
-        </mesh>
+        <mesh position={[0, 7, 0]} geometry={roofs[2]} material={mats.terracottaRoof} castShadow />
+        {[-2.5, 0, 2.5].map(x => <ShutterWindow key={x} position={[x, 5.5, 4.05]} />)}
       </group>
 
       {/* Merchant House 2 / Customs House (Right) */}
@@ -237,9 +209,8 @@ export const KingstonCity: React.FC<KingstonCityProps> = React.memo(({ settlemen
         <mesh position={[0, 3.8, 0]} material={mats.whiteStucco} castShadow receiveShadow>
           <boxGeometry args={[8.0, 7.6, 7.5]} />
         </mesh>
-        <mesh position={[0, 8.8, 0]} rotation={[0, 0, Math.PI * 0.25]} material={mats.slateRoof}>
-          <boxGeometry args={[6.2, 6.2, 8.0]} />
-        </mesh>
+        <mesh position={[0, 7.6, 0]} geometry={roofs[3]} material={mats.slateRoof} castShadow />
+        {[-2.5, 0, 2.5].map(x => <ShutterWindow key={x} position={[x, 6.1, 3.8]} />)}
       </group>
 
       {/* Warehouse 3 (Rear Quay) */}
@@ -247,9 +218,8 @@ export const KingstonCity: React.FC<KingstonCityProps> = React.memo(({ settlemen
         <mesh position={[0, 3.2, 0]} material={mats.brickWall} castShadow receiveShadow>
           <boxGeometry args={[12, 6.4, 7.0]} />
         </mesh>
-        <mesh position={[0, 7.4, 0]} rotation={[0, 0, Math.PI * 0.25]} material={mats.terracottaRoof}>
-          <boxGeometry args={[5.6, 5.6, 7.4]} />
-        </mesh>
+        <mesh position={[0, 6.4, 0]} geometry={roofs[4]} material={mats.terracottaRoof} castShadow />
+        {[-2.5, 0, 2.5].map(x => <ShutterWindow key={x} position={[x, 4.9, 3.55]} />)}
       </group>
 
       {/* =========================================================================

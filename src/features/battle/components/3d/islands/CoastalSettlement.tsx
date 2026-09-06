@@ -1,3 +1,5 @@
+import { createGableRoof, ShutterWindow } from './BuildingDetails';
+import { constructionMaterial } from '../textures/constructionMaterials';
 import React, { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import type { IslandSettlement } from './types';
@@ -28,18 +30,20 @@ interface CoastalSettlementProps {
  * - Rum barrels, cargo crates, and dockside mooring bollards
  */
 export const CoastalSettlement: React.FC<CoastalSettlementProps> = React.memo(({ settlement, isMobile = false }) => {
+  const roofs = useMemo(() => [createGableRoof(9.5, 7.6, 3.2), createGableRoof(5.9, 4.9, 2), createGableRoof(7.9, 5.5, 2.5)], []);
+  useEffect(() => () => roofs.forEach(roof => roof.dispose()), [roofs]);
   const isPirate = settlement.type === 'pirate-haven';
 
   // Shared optimized materials
   const mats = useMemo(() => {
     return {
-      woodDark: new THREE.MeshStandardMaterial({ color: '#3e2723', roughness: 0.85 }),
-      woodDeck: new THREE.MeshStandardMaterial({ color: '#5d4037', roughness: 0.8 }),
-      woodPost: new THREE.MeshStandardMaterial({ color: '#271c19', roughness: 0.9 }),
-      stoneWall: new THREE.MeshStandardMaterial({ color: isPirate ? '#78716c' : '#a8a29e', roughness: 0.92 }),
-      roofTile: new THREE.MeshStandardMaterial({ color: isPirate ? '#7c2d12' : '#991b1b', roughness: 0.75 }),
-      thatchRoof: new THREE.MeshStandardMaterial({ color: '#854d0e', roughness: 0.9 }),
-      whitewash: new THREE.MeshStandardMaterial({ color: '#e2e8f0', roughness: 0.8 }),
+      woodDark: constructionMaterial('wood', '#3e2723', 4),
+      woodDeck: constructionMaterial('wood', '#5d4037', 4),
+      woodPost: constructionMaterial('wood', '#271c19', 4),
+      stoneWall: constructionMaterial('stone', isPirate ? '#78716c' : '#a8a29e', 4),
+      roofTile: constructionMaterial('tile', isPirate ? '#7c2d12' : '#991b1b', 4),
+      thatchRoof: constructionMaterial('wood', '#854d0e', 4),
+      whitewash: constructionMaterial('plaster', '#e2e8f0', 4),
       cannonBrass: new THREE.MeshStandardMaterial({ color: '#ca8a04', metalness: 0.6, roughness: 0.4 }),
       lanternGlow: new THREE.MeshStandardMaterial({
         color: '#fef08a',
@@ -47,7 +51,7 @@ export const CoastalSettlement: React.FC<CoastalSettlementProps> = React.memo(({
         emissiveIntensity: 2.2,
         roughness: 0.2,
       }),
-      barrelWood: new THREE.MeshStandardMaterial({ color: '#451a03', roughness: 0.8 }),
+      barrelWood: constructionMaterial('wood', '#451a03', 4),
     };
   }, [isPirate]);
   useEffect(() => () => Object.values(mats).forEach((material) => material.dispose()), [mats]);
@@ -158,9 +162,9 @@ export const CoastalSettlement: React.FC<CoastalSettlementProps> = React.memo(({
         </mesh>
 
         {/* Pitched shingled gable roof */}
-        <mesh position={[0, 7.6, 0]} rotation={[0, 0, Math.PI * 0.25]} material={mats.roofTile}>
-          <boxGeometry args={[5.8, 5.8, 7.6]} />
-        </mesh>
+        <mesh position={[0, 6.5, 0]} geometry={roofs[0]} material={mats.roofTile} castShadow />
+        {[-2.7, 0, 2.7].map(x => <ShutterWindow key={x} position={[x, 5.35, 3.65]} />)}
+        {[-2.7, 2.7].map(x => <ShutterWindow key={x} position={[x, 2.4, 3.45]} />)}
 
         {/* Stone chimney */}
         <mesh position={[3.2, 6.8, 1.8]} material={mats.stoneWall}>
@@ -184,9 +188,8 @@ export const CoastalSettlement: React.FC<CoastalSettlementProps> = React.memo(({
         <mesh position={[0, 1.8, 0]} material={mats.woodDark} castShadow receiveShadow>
           <boxGeometry args={[5.2, 3.6, 4.5]} />
         </mesh>
-        <mesh position={[0, 4.2, 0]} rotation={[0, 0, Math.PI * 0.25]} material={mats.thatchRoof}>
-          <boxGeometry args={[3.8, 3.8, 4.8]} />
-        </mesh>
+        <mesh position={[0, 3.6, 0]} geometry={roofs[1]} material={mats.thatchRoof} castShadow />
+        <ShutterWindow position={[0, 2.1, 2.3]} />
       </group>
 
       {/* Cottage 2 / Boathouse (Behind Tavern) */}
@@ -194,9 +197,8 @@ export const CoastalSettlement: React.FC<CoastalSettlementProps> = React.memo(({
         <mesh position={[0, 2.0, 0]} material={mats.stoneWall} castShadow receiveShadow>
           <boxGeometry args={[7.2, 4.0, 5.0]} />
         </mesh>
-        <mesh position={[0, 4.7, 0]} rotation={[0, 0, Math.PI * 0.25]} material={mats.roofTile}>
-          <boxGeometry args={[4.4, 4.4, 5.4]} />
-        </mesh>
+        <mesh position={[0, 4, 0]} geometry={roofs[2]} material={mats.roofTile} castShadow />
+        {[-2, 2].map(x => <ShutterWindow key={x} position={[x, 2.3, 2.55]} />)}
       </group>
 
       {/* =========================================================================

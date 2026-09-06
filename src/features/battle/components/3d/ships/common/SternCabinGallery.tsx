@@ -1,4 +1,6 @@
-import React, { useMemo } from 'react';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import React, { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import { ShipHelm } from './ShipHelm';
 import { useGameStore } from '@/stores/useGameStore';
@@ -54,15 +56,35 @@ export const SternCabinGallery: React.FC<SternCabinGalleryProps> = React.memo(({
     return list;
   }, [width, windowCount]);
 
+  const architecture = useMemo(() => {
+    const panes: THREE.BufferGeometry[] = [], frames: THREE.BufferGeometry[] = [];
+    const paneWidth = Math.min(0.65, depth * 0.2), paneHeight = height * 0.5;
+    for (const side of [-1, 1]) for (const z of [-depth * 0.25, depth * 0.25]) {
+      const x = side * (width * 0.5 + 0.025);
+      panes.push(new THREE.BoxGeometry(0.035, paneHeight, paneWidth).translate(x, 0, z));
+      for (const dz of [-paneWidth * 0.5, 0, paneWidth * 0.5]) frames.push(new THREE.BoxGeometry(0.09, paneHeight + 0.1, 0.045).translate(x, 0, z + dz));
+      for (const y of [-paneHeight * 0.5, paneHeight * 0.5]) frames.push(new THREE.BoxGeometry(0.09, 0.06, paneWidth + 0.1).translate(x, y, z));
+    }
+    const windows = mergeGeometries(panes)!, framing = mergeGeometries(frames)!;
+    [...panes, ...frames].forEach(g => g.dispose());
+    return { body: new RoundedBoxGeometry(width, height, depth, 2, Math.min(0.14, height * 0.08)),
+      roof: new RoundedBoxGeometry(width + 0.18, 0.14, depth + 0.18, 2, 0.045).translate(0, height * 0.5 + 0.04, 0), windows, framing };
+  }, [width, height, depth]);
+  useEffect(() => () => Object.values(architecture).forEach(g => g.dispose()), [architecture]);
+
   const windowWidth = (width * 0.45) / Math.max(1, windowCount);
 
   return (
     <group position={position}>
       {/* Main Cabin Bulkhead */}
       <mesh castShadow={!isEnemy} receiveShadow>
-        <boxGeometry args={[width, height, depth]} />
+        <primitive object={architecture.body} attach="geometry" />
         <meshStandardMaterial map={hullTexture} roughness={0.68} />
       </mesh>
+
+      <mesh geometry={architecture.roof} castShadow receiveShadow><meshStandardMaterial map={hullTexture} roughness={0.8} /></mesh>
+      <mesh geometry={architecture.windows}><meshStandardMaterial color="#527271" roughness={0.28} metalness={0.25} /></mesh>
+      <mesh geometry={architecture.framing}><meshStandardMaterial color={trimColor} roughness={0.5} metalness={0.3} /></mesh>
 
       {/* Gilded Transom Arch Molding along Top */}
       <mesh position={[0, height * 0.5 + 0.06, -depth * 0.505]} castShadow={!isEnemy}>

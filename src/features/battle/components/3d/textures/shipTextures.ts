@@ -20,44 +20,39 @@ export function createWoodPlankTexture(
   const ctx = canvas.getContext('2d');
   if (!ctx) return new THREE.CanvasTexture(canvas);
 
-  // Base wood tone
+  const plankHeight = 512 / plankCount;
+  const noise = (n: number) => { const v = Math.sin(n * 127.1 + 17.7) * 43758.5453; return v - Math.floor(v); };
   ctx.fillStyle = baseColorHex;
   ctx.fillRect(0, 0, 512, 512);
-
-  // Wood grain noise
-  for (let y = 0; y < 512; y++) {
-    const grainAlpha = (Math.sin(y * 0.4) * 0.5 + 0.5) * 0.12 + Math.random() * 0.08;
-    ctx.fillStyle = Math.random() > 0.5 ? `rgba(255, 230, 200, ${grainAlpha})` : `rgba(0, 0, 0, ${grainAlpha})`;
-    ctx.fillRect(0, y, 512, 1);
-  }
-
-  // Horizontal plank seams and iron bolts
-  const plankHeight = 512 / plankCount;
-  ctx.fillStyle = grooveColorHex;
-  for (let i = 0; i <= plankCount; i++) {
-    const y = i * plankHeight;
-    ctx.fillRect(0, y - 2, 512, 4);
-
-    // Weathered edge highlight
-    ctx.fillStyle = 'rgba(255, 235, 200, 0.15)';
-    ctx.fillRect(0, y + 2, 512, 1.5);
+  for (let plank = 0; plank < plankCount; plank++) {
+    const y = plank * plankHeight;
+    ctx.fillStyle = `rgba(${plank % 3 === 0 ? '225,211,183' : '20,15,10'},${0.04 + noise(plank) * 0.12})`;
+    ctx.fillRect(0, y, 512, plankHeight);
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, y, 512, plankHeight); ctx.clip();
+    for (let line = 0; line < plankHeight; line += 2) {
+      ctx.strokeStyle = `rgba(30,20,10,${0.025 + noise(line + plank * 71) * 0.11})`;
+      ctx.lineWidth = 0.5 + noise(line) * 0.7;
+      ctx.beginPath(); ctx.moveTo(0, y + line);
+      for (let x = 0; x <= 512; x += 8) ctx.lineTo(x, y + line + Math.sin(x / 512 * Math.PI * 4 + plank) * Math.sin(line * 0.3) * 2.5);
+      ctx.stroke();
+    }
+    const joint = (plank % 3) * 160 + 24;
     ctx.fillStyle = grooveColorHex;
-
-    // Iron rivets / bolts
-    if (i < plankCount) {
-      for (let bx = 32; bx < 512; bx += 64) {
-        const by = y + plankHeight * 0.5 + (Math.sin(bx) * 4);
-        ctx.fillStyle = '#18181b';
-        ctx.beginPath();
-        ctx.arc(bx, by, 3, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#52525b';
-        ctx.beginPath();
-        ctx.arc(bx - 0.8, by - 0.8, 1.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = grooveColorHex;
+    ctx.fillRect(joint, y, 1.5, plankHeight);
+    for (const x of [joint - 6, joint + 6]) for (const dy of [8, plankHeight - 8]) {
+      ctx.beginPath(); ctx.arc(x, y + dy, 1.1, 0, Math.PI * 2); ctx.fill();
+    }
+    if (plank % 3 === 1) {
+      const x = 100 + noise(plank + 3) * 300;
+      ctx.strokeStyle = 'rgba(35,22,12,0.18)';
+      for (let ring = 1; ring <= 4; ring++) {
+        ctx.beginPath(); ctx.ellipse(x, y + plankHeight * 0.5, ring * 6, ring * 1.2, 0, 0, Math.PI * 2); ctx.stroke();
       }
     }
+    ctx.restore();
+    ctx.fillStyle = grooveColorHex; ctx.fillRect(0, y, 512, 1.4);
+    ctx.fillStyle = 'rgba(240,219,175,0.22)'; ctx.fillRect(0, y + 1.4, 512, 0.8);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
