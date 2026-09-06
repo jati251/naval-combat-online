@@ -29,8 +29,8 @@ export const GRAPHIC_PROFILES: Record<GraphicQuality, GraphicProfile> = {
     fogFar: 320,
     maxViewDistance: 380,
     islandDetailDistance: 80,
-    toneMappingExposureDay: 1.25,
-    toneMappingExposureNight: 1.22,
+    toneMappingExposureDay: 1.05,
+    toneMappingExposureNight: 1.10,
   },
   balanced: {
     id: 'balanced',
@@ -61,8 +61,8 @@ export const GRAPHIC_PROFILES: Record<GraphicQuality, GraphicProfile> = {
     fogFar: 480,
     maxViewDistance: 560,
     islandDetailDistance: 140,
-    toneMappingExposureDay: 1.28,
-    toneMappingExposureNight: 1.24,
+    toneMappingExposureDay: 1.08,
+    toneMappingExposureNight: 1.12,
   },
   performance: {
     id: 'performance',
@@ -92,8 +92,8 @@ export const GRAPHIC_PROFILES: Record<GraphicQuality, GraphicProfile> = {
     fogFar: 620,
     maxViewDistance: 750,
     islandDetailDistance: 220,
-    toneMappingExposureDay: 1.32,
-    toneMappingExposureNight: 1.28,
+    toneMappingExposureDay: 1.10,
+    toneMappingExposureNight: 1.15,
   },
 };
 

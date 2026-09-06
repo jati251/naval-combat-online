@@ -35,14 +35,14 @@ export const NavalPostProcessing: React.FC<NavalPostProcessingProps> = React.mem
 
   return (
     <EffectComposer multisampling={0} enableNormalPass={false}>
-      {/* Cinematic Photorealistic Bloom: Specular sun glints, lanterns, wave crest highlights */}
+      {/* Cinematic Photorealistic Bloom: Specular sun glints, lanterns, cannon fire, explosions */}
       <Bloom
-        luminanceThreshold={isNight ? 0.65 : 0.82}
-        luminanceSmoothing={0.3}
+        luminanceThreshold={isNight ? 0.85 : 1.05}
+        luminanceSmoothing={0.15}
         mipmapBlur
         levels={isUltra ? 3 : 2}
-        intensity={isUltra ? (isNight ? 0.9 : 0.75) : 0.45}
-        radius={isUltra ? 0.4 : 0.3}
+        intensity={isUltra ? (isNight ? 0.85 : 0.55) : 0.35}
+        radius={isUltra ? 0.35 : 0.28}
       />
 
       {/* Cinematic Contrast & Color Grading */}

@@ -4,7 +4,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OceanWater } from './OceanWater';
 import { CannonSystem3D } from './CannonSystem3D';
 import { CannonFX2D } from './CannonFX2D';
-import { Environment3D, FOG_COLOR, NIGHT_FOG_COLOR } from './Environment3D';
+import { Environment3D } from './Environment3D';
 import { Islands3D } from './Islands3D';
 import { Shipwrecks3D } from './Shipwrecks3D';
 import { JumpingFish3D } from './JumpingFish3D';
@@ -76,7 +76,7 @@ const CannonEntities: React.FC<{ isMobile: boolean }> = React.memo(({ isMobile }
 export const NavalCanvas: React.FC = React.memo(() => {
   const timeOfDay = useGameStore((s) => s.timeOfDay);
   const isNight = timeOfDay === 'NIGHT';
-  const bgColor = isNight ? NIGHT_FOG_COLOR : FOG_COLOR;
+  const skyClearColor = isNight ? '#050d1e' : '#0284c7';
 
   const isMobile = useMobileViewport();
   const { profile } = useGraphicsQuality();
@@ -87,7 +87,7 @@ export const NavalCanvas: React.FC = React.memo(() => {
   return (
     <div className={`w-full h-full absolute inset-0 ${isNight ? 'bg-slate-950' : 'bg-sky-700'}`}>
       <Canvas
-        camera={{ position: [0, 25, -45], fov: 55, near: 1.0, far: 1200 }}
+        camera={{ position: [0, 25, -45], fov: 55, near: 1.0, far: 2000 }}
         shadows={profile.shadows}
         dpr={profile.dpr}
 
@@ -104,7 +104,7 @@ export const NavalCanvas: React.FC = React.memo(() => {
       >
         <FrustumFrameSync />
         <AdaptiveResolution isMobile={activeIsMobile} dprRange={profile.dpr} />
-        <color attach="background" args={[bgColor]} />
+        <color attach="background" args={[skyClearColor]} />
         <Environment3D isMobile={activeIsMobile} profile={profile} />
         <OceanWater isMobile={activeIsMobile} profile={profile} />
         <Islands3D isMobile={activeIsMobile} />

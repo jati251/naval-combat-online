@@ -287,11 +287,11 @@ export const mexicoMap: MapDefinition = {
     foamColor: '#f0fdf4',
   },
   atmosphere: {
-    fogColorDay: '#5eead4',
+    fogColorDay: '#80c8e8',
     fogColorNight: '#062a2a',
     skyTopDay: '#0f766e',
     skyMidDay: '#14b8a6',
-    skyHorizonDay: '#5eead4',
+    skyHorizonDay: '#80c8e8',
     skyTopNight: '#041717',
     skyMidNight: '#083333',
     skyHorizonNight: '#062a2a',

@@ -24,11 +24,11 @@ export const caribbeanMap: MapDefinition = {
     foamColor: '#ffffff',
   },
   atmosphere: {
-    fogColorDay: '#70b2db',
+    fogColorDay: '#82bfe8',
     fogColorNight: '#0d2444',
     skyTopDay: '#0284c7',
     skyMidDay: '#38bdf8',
-    skyHorizonDay: '#70b2db',
+    skyHorizonDay: '#82bfe8',
     skyTopNight: '#050d1e',
     skyMidNight: '#0d2042',
     skyHorizonNight: '#0d2444',

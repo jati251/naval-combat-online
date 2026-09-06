@@ -5,7 +5,7 @@ import { useGameStore } from '@/stores/useGameStore';
 import { getMapConfig } from '../../maps';
 import { SceneSunLight } from './rendering/SceneSunLight';
 
-export const FOG_COLOR = '#70b2db';
+export const FOG_COLOR = '#82bfe8';
 export const NIGHT_FOG_COLOR = '#0d2444';
 
 // Exponential Atmospheric Haze Densities (Beer-Lambert Atmospheric Scattering)
@@ -53,6 +53,11 @@ export function getFogConfig(isMobile: boolean, isNight: boolean, customFogColor
  * Procedural High-Definition Billowy Cumulus Cloud Texture
  * Multiple organic vapor puffs with sunlit silver-lining tops and soft tropical shaded bellies.
  */
+/**
+ * Procedural High-Definition Billowy Cumulus Cloud Texture
+ * Authored with a continuous vertical ambient-lighting gradient (source-in)
+ * and soft feathered billow lobes for smooth 3D volume without harsh cutouts or overexposure.
+ */
 function createCumulusCloudTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
@@ -62,15 +67,17 @@ function createCumulusCloudTexture(): THREE.CanvasTexture {
 
   ctx.clearRect(0, 0, 512, 256);
 
-  const drawPuff = (cx: number, cy: number, rx: number, ry: number, r: number, g: number, b: number, alpha: number) => {
+  // Soft quadratic falloff puff drawing
+  const drawDensityPuff = (cx: number, cy: number, rx: number, ry: number, alpha: number) => {
     ctx.save();
     ctx.translate(cx, cy);
     ctx.scale(rx, ry);
     const grad = ctx.createRadialGradient(0, 0, 0.05, 0, 0, 1.0);
-    grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alpha})`);
-    grad.addColorStop(0.4, `rgba(${r}, ${g}, ${b}, ${alpha * 0.78})`);
-    grad.addColorStop(0.75, `rgba(${r}, ${g}, ${b}, ${alpha * 0.28})`);
-    grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+    grad.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
+    grad.addColorStop(0.40, `rgba(255, 255, 255, ${alpha * 0.85})`);
+    grad.addColorStop(0.70, `rgba(255, 255, 255, ${alpha * 0.40})`);
+    grad.addColorStop(0.92, `rgba(255, 255, 255, ${alpha * 0.06})`);
+    grad.addColorStop(1.0, 'rgba(255, 255, 255, 0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(0, 0, 1, 0, Math.PI * 2);
@@ -78,27 +85,75 @@ function createCumulusCloudTexture(): THREE.CanvasTexture {
     ctx.restore();
   };
 
-  // 1. Shaded underside billows (tropical sea reflection tint)
-  drawPuff(180, 175, 115, 45, 205, 228, 250, 0.55);
-  drawPuff(260, 170, 145, 52, 200, 224, 248, 0.65);
-  drawPuff(345, 178, 110, 42, 205, 228, 250, 0.55);
+  // ── PASS 1: Build the Cumulus Silhouette & Thickness Mask ──
+  // Flat cumulus lifting condensation base
+  drawDensityPuff(190, 168, 95, 34, 0.75);
+  drawDensityPuff(260, 164, 115, 38, 0.85);
+  drawDensityPuff(335, 168, 90, 32, 0.75);
 
-  // 2. Main volumetric cloud body
-  drawPuff(160, 140, 95, 48, 240, 248, 255, 0.75);
-  drawPuff(225, 125, 120, 58, 250, 252, 255, 0.88);
-  drawPuff(295, 120, 125, 60, 255, 255, 255, 0.92);
-  drawPuff(365, 135, 90, 46, 245, 250, 255, 0.8);
+  // Volumetric core body
+  drawDensityPuff(170, 140, 80, 44, 0.85);
+  drawDensityPuff(230, 128, 95, 50, 0.92);
+  drawDensityPuff(295, 122, 100, 52, 0.94);
+  drawDensityPuff(360, 136, 75, 40, 0.86);
 
-  // 3. Towering cumulus crest billows (bright sunlit silver lining)
-  drawPuff(245, 88, 85, 42, 255, 255, 255, 0.98);
-  drawPuff(310, 80, 75, 38, 255, 255, 255, 0.95);
-  drawPuff(195, 102, 65, 32, 252, 254, 255, 0.9);
+  // Towering cumulus crest domes
+  drawDensityPuff(245, 95, 70, 38, 0.90);
+  drawDensityPuff(305, 88, 65, 35, 0.88);
+  drawDensityPuff(195, 108, 55, 30, 0.82);
 
-  // 4. Subtle wispy vapor trails along flanks
-  drawPuff(90, 160, 70, 24, 225, 240, 255, 0.4);
-  drawPuff(430, 162, 75, 24, 225, 240, 255, 0.4);
-  drawPuff(130, 172, 60, 18, 220, 236, 252, 0.35);
-  drawPuff(395, 175, 65, 18, 220, 236, 252, 0.35);
+  // Soft flanking whisps
+  drawDensityPuff(95, 158, 55, 22, 0.45);
+  drawDensityPuff(425, 160, 60, 22, 0.45);
+  drawDensityPuff(135, 168, 45, 18, 0.38);
+  drawDensityPuff(390, 170, 50, 18, 0.38);
+
+  // ── PASS 2: Unified Atmospheric Lighting Ramp (source-in) ──
+  // Replaces color with a continuous vertical lighting ramp:
+  // - Top: warm soft ivory white (calibrated to physically prevent clipping/overexposure under ACES tonemapping)
+  // - Mid: soft sky-lit vapor
+  // - Base: gentle tropical maritime ambient shadow
+  ctx.globalCompositeOperation = 'source-in';
+  const lightGrad = ctx.createLinearGradient(0, 55, 0, 195);
+  lightGrad.addColorStop(0.0, 'rgba(224, 234, 244, 0.88)'); // Soft natural ivory crest
+  lightGrad.addColorStop(0.35, 'rgba(206, 220, 234, 0.84)'); // Volumetric upper body
+  lightGrad.addColorStop(0.70, 'rgba(168, 192, 216, 0.80)'); // Soft oceanic maritime shadow
+  lightGrad.addColorStop(1.0, 'rgba(135, 162, 190, 0.76)'); // Defined cloud base
+  ctx.fillStyle = lightGrad;
+  ctx.fillRect(0, 0, 512, 256);
+
+  // ── PASS 3: Soft 3D Billow Crest Contours (source-atop) ──
+  // Adds organic cauliflower billow volume to upper domes with subtle shading
+  ctx.globalCompositeOperation = 'source-atop';
+  const drawContourPuff = (cx: number, cy: number, rx: number, ry: number) => {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(rx, ry);
+    const grad = ctx.createRadialGradient(0, -0.2, 0.05, 0, 0, 1.0);
+    grad.addColorStop(0, 'rgba(235, 242, 250, 0.10)');
+    grad.addColorStop(0.6, 'rgba(225, 236, 246, 0.04)');
+    grad.addColorStop(1.0, 'rgba(215, 228, 242, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, 1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  };
+  drawContourPuff(245, 95, 60, 32);
+  drawContourPuff(305, 88, 55, 30);
+  drawContourPuff(210, 122, 70, 36);
+  drawContourPuff(290, 116, 75, 38);
+
+  // ── PASS 4: Soft Flat-Base Horizon Dissolve ──
+  // Smoothly dissolves the very bottom of the cloud base into the atmospheric haze
+  ctx.globalCompositeOperation = 'destination-out';
+  const baseDissolve = ctx.createLinearGradient(0, 180, 0, 210);
+  baseDissolve.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  baseDissolve.addColorStop(1, 'rgba(0, 0, 0, 0.85)');
+  ctx.fillStyle = baseDissolve;
+  ctx.fillRect(0, 180, 512, 76);
+
+  ctx.globalCompositeOperation = 'source-over';
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.needsUpdate = true;
@@ -121,10 +176,11 @@ function createCirrusCloudTexture(): THREE.CanvasTexture {
     ctx.save();
     ctx.translate(cx, cy);
     ctx.scale(rx, ry);
-    const grad = ctx.createRadialGradient(0, 0, 0.1, 0, 0, 1.0);
-    grad.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
-    grad.addColorStop(0.5, `rgba(245, 250, 255, ${alpha * 0.5})`);
-    grad.addColorStop(1, 'rgba(235, 245, 255, 0)');
+    const grad = ctx.createRadialGradient(0, 0, 0.05, 0, 0, 1.0);
+    grad.addColorStop(0, `rgba(215, 230, 245, ${alpha})`);
+    grad.addColorStop(0.40, `rgba(205, 222, 240, ${alpha * 0.65})`);
+    grad.addColorStop(0.75, `rgba(190, 212, 235, ${alpha * 0.20})`);
+    grad.addColorStop(1, 'rgba(180, 205, 230, 0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(0, 0, 1, 0, Math.PI * 2);
@@ -132,11 +188,12 @@ function createCirrusCloudTexture(): THREE.CanvasTexture {
     ctx.restore();
   };
 
-  drawStreak(256, 64, 230, 18, 0.55);
-  drawStreak(180, 54, 150, 12, 0.45);
-  drawStreak(330, 72, 160, 14, 0.45);
-  drawStreak(110, 68, 90, 8, 0.35);
-  drawStreak(400, 58, 95, 9, 0.35);
+  // Ethereal stratospheric wisps
+  drawStreak(256, 64, 170, 14, 0.35);
+  drawStreak(185, 54, 120, 10, 0.26);
+  drawStreak(330, 72, 130, 11, 0.26);
+  drawStreak(125, 66, 70, 7, 0.18);
+  drawStreak(390, 58, 75, 8, 0.18);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.needsUpdate = true;
@@ -153,15 +210,15 @@ const CaribbeanClouds2D: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({
   const windAngle = useGameStore((s) => s.windAngle);
   const groupRef = useRef<THREE.Group>(null);
 
-  // Layer 1: Volumetric Mid-Sky Cumulus Banks (24 dynamic clouds with fixed celestial orientation)
+  // Layer 1: Volumetric Mid-Sky Cumulus Banks (18 well-distributed clouds across the 360° horizon)
   const cumulusClouds = useMemo(() => {
     const items = [];
-    const count = isMobile ? 8 : 24;
+    const count = isMobile ? 8 : 18;
     for (let i = 0; i < count; i++) {
-      const angle = (i / count) * Math.PI * 2 + (Math.random() * 0.3 - 0.15);
-      const dist = 220 + Math.random() * 140;
+      const angle = (i / count) * Math.PI * 2 + (Math.random() * 0.28 - 0.14);
+      const dist = 240 + Math.random() * 120;
       const x = Math.cos(angle) * dist;
-      const y = 62 + Math.random() * 45; // 62m to 107m altitude
+      const y = 65 + Math.random() * 40; // 65m to 105m altitude
       const z = Math.sin(angle) * dist;
       const horizDist = Math.sqrt(x * x + z * z);
 
@@ -176,23 +233,23 @@ const CaribbeanClouds2D: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({
         z,
         rotX,
         rotY,
-        scaleX: 95 + Math.random() * 65,  // 95m to 160m width
-        scaleY: 34 + Math.random() * 22,  // 34m to 56m height
-        opacity: (0.65 + Math.random() * 0.22) * (isNight ? 0.45 : 1.0),
+        scaleX: 110 + Math.random() * 50,  // 110m to 160m width
+        scaleY: 36 + Math.random() * 18,
+        opacity: (0.75 + Math.random() * 0.15) * (isNight ? 0.45 : 0.90),
       });
     }
     return items;
   }, [isNight, isMobile]);
 
-  // Layer 2: High Stratospheric Cirrus Streaks (14 grand veils with fixed celestial orientation)
+  // Layer 2: High Stratospheric Cirrus Streaks (8 expansive veils)
   const cirrusClouds = useMemo(() => {
     const items = [];
-    const count = isMobile ? 4 : 14;
+    const count = isMobile ? 4 : 8;
     for (let i = 0; i < count; i++) {
-      const angle = (i / count) * Math.PI * 2 + (Math.random() * 0.4 - 0.2);
-      const dist = 360 + Math.random() * 150;
+      const angle = (i / count) * Math.PI * 2 + (Math.random() * 0.35 - 0.17);
+      const dist = 360 + Math.random() * 130;
       const x = Math.cos(angle) * dist;
-      const y = 145 + Math.random() * 50; // 145m to 195m high altitude
+      const y = 145 + Math.random() * 45; // 145m to 190m altitude
       const z = Math.sin(angle) * dist;
       const horizDist = Math.sqrt(x * x + z * z);
 
@@ -206,9 +263,9 @@ const CaribbeanClouds2D: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({
         z,
         rotX,
         rotY,
-        scaleX: 190 + Math.random() * 110, // 190m to 300m expansive streaks
-        scaleY: 28 + Math.random() * 14,
-        opacity: (0.35 + Math.random() * 0.18) * (isNight ? 0.35 : 1.0),
+        scaleX: 170 + Math.random() * 80,
+        scaleY: 26 + Math.random() * 12,
+        opacity: (0.30 + Math.random() * 0.15) * (isNight ? 0.25 : 0.60),
       });
     }
     return items;
@@ -226,7 +283,8 @@ const CaribbeanClouds2D: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({
     }
   });
 
-  const cloudColor = isNight ? '#4b6385' : '#ffffff';
+  // Soft natural Caribbean cloud tint (cream-tinted non-clipping white)
+  const cloudColor = isNight ? '#384c68' : '#e0ebf5';
 
   return (
     <group ref={groupRef}>
@@ -302,8 +360,8 @@ const CaribbeanSkyDome: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({ 
       vertexShader: `
         varying vec3 vWorldPosition;
         void main() {
+          vWorldPosition = position;
           vec4 worldPos = modelMatrix * vec4(position, 1.0);
-          vWorldPosition = worldPos.xyz;
           gl_Position = projectionMatrix * viewMatrix * worldPos;
         }
       `,
@@ -326,9 +384,14 @@ const CaribbeanSkyDome: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({ 
           vec3 dir = normalize(vWorldPosition);
           float h = max(0.0, dir.y);
 
-          // Rayleigh atmospheric gradient - smooth bright Caribbean daytime sky
-          vec3 sky = mix(uHorizonColor, uMidColor, smoothstep(0.0, 0.35, h));
-          sky = mix(sky, uTopColor, smoothstep(0.35, 1.0, h));
+          // Atmospheric Rayleigh gradient:
+          // Low horizon sea mist is strictly confined to sea level (h in [0.0, 0.055]),
+          // while the celestial dome smoothly transitions from mid cerulean to deep Caribbean azure.
+          // This ensures that wide perspective cameras do not produce hyperbolic conic arcs in upper screen corners.
+          float horizonFade = smoothstep(0.0, 0.055, h);
+          float zenithFade = smoothstep(0.055, 0.65, h);
+          vec3 sky = mix(uHorizonColor, uMidColor, horizonFade);
+          sky = mix(sky, uTopColor, zenithFade);
 
           // Celestial body (Sun / Moon)
           float celestialDot = max(0.0, dot(dir, uCelestialPos));
@@ -359,32 +422,23 @@ const CaribbeanSkyDome: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({ 
 
             sky += moonLight;
           } else {
-            // ──────────────── DAY BATTLE SKY (AAA VOLUMETRIC ATMOSPHERE) ────────────────
-            // 1. Brilliant white-hot sun disc
-            float sunDisc = smoothstep(0.9986, 0.9998, celestialDot) * 4.5;
+            // ──────────────── DAY BATTLE SKY (NATURAL CARIBBEAN ATMOSPHERE) ────────────────
+            // 1. Crisp brilliant sun disc
+            float sunDisc = smoothstep(0.9990, 0.9998, celestialDot);
             
-            // 2. Warm golden inner corona bloom
-            float innerCorona = pow(celestialDot, 36.0) * 2.2;
+            // 2. Solar corona: tight warm sunlit rim (desaturates sky towards ivory white)
+            float corona = pow(celestialDot, 48.0) * 0.85;
             
-            // 3. Volumetric forward Mie scattering haze (tropical golden atmosphere)
-            float mieHaze = pow(celestialDot, 8.0) * 0.45 * smoothstep(0.02, 0.35, h);
-            
-            // 4. AAA Volumetric Crepuscular Godrays radiating through cloud deck
-            vec3 sunToDir = dir - uCelestialPos;
-            float rayAngle = atan(sunToDir.x, sunToDir.z);
-            float r1 = sin(rayAngle * 12.0);
-            float r2 = sin(rayAngle * 26.0 + 1.2);
-            float r3 = sin(rayAngle * 52.0 - 0.7);
-            float r4 = sin(rayAngle * 104.0 + 2.1);
-            float rayPattern = pow(max(0.0, r1 * 0.44 + r2 * 0.30 + r3 * 0.16 + r4 * 0.10 + 0.32), 3.2);
-            float rayFalloff = smoothstep(0.55, 0.992, celestialDot) * (1.0 - smoothstep(0.998, 1.0, celestialDot));
-            float godrays = rayPattern * rayFalloff * 0.72;
+            // 3. Forward Mie scattering: soft atmospheric desaturation near sun without hue shift
+            float mieHaze = pow(celestialDot, 20.0) * 0.28 * smoothstep(0.04, 0.45, h);
 
-            vec3 sunLight = vec3(1.0, 0.98, 0.92) * sunDisc +
-                            vec3(1.0, 0.92, 0.70) * (innerCorona + godrays) +
-                            vec3(0.98, 0.88, 0.72) * mieHaze;
-
-            sky += sunLight;
+            // Interpolate toward sunlit atmospheric colors (prevents lime-green additive artifacts on cyan sky)
+            vec3 hazeCol = vec3(0.72, 0.86, 0.98);   // Soft atmospheric cerulean-white
+            vec3 coronaCol = vec3(1.0, 0.98, 0.92);  // Warm sunlit ivory
+            
+            sky = mix(sky, hazeCol, mieHaze);
+            sky = mix(sky, coronaCol, corona);
+            sky += vec3(1.0, 1.0, 0.96) * sunDisc * 3.5;
           }
 
           gl_FragColor = vec4(sky, 1.0);
@@ -410,8 +464,8 @@ const CaribbeanSkyDome: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({ 
   });
 
   return (
-    <mesh ref={meshRef} material={shaderMaterial}>
-      <sphereGeometry args={[1200, isMobile ? 16 : 28, isMobile ? 8 : 14]} />
+    <mesh ref={meshRef} material={shaderMaterial} renderOrder={-1000}>
+      <sphereGeometry args={[1400, isMobile ? 24 : 36, isMobile ? 14 : 20]} />
     </mesh>
   );
 };
