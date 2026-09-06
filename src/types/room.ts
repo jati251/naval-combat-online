@@ -2,7 +2,7 @@ import type { ShipClass } from './ship';
 
 export type GameStage = 'LOBBY' | 'BATTLE' | 'DEBRIEF';
 export type TimeOfDay = 'DAY' | 'NIGHT';
-export type MapId = 'caribbean' | 'kingston' | 'mexico';
+export type MapId = 'caribbean' | 'kingston' | 'mexico' | 'english-channel' | 'greece' | 'nusantara';
 export type GameMode = 'FFA' | 'TEAM';
 export type Team = 'red' | 'blue';
 

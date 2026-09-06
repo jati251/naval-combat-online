@@ -40,7 +40,7 @@ export interface MapDefinition {
   subtitle: string;
   description: string;
   tacticalTag: string;
-  badgeColor: 'amber' | 'cyan' | 'emerald';
+  badgeColor: 'amber' | 'cyan' | 'emerald' | 'slate' | 'sky' | 'rose';
   radius: number;
   islands: IslandDefinition[];
   shipwrecks: ShipwreckDefinition[];

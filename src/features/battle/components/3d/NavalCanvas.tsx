@@ -1,27 +1,27 @@
-import React, { useRef } from 'react';
-import * as THREE from 'three';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OceanWater } from './OceanWater';
-import { CannonSystem3D } from './CannonSystem3D';
-import { CannonFX2D } from './CannonFX2D';
-import { Environment3D } from './Environment3D';
-import { Islands3D } from './Islands3D';
-import { Shipwrecks3D } from './Shipwrecks3D';
-import { JumpingFish3D } from './JumpingFish3D';
-import { MapBoundary3D } from './MapBoundary3D';
-import { CaribbeanSeabirds3D } from './CaribbeanSeabirds3D';
-import { OceanAtmosphereParticles3D } from './OceanAtmosphereParticles3D';
-import { ShipEntity } from './ShipEntity';
-import { useGameStore } from '@/stores/useGameStore';
-import { useShallow } from 'zustand/react/shallow';
-import { useBattleCamera } from '../../hooks/useBattleCamera';
-import { useMobileViewport } from '@/hooks/useMobileViewport';
-import { AdaptiveResolution } from './rendering/AdaptiveResolution';
-import { NavigationBuoys3D } from './props/NavigationBuoys3D';
-import { NavalPostProcessing } from './rendering/NavalPostProcessing';
-import { setFrameId } from '../../utils/frustumCuller';
+import React, { useRef } from "react";
+import * as THREE from "three";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { OceanWater } from "./OceanWater";
+import { CannonSystem3D } from "./CannonSystem3D";
+import { CannonFX2D } from "./CannonFX2D";
+import { Environment3D } from "./Environment3D";
+import { Islands3D } from "./Islands3D";
+import { Shipwrecks3D } from "./Shipwrecks3D";
+import { JumpingFish3D } from "./JumpingFish3D";
+import { MapBoundary3D } from "./MapBoundary3D";
+import { CaribbeanSeabirds3D } from "./CaribbeanSeabirds3D";
+import { OceanAtmosphereParticles3D } from "./OceanAtmosphereParticles3D";
+import { ShipEntity } from "./ShipEntity";
+import { useGameStore } from "@/stores/useGameStore";
+import { useShallow } from "zustand/react/shallow";
+import { useBattleCamera } from "../../hooks/useBattleCamera";
+import { useMobileViewport } from "@/hooks/useMobileViewport";
+import { AdaptiveResolution } from "./rendering/AdaptiveResolution";
+import { NavigationBuoys3D } from "./props/NavigationBuoys3D";
+import { NavalPostProcessing } from "./rendering/NavalPostProcessing";
+import { setFrameId } from "../../utils/frustumCuller";
 
-import { useGraphicsQuality } from '@/features/settings';
+import { useGraphicsQuality } from "@/features/settings";
 
 /**
  * Syncs the frustum culler's frame counter at the very start of each render frame.
@@ -41,60 +41,69 @@ const BattleCameraRig: React.FC = () => {
   return null;
 };
 
-const FleetEntities: React.FC<{ isMobile: boolean }> = React.memo(({ isMobile }) => {
-  const shipIds = useGameStore(useShallow((s) => s.ships.map((ship) => ship.id)));
-  const selfId = useGameStore((s) => s.selfId);
-  const isSelfAlive = useGameStore((s) => {
-    const self = s.ships.find((ship) => ship.id === s.selfId);
-    return Boolean(self && !self.isSunk);
-  });
+const FleetEntities: React.FC<{ isMobile: boolean }> = React.memo(
+  ({ isMobile }) => {
+    const shipIds = useGameStore(
+      useShallow((s) => s.ships.map((ship) => ship.id)),
+    );
+    const selfId = useGameStore((s) => s.selfId);
+    const isSelfAlive = useGameStore((s) => {
+      const self = s.ships.find((ship) => ship.id === s.selfId);
+      return Boolean(self && !self.isSunk);
+    });
 
-  return (
-    <>
-      {!isSelfAlive && <BattleCameraRig />}
-      {shipIds.map((id) => (
-        <ShipEntity
-          key={id}
-          shipId={id}
-          isSelf={id === selfId}
-          isMobile={isMobile}
-        />
-      ))}
-    </>
-  );
-});
+    return (
+      <>
+        {!isSelfAlive && <BattleCameraRig />}
+        {shipIds.map((id) => (
+          <ShipEntity
+            key={id}
+            shipId={id}
+            isSelf={id === selfId}
+            isMobile={isMobile}
+          />
+        ))}
+      </>
+    );
+  },
+);
 
-const CannonEntities: React.FC<{ isMobile: boolean }> = React.memo(({ isMobile }) => {
-  return (
-    <>
-      <CannonSystem3D />
-      <CannonFX2D isMobile={isMobile} />
-    </>
-  );
-});
+const CannonEntities: React.FC<{ isMobile: boolean }> = React.memo(
+  ({ isMobile }) => {
+    return (
+      <>
+        <CannonSystem3D />
+        <CannonFX2D isMobile={isMobile} />
+      </>
+    );
+  },
+);
 
 export const NavalCanvas: React.FC = React.memo(() => {
   const timeOfDay = useGameStore((s) => s.timeOfDay);
-  const isNight = timeOfDay === 'NIGHT';
-  const skyClearColor = isNight ? '#050d1e' : '#0284c7';
+  const isNight = timeOfDay === "NIGHT";
+  const skyClearColor = isNight ? "#050d1e" : "#0284c7";
 
   const isMobile = useMobileViewport();
   const { profile } = useGraphicsQuality();
-  const activeIsMobile = profile ? profile.id === 'fast' : isMobile;
+  const activeIsMobile = profile ? profile.id === "fast" : isMobile;
 
-  const exposure = isNight ? profile.toneMappingExposureNight : profile.toneMappingExposureDay;
+  const exposure = isNight
+    ? profile.toneMappingExposureNight
+    : profile.toneMappingExposureDay;
 
   return (
-    <div className={`w-full h-full absolute inset-0 ${isNight ? 'bg-slate-950' : 'bg-sky-700'}`}>
+    <div
+      className={`w-full h-full absolute inset-0 ${isNight ? "bg-slate-950" : "bg-sky-700"}`}
+    >
       <Canvas
         camera={{ position: [0, 25, -45], fov: 55, near: 1.0, far: 2000 }}
         shadows={profile.shadows}
         dpr={profile.dpr}
-
         gl={{
           antialias: false,
           alpha: false,
-          powerPreference: 'high-performance',
+          powerPreference: "high-performance",
           toneMapping: THREE.ACESFilmicToneMapping,
           toneMappingExposure: exposure,
         }}
@@ -113,7 +122,10 @@ export const NavalCanvas: React.FC = React.memo(() => {
         <JumpingFish3D />
         <MapBoundary3D isMobile={activeIsMobile} />
         {!isNight && <CaribbeanSeabirds3D />}
-        <OceanAtmosphereParticles3D isMobile={activeIsMobile} particleCount={profile.atmosphereParticles} />
+        <OceanAtmosphereParticles3D
+          isMobile={activeIsMobile}
+          particleCount={profile.atmosphereParticles}
+        />
         <FleetEntities isMobile={activeIsMobile} />
         <CannonEntities isMobile={activeIsMobile} />
         <NavalPostProcessing profile={profile} isNight={isNight} />
