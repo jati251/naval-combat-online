@@ -20,8 +20,10 @@ export const ShipHelm: React.FC<ShipHelmProps> = React.memo(({
   isSelf = false,
 }) => {
   const helmRef = useRef<THREE.Group>(null);
+  const frameSkip = useRef(0);
 
   useFrame((_, delta) => {
+    if (++frameSkip.current % 2 !== 0) return;
     if (!helmRef.current) return;
 
     const store = useGameStore.getState();

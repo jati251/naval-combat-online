@@ -14,13 +14,41 @@ const _frustum = new THREE.Frustum();
 const _tempSphere = new THREE.Sphere();
 const _tempVector = new THREE.Vector3();
 
+// Frame-level deduplication: track which camera + frame was last computed.
+// Prevents 30+ redundant camera.updateMatrixWorld() + frustum extraction calls per frame.
+let _lastFrameId: number = -1;
+let _cachedFrame: number = -1;
+let _cachedCam: number = -1;
+
 /**
- * Ensures the frustum planes are up-to-date with the camera's current transform.
+ * Sets the current render frame ID. Call once per frame from the main scene useFrame hook.
+ * This enables all frustum checks within the same frame to skip redundant matrix extraction.
  */
-export function updateFrustum(camera: THREE.Camera): void {
+export function setFrameId(frameId: number): void {
+  _lastFrameId = frameId;
+}
+
+/**
+ * Internal: extracts frustum planes from camera exactly once per frame+camera combo.
+ */
+function updateFrustumOnce(camera: THREE.Camera): void {
+  const frameId = _lastFrameId;
+  const camId = camera.id;
+  if (frameId === _cachedFrame && camId === _cachedCam) {
+    return; // Already computed for this exact frame + camera — skip entirely
+  }
+  _cachedFrame = frameId;
+  _cachedCam = camId;
   camera.updateMatrixWorld();
   _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
   _frustum.setFromProjectionMatrix(_projScreenMatrix);
+}
+
+/**
+ * @deprecated Use updateFrustumOnce internally. Kept for test compatibility.
+ */
+export function updateFrustum(camera: THREE.Camera): void {
+  updateFrustumOnce(camera);
 }
 
 /**
@@ -35,7 +63,7 @@ export function isSphereInFrustum(
   radius: number,
   buffer = 0
 ): boolean {
-  updateFrustum(camera);
+  updateFrustumOnce(camera);
 
   _tempVector.set(x, y, z);
   _tempSphere.center = _tempVector;
@@ -48,7 +76,7 @@ export function isSphereInFrustum(
  * Returns whether an axis-aligned bounding box intersects the camera view frustum.
  */
 export function isBoxInFrustum(camera: THREE.Camera, box: THREE.Box3): boolean {
-  updateFrustum(camera);
+  updateFrustumOnce(camera);
   return _frustum.intersectsBox(box);
 }
 

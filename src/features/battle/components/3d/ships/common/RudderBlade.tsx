@@ -20,8 +20,10 @@ export const RudderBlade: React.FC<RudderBladeProps> = React.memo(({
   isSelf = false,
 }) => {
   const meshRef = useRef<THREE.Group>(null);
+  const frameSkip = useRef(0);
 
   useFrame((_, delta) => {
+    if (++frameSkip.current % 2 !== 0) return;
     if (!meshRef.current) return;
 
     const store = useGameStore.getState();

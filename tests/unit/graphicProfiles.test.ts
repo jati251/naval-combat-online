@@ -13,22 +13,22 @@ test('graphic profiles define fast, balanced, and performance modes correctly', 
   // Fast (Mobile quality)
   assert.equal(fast.shadows, false);
   assert.equal(fast.waveCount, 2);
-  assert.equal(fast.waterSegments, 90);
-  assert.equal(fast.atmosphereParticles, 40);
+  assert.equal(fast.waterSegments, 80);
+  assert.equal(fast.atmosphereParticles, 30);
 
   // Balanced (Standard web)
   assert.equal(balanced.shadows, true);
   assert.equal(balanced.shadowMapSize, 1024);
   assert.equal(balanced.waveCount, 4);
-  assert.equal(balanced.waterSegments, 160);
-  assert.equal(balanced.atmosphereParticles, 180);
+  assert.equal(balanced.waterSegments, 140);
+  assert.equal(balanced.atmosphereParticles, 120);
 
   // Performance (Ultra photorealism)
   assert.equal(performance.shadows, true);
-  assert.equal(performance.shadowMapSize, 2048);
-  assert.equal(performance.waveCount, 8);
-  assert.equal(performance.waterSegments, 180);
-  assert.equal(performance.atmosphereParticles, 260);
+  assert.equal(performance.shadowMapSize, 1024);
+  assert.equal(performance.waveCount, 6);
+  assert.equal(performance.waterSegments, 140);
+  assert.equal(performance.atmosphereParticles, 180);
   assert.equal(performance.waterShader.glitterEnabled, true);
   assert.equal(performance.waterShader.capillaryHarmonics, 5);
 });

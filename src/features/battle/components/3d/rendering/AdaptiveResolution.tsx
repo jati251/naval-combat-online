@@ -15,7 +15,7 @@ export function AdaptiveResolution({ isMobile, dprRange }: { isMobile?: boolean;
   const stateRef = useRef({
     seconds: 0,
     frames: 0,
-    warmup: 8.0, // 8s initial warm-up
+    warmup: 5.0, // 5s initial warm-up (reduced from 8s)
     cooldown: 0, // Cooldown timer between canvas resizes
     lowFpsStreak: 0,
     highFpsStreak: 0,
@@ -47,8 +47,8 @@ export function AdaptiveResolution({ isMobile, dprRange }: { isMobile?: boolean;
     s.seconds += delta;
     s.frames++;
 
-    // Sample every 4 seconds
-    if (s.seconds < 4.0) return;
+    // Sample every 2 seconds (faster response to frame drops)
+    if (s.seconds < 2.0) return;
 
     const fps = s.frames / s.seconds;
     s.seconds = 0;
@@ -60,10 +60,10 @@ export function AdaptiveResolution({ isMobile, dprRange }: { isMobile?: boolean;
 
     const currentDpr = viewport.dpr;
 
-    if (fps < 42) {
+    if (fps < 45) {
       s.lowFpsStreak++;
       s.highFpsStreak = 0;
-    } else if (fps >= 54) {
+    } else if (fps >= 56) {
       s.highFpsStreak++;
       s.lowFpsStreak = 0;
     } else {
@@ -71,21 +71,21 @@ export function AdaptiveResolution({ isMobile, dprRange }: { isMobile?: boolean;
       s.highFpsStreak = 0;
     }
 
-    // Only downscale after sustained pressure (2 consecutive 4s windows = 8 seconds of < 30 FPS)
-    if (s.lowFpsStreak >= 2 && currentDpr > minimum) {
+    // Downscale after 1 consecutive low-FPS window (2s of < 45 FPS)
+    if (s.lowFpsStreak >= 1 && currentDpr > minimum) {
       const nextDpr = Math.max(minimum, Math.round((currentDpr - 0.25) * 100) / 100);
       if (Math.abs(nextDpr - currentDpr) > 0.05) {
         setDpr(nextDpr);
-        s.cooldown = 12.0; // Wait at least 12s before next resize
+        s.cooldown = 8.0; // Wait 8s before next resize
         s.lowFpsStreak = 0;
       }
     }
-    // Recover towards native DPR if running smoothly (2 consecutive 4s windows >= 52 FPS)
-    else if (s.highFpsStreak >= 2 && currentDpr < maximum) {
+    // Recover towards native DPR if running smoothly (3 consecutive windows >= 56 FPS)
+    else if (s.highFpsStreak >= 3 && currentDpr < maximum) {
       const nextDpr = Math.min(maximum, Math.round((currentDpr + 0.25) * 100) / 100);
       if (Math.abs(nextDpr - currentDpr) > 0.05) {
         setDpr(nextDpr);
-        s.cooldown = 12.0;
+        s.cooldown = 8.0;
         s.highFpsStreak = 0;
       }
     }

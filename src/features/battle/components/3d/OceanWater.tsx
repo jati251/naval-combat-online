@@ -113,7 +113,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
     }
     if (qualityTier === 'performance') {
       return `
-        const int NUM_WAVES = 8;
+        const int NUM_WAVES = 6;
         const Wave waves[NUM_WAVES] = Wave[NUM_WAVES](
           // 1. Primary rolling Caribbean swell
           ${makeWaveGLSL(1.0, 0.28, 0.11, 96.0, 2.6)},
@@ -126,11 +126,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
           // 5. Transverse chop harmonic
           ${makeWaveGLSL(0.88, -0.47, 0.035, 12.5, 1.3)},
           // 6. Opposing sea ripple
-          ${makeWaveGLSL(-0.25, 0.96, 0.025, 8.2, 1.1)},
-          // 7. Surface capillary swell
-          ${makeWaveGLSL(0.62, 0.78, 0.018, 5.4, 0.95)},
-          // 8. Micro-wave interference
-          ${makeWaveGLSL(-0.85, 0.52, 0.012, 3.6, 0.82)}
+          ${makeWaveGLSL(-0.25, 0.96, 0.025, 8.2, 1.1)}
         );
       `;
     }

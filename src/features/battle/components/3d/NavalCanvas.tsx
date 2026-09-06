@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import * as THREE from 'three';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { OceanWater } from './OceanWater';
 import { CannonSystem3D } from './CannonSystem3D';
 import { CannonFX2D } from './CannonFX2D';
@@ -19,8 +19,22 @@ import { useMobileViewport } from '@/hooks/useMobileViewport';
 import { AdaptiveResolution } from './rendering/AdaptiveResolution';
 import { NavigationBuoys3D } from './props/NavigationBuoys3D';
 import { NavalPostProcessing } from './rendering/NavalPostProcessing';
+import { setFrameId } from '../../utils/frustumCuller';
 
 import { useGraphicsQuality } from '@/features/settings';
+
+/**
+ * Syncs the frustum culler's frame counter at the very start of each render frame.
+ * Runs at priority -100 (before all other useFrame hooks) so that all entity
+ * frustum checks within the same frame reuse the same cached frustum planes.
+ */
+const FrustumFrameSync: React.FC = () => {
+  const frameCounter = useRef(0);
+  useFrame(() => {
+    setFrameId(++frameCounter.current);
+  }, -100); // Priority -100: runs before all other useFrame callbacks
+  return null;
+};
 
 const BattleCameraRig: React.FC = () => {
   useBattleCamera();
@@ -73,7 +87,7 @@ export const NavalCanvas: React.FC = React.memo(() => {
   return (
     <div className={`w-full h-full absolute inset-0 ${isNight ? 'bg-slate-950' : 'bg-sky-700'}`}>
       <Canvas
-        camera={{ position: [0, 25, -45], fov: 55, near: 0.5, far: 1400 }}
+        camera={{ position: [0, 25, -45], fov: 55, near: 1.0, far: 1200 }}
         shadows={profile.shadows}
         dpr={profile.dpr}
 
@@ -88,6 +102,7 @@ export const NavalCanvas: React.FC = React.memo(() => {
           gl.shadowMap.type = THREE.PCFSoftShadowMap;
         }}
       >
+        <FrustumFrameSync />
         <AdaptiveResolution isMobile={activeIsMobile} dprRange={profile.dpr} />
         <color attach="background" args={[bgColor]} />
         <Environment3D isMobile={activeIsMobile} profile={profile} />

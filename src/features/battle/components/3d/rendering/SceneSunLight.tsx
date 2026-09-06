@@ -7,14 +7,25 @@ export function SceneSunLight({ color, intensity, shadows, shadowMapSize = 1024 
 }) {
   const light = useRef<DirectionalLight>(null);
   const target = useMemo(() => new Object3D(), []);
+  const frameCount = useRef(0);
+
   useFrame(({ camera }, delta) => {
     if (!light.current) return;
+
+    frameCount.current++;
+
     // Smoothly track camera position without discrete 4m jumping hitches
     const targetX = MathUtils.damp(target.position.x, camera.position.x, 12, delta);
     const targetZ = MathUtils.damp(target.position.z, camera.position.z, 12, delta);
     target.position.set(targetX, 0, targetZ);
     target.updateMatrixWorld();
     light.current.position.set(targetX + 70, 140, targetZ - 50);
+
+    // Shadow map throttle: only recompute every 2 frames to halve GPU shadow pass cost.
+    // PCFSoftShadowMap provides enough temporal blur that skipping frames is imperceptible.
+    if (shadows && light.current.shadow) {
+      light.current.shadow.autoUpdate = frameCount.current % 2 === 0;
+    }
   });
   return <>
     <primitive object={target} />

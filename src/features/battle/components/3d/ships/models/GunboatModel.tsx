@@ -33,8 +33,10 @@ export const GunboatModel: React.FC<SubModelProps> = React.memo(({
 }) => {
   const { length, width, trimColor } = config;
   const tillerRef = useRef<THREE.Mesh>(null);
+  const frameSkip = useRef(0);
 
   useFrame((_, delta) => {
+    if (++frameSkip.current % 2 !== 0) return;
     if (tillerRef.current) {
       let targetAngle = rudderAngle;
       const store = useGameStore.getState();
