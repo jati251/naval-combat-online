@@ -245,10 +245,10 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
                   scale={pScale}
                   seed={pIdx + island.seed}
                 />
-                {/* Low fern/bush sprout at palm base */}
+                {/* Low fern/bush sprout hugging palm base */}
                 <TropicalBush
-                  position={[0.8 * pScale, -0.2, 0.6 * pScale]}
-                  scale={pScale * 0.75}
+                  position={[0.5 * pScale, -0.1, 0.4 * pScale]}
+                  scale={pScale * 0.55}
                   seed={pIdx * 7 + 3}
                 />
               </group>
@@ -264,21 +264,16 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
                   scale={jScale}
                   seed={jIdx + island.seed * 3}
                 />
-                {/* Dense contiguous undergrowth skirt around tree base - Eliminates bald floor */}
+                {/* Compact undergrowth skirt tightly hugging trunk base */}
                 <TropicalBush
-                  position={[1.5 * jScale, -0.2, 0.9 * jScale]}
-                  scale={jScale * 0.9}
+                  position={[0.7 * jScale, -0.1, 0.5 * jScale]}
+                  scale={jScale * 0.65}
                   seed={jIdx * 11 + 1}
                 />
                 <TropicalBush
-                  position={[-1.3 * jScale, -0.2, -1.1 * jScale]}
-                  scale={jScale * 0.85}
+                  position={[-0.6 * jScale, -0.1, -0.6 * jScale]}
+                  scale={jScale * 0.6}
                   seed={jIdx * 13 + 5}
-                />
-                <TropicalBush
-                  position={[0.2 * jScale, -0.2, 1.8 * jScale]}
-                  scale={jScale * 0.8}
-                  seed={jIdx * 17 + 7}
                 />
               </group>
             );

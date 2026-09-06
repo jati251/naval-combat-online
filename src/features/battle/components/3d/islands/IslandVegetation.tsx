@@ -390,16 +390,16 @@ export function createTropicalBushSpriteTexture(): THREE.CanvasTexture {
 }
 
 // ─── CROSSED BILLBOARD GEOMETRIES & SHARED MATERIALS ───
-// Generous billboard sizes so foliage looks full, voluminous, and lush
-const palmPlaneGeo = new THREE.PlaneGeometry(9.2, 12.0);
-palmPlaneGeo.translate(0, 6.0, 0);
+// Compact, realistically-proportioned vegetation (dense without being oversized)
+const palmPlaneGeo = new THREE.PlaneGeometry(5.4, 7.4);
+palmPlaneGeo.translate(0, 3.7, 0);
 
-const junglePlaneGeo = new THREE.PlaneGeometry(12.5, 12.0);
-junglePlaneGeo.translate(0, 6.0, 0);
+const junglePlaneGeo = new THREE.PlaneGeometry(6.4, 7.2);
+junglePlaneGeo.translate(0, 3.6, 0);
 
-// Broad, dense bush geometry (5.6m wide x 4.0m tall)
-const bushPlaneGeo = new THREE.PlaneGeometry(5.6, 4.0);
-bushPlaneGeo.translate(0, 2.0, 0);
+// Compact, ground-hugging tropical bush geometry (2.6m wide x 1.8m tall)
+const bushPlaneGeo = new THREE.PlaneGeometry(2.6, 1.8);
+bushPlaneGeo.translate(0, 0.9, 0);
 
 let cachedPalmMat: THREE.MeshStandardMaterial | null = null;
 let cachedJungleMat: THREE.MeshStandardMaterial | null = null;
