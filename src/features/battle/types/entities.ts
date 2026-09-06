@@ -1,7 +1,8 @@
 import type { ShipSnapshot } from '@/types';
 
 export interface ShipEntityProps {
-  ship: ShipSnapshot;
+  ship?: ShipSnapshot;
+  shipId: string;
   isSelf: boolean;
   isMobile?: boolean;
 }

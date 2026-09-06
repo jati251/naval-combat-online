@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useEffect } from 'react';
+import React, { useRef, useMemo, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { ShipModel3D } from './ShipModel3D';
@@ -9,7 +9,7 @@ import {
   NAMEPLATE_CULL_DISTANCE,
   NAMEPLATE_CULL_DISTANCE_MOBILE,
 } from './Environment3D';
-import { SHIP_PRESETS } from '@/types';
+import { SHIP_PRESETS, type SailState } from '@/types';
 import type { ShipEntityProps } from '../../types/entities';
 import {
   createDeadReckoningBuffer,
@@ -22,17 +22,43 @@ import { useGameStore } from '@/stores/useGameStore';
 import { findShip } from '@/stores/selectors/shipLookup';
 import { navalAudio } from '../../services/navalAudio';
 
-export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf, isMobile = false }) => {
+export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
+  ship,
+  shipId: propShipId,
+  isSelf,
+  isMobile = false,
+}) => {
+  const targetId = propShipId || ship?.id || '';
+  const initialShip = useMemo(
+    () => ship || findShip(useGameStore.getState().ships, targetId),
+    [ship, targetId]
+  );
+
+  const shipClass = initialShip?.shipClass || 'brig';
+  const shipConfig = SHIP_PRESETS[shipClass] || SHIP_PRESETS.brig;
+  const shipLen = shipConfig.length || 18;
+  const shipWid = shipConfig.width || 6;
+  const nameplateY = shipLen * 0.76 + 3.6;
+
+  const [currentSail, setCurrentSail] = useState<SailState>(initialShip?.sail || 'HALF_SAIL');
+  const curSailRef = useRef<SailState>(initialShip?.sail || 'HALF_SAIL');
+
   const groupRef = useRef<THREE.Group>(null);
+  const healthBarMeshRef = useRef<THREE.Mesh>(null);
 
   const isTeamMode = useGameStore((s) => s.currentRoom?.gameMode === 'TEAM');
   const selfTeam = useGameStore((s) => s.currentRoom?.players.find((p) => p.id === s.selfId)?.team);
-  const playerTeam = useGameStore((s) => s.currentRoom?.players.find((p) => p.id === ship.id)?.team);
+  const playerTeam = useGameStore((s) => s.currentRoom?.players.find((p) => p.id === targetId)?.team);
   const isFriendly = isTeamMode && Boolean(selfTeam && playerTeam && selfTeam === playerTeam);
 
   // High-precision dead reckoning extrapolation buffer
   const drBuffer = useRef(
-    createDeadReckoningBuffer(ship.x, ship.y + 0.85, ship.z, ship.rotationY)
+    createDeadReckoningBuffer(
+      initialShip?.x ?? 0,
+      (initialShip?.y ?? 0) + 0.85,
+      initialShip?.z ?? 0,
+      initialShip?.rotationY ?? 0
+    )
   );
 
   // Dedicated chase camera state for player ship
@@ -41,7 +67,8 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf,
   const nameplateRef = useRef<THREE.Group>(null);
   const frameCount = useRef(Math.floor(Math.random() * 6));
   const isInitialized = useRef(false);
-  const prevWasSunk = useRef(ship.isSunk);
+  const prevWasSunk = useRef(initialShip?.isSunk ?? false);
+  const shipName = initialShip?.name || 'Vessel';
 
   // Lightweight 2D canvas texture for ship name badge (rendered once into WebGL texture, 0 DOM overhead)
   const nameTexture = useMemo(() => {
@@ -94,12 +121,12 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf,
         : '#fda4af'
       : '#fde68a';
     const tag = isTeamMode ? (isFriendly ? '[ALLY] ' : '[FOE] ') : '';
-    ctx.fillText(`${tag}${ship.name}`, 128, 24);
+    ctx.fillText(`${tag}${shipName}`, 128, 24);
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.minFilter = THREE.LinearFilter;
     return tex;
-  }, [ship.name, isSelf, isTeamMode, playerTeam, isFriendly]);
+  }, [shipName, isSelf, isTeamMode, playerTeam, isFriendly]);
 
   useEffect(() => {
     return () => {
@@ -114,7 +141,23 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf,
 
     // Always fetch latest real-time snapshot from store to prevent stale closure during memoization
     const store = useGameStore.getState();
-    const curShip = findShip(store.ships, ship.id) || ship;
+    const curShip = findShip(store.ships, targetId);
+    if (!curShip) return;
+
+    // Real-time GPU update for Floating Health Bar (Zero React re-render overhead during damage)
+    if (!isSelf && healthBarMeshRef.current) {
+      const maxHp = curShip.maxHealth || 180;
+      const curHp = Math.max(0, curShip.health ?? maxHp);
+      const hpPct = Math.max(0, Math.min(100, (curHp / maxHp) * 100));
+      healthBarMeshRef.current.scale.x = Math.max(0.001, hpPct / 100);
+      healthBarMeshRef.current.position.x = -1.45 + (1.45 * hpPct) / 100;
+    }
+
+    // Infrequent sail state transition (only updates local state when sail changes)
+    if (curShip.sail && curShip.sail !== curSailRef.current) {
+      curSailRef.current = curShip.sail;
+      setCurrentSail(curShip.sail);
+    }
 
     // Respawn snap detection: if ship was sunk and is now alive, or large position teleport
     const wasSunk = prevWasSunk.current;
@@ -226,26 +269,25 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf,
     }
   });
 
-  const hpPercent = Math.max(0, Math.min(100, (ship.health / ship.maxHealth) * 100));
-  const shipConfig = SHIP_PRESETS[ship.shipClass] || SHIP_PRESETS.brig;
-  const shipLen = shipConfig.length || 18;
-  const shipWid = shipConfig.width || 6;
-  const nameplateY = shipLen * 0.76 + 3.6;
+  const initialHpPercent = Math.max(
+    0,
+    Math.min(100, ((initialShip?.health ?? 180) / (initialShip?.maxHealth || 180)) * 100)
+  );
 
   return (
     <group ref={groupRef}>
       <ShipModel3D
-        shipClass={ship.shipClass}
-        sailState={ship.sail}
-        rudderAngle={ship.rudder}
+        shipClass={shipClass}
+        sailState={currentSail}
+        rudderAngle={0}
         isEnemy={!isSelf}
-        shipId={ship.id}
+        shipId={targetId}
         isSelf={isSelf}
       />
 
       {/* Dynamic Stern Wake Spray & 2D Bubbles (Reads live state directly) */}
       <ShipWakeSplash3D
-        shipId={ship.id}
+        shipId={targetId}
         shipLength={shipLen}
         shipWidth={shipWid}
         isEnemy={!isSelf}
@@ -274,19 +316,20 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf,
               <planeGeometry args={[3.04, 0.24]} />
               <meshBasicMaterial color="#1e293b" depthWrite={false} />
             </mesh>
-            {/* Health Fill Bar */}
+            {/* Real-time GPU Health Fill Bar (Direct ref scaling in useFrame, 0 React re-renders) */}
             <mesh
-              position={[-1.45 + (1.45 * hpPercent) / 100, 0, 0.02]}
-              scale={[Math.max(0.001, hpPercent / 100), 1, 1]}
+              ref={healthBarMeshRef}
+              position={[-1.45 + (1.45 * initialHpPercent) / 100, 0, 0.02]}
+              scale={[Math.max(0.001, initialHpPercent / 100), 1, 1]}
             >
               <planeGeometry args={[2.9, 0.18]} />
               <meshBasicMaterial
                 color={
                   isTeamMode && isFriendly
                     ? '#22d3ee'
-                    : hpPercent > 50
+                    : initialHpPercent > 50
                     ? '#34d399'
-                    : hpPercent > 25
+                    : initialHpPercent > 25
                     ? '#fbbf24'
                     : '#f43f5e'
                 }
@@ -299,16 +342,11 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf,
     </group>
   );
 }, (prev, next) => {
-  // Memoization: Only re-render when structural attributes change
-  // High-frequency transforms (position, rotation, pitch, roll) are read in useFrame from store
+  // Ultra-lean memoization: ShipEntity identity never changes during active combat
+  const prevId = prev.shipId || prev.ship?.id;
+  const nextId = next.shipId || next.ship?.id;
   return (
-    prev.ship.id === next.ship.id &&
-    prev.ship.shipClass === next.ship.shipClass &&
-    prev.ship.sail === next.ship.sail &&
-    prev.ship.isSunk === next.ship.isSunk &&
-    prev.ship.health === next.ship.health &&
-    prev.ship.maxHealth === next.ship.maxHealth &&
-    prev.ship.name === next.ship.name &&
+    prevId === nextId &&
     prev.isSelf === next.isSelf &&
     prev.isMobile === next.isMobile
   );

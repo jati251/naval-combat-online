@@ -65,7 +65,7 @@ const roomManager = new RoomManager(
 // Setup WebSocket endpoint
 app.ws<SocketUserData>('/ws', {
   compression: uWS.DISABLED,
-  maxPayloadLength: 16 * 1024,
+  maxPayloadLength: 128 * 1024,
   idleTimeout: 60,
 
   upgrade: (res, req, context) => {

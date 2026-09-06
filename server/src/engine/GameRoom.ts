@@ -485,7 +485,7 @@ export class GameRoom {
             vz,
             damage: config.cannonDamage,
             createdAt: serverTime,
-            maxLife: 4.5,
+            maxLife: 3.2,
           });
         }
 

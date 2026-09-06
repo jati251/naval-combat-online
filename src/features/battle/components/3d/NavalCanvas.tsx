@@ -13,6 +13,7 @@ import { CaribbeanSeabirds3D } from './CaribbeanSeabirds3D';
 import { OceanAtmosphereParticles3D } from './OceanAtmosphereParticles3D';
 import { ShipEntity } from './ShipEntity';
 import { useGameStore } from '@/stores/useGameStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useBattleCamera } from '../../hooks/useBattleCamera';
 import { useMobileViewport } from '@/hooks/useMobileViewport';
 import { AdaptiveResolution } from './rendering/AdaptiveResolution';
@@ -24,18 +25,21 @@ const BattleCameraRig: React.FC = () => {
 };
 
 const FleetEntities: React.FC<{ isMobile: boolean }> = React.memo(({ isMobile }) => {
-  const ships = useGameStore((s) => s.ships);
+  const shipIds = useGameStore(useShallow((s) => s.ships.map((ship) => ship.id)));
   const selfId = useGameStore((s) => s.selfId);
-  const hasSelfShip = useGameStore((s) => s.ships.some((ship) => ship.id === s.selfId && !ship.isSunk));
+  const isSelfAlive = useGameStore((s) => {
+    const self = s.ships.find((ship) => ship.id === s.selfId);
+    return Boolean(self && !self.isSunk);
+  });
 
   return (
     <>
-      {!hasSelfShip && <BattleCameraRig />}
-      {ships.map((ship) => (
+      {!isSelfAlive && <BattleCameraRig />}
+      {shipIds.map((id) => (
         <ShipEntity
-          key={ship.id}
-          ship={ship}
-          isSelf={ship.id === selfId}
+          key={id}
+          shipId={id}
+          isSelf={id === selfId}
           isMobile={isMobile}
         />
       ))}

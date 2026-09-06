@@ -1,5 +1,6 @@
 import type { StateCreator } from 'zustand';
 import type { ShipSnapshot, CannonballSnapshot, CombatLog, GameStage, MapId } from '@/types';
+import { fireEventQueue } from '@/features/battle/services/fireEventQueue';
 
 export interface CameraShakeEvent {
   intensity: number;
@@ -79,18 +80,14 @@ export const createBattleSlice: StateCreator<
 
   setWinner: (winnerName) => set({ winnerName, stage: 'DEBRIEF' }),
 
-  triggerFireEvent: (ownerId, side) =>
-    set((state) => ({
-      fireEvents: [
-        ...state.fireEvents.slice(-15),
-        {
-          id: `${ownerId}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-          ownerId,
-          side,
-          timestamp: Date.now(),
-        },
-      ],
-    })),
+  triggerFireEvent: (ownerId, side) => {
+    fireEventQueue.push({
+      id: `${ownerId}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      ownerId,
+      side,
+      timestamp: Date.now(),
+    });
+  },
 
   triggerCameraShake: (intensity, direction) =>
     set({

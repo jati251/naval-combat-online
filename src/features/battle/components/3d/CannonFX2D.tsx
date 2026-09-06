@@ -5,6 +5,7 @@ import { useGameStore } from '@/stores/useGameStore';
 import { findShip } from '@/stores/selectors/shipLookup';
 import { SHIP_PRESETS } from '@/types/game';
 import { getBroadsideTransform } from '../../utils/navalCombatMath';
+import { fireEventQueue } from '../../services/fireEventQueue';
 import {
   MAX_FLASH,
   MAX_SMOKE,
@@ -59,7 +60,6 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
   const plumePos = useMemo(() => new Float32Array(maxPlumes * 3), [maxPlumes]);
 
   const knownBallIds = useRef<Map<string, { x: number; y: number; z: number }>>(new Map());
-  const processedFireEvents = useRef<Set<string>>(new Set());
   const lastShipBurstTime = useRef<Map<string, number>>(new Map());
 
   // Helper: Trigger dense volumetric muzzle smoke and flash along the ship's active battery
@@ -115,25 +115,12 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
 
   useFrame((_, delta) => {
     frameCounter.current++;
-    const { cannonballs, fireEvents } = useGameStore.getState();
+    const { cannonballs } = useGameStore.getState();
 
-    // 1. Check & Dispatch Fire Events (Instant Local & Network Firing Feedback)
-    if (fireEvents.length > 0) {
-      for (const ev of fireEvents) {
-        if (!processedFireEvents.current.has(ev.id)) {
-          processedFireEvents.current.add(ev.id);
-          spawnBroadsideBurst(ev.ownerId, ev.side);
-        }
-      }
-      // Prune processed events when exceeding limit by retaining only active ones
-      if (processedFireEvents.current.size > 40) {
-        const activeIds = new Set(fireEvents.map((e) => e.id));
-        for (const id of processedFireEvents.current) {
-          if (!activeIds.has(id)) {
-            processedFireEvents.current.delete(id);
-          }
-        }
-      }
+    // 1. Check & Dispatch Fire Events (Instant Local & Network Firing Feedback via zero-overhead queue)
+    const newFireEvents = fireEventQueue.drain();
+    for (const ev of newFireEvents) {
+      spawnBroadsideBurst(ev.ownerId, ev.side);
     }
 
     // 2. Track Ball Flight Smoke Trails & Detect Impacts (Zero-Allocation Loop)

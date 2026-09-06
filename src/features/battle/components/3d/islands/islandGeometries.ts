@@ -193,12 +193,12 @@ export function createIslandTerrainGeometry(
   const color = new THREE.Color();
 
   // Natural Deep Caribbean Tropical Palette (AC Black Flag aesthetic)
-  const colSunlitTurf  = new THREE.Color('#326818'); // Sunlit tropical grass turf (rich vibrant green)
-  const colWarmMeadow  = new THREE.Color('#255012'); // Rich rainforest canopy green
-  const colDenseRain   = new THREE.Color('#163a0a'); // Deep jungle emerald moss
-  const colGoldenRidge = new THREE.Color('#3d6e1b'); // Vibrant knoll ridge
-  const colSoil        = new THREE.Color('#3c2c1a'); // Warm fertile tropical soil & loam
-  const colLichen      = new THREE.Color('#385c18'); // Clinging warm rock moss/lichen
+  const colSunlitTurf  = new THREE.Color('#224810'); // Deep tropical grass turf
+  const colWarmMeadow  = new THREE.Color('#183a0a'); // Rich dark rainforest canopy green
+  const colDenseRain   = new THREE.Color('#0e2606'); // Deep jungle emerald moss
+  const colGoldenRidge = new THREE.Color('#284e14'); // Dark knoll ridge
+  const colSoil        = new THREE.Color('#322414'); // Warm dark tropical loam & humus
+  const colLichen      = new THREE.Color('#203e10'); // Clinging dark rock moss/lichen
   const colSandBase    = new THREE.Color('#8a7952'); // Sandy coastal earth base
   // Authentic Rock Tints (Preserves the 1024x1024 rock texture with strata & fissures)
   const colRockCliff   = new THREE.Color('#9c9082'); // Weathered Caribbean limestone cliff

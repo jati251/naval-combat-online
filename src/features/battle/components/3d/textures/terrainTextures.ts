@@ -178,10 +178,10 @@ export function createCliffRockTexture(): THREE.CanvasTexture {
       mGrad.addColorStop(0.55, `rgba(48, 98, 22, ${0.40 + Math.random() * 0.18})`);
       mGrad.addColorStop(1, 'rgba(48, 98, 22, 0)');
     } else if (mossType < 0.82) {
-      // Sunlit golden-lime tropical lichen
-      mGrad.addColorStop(0, `rgba(135, 168, 38, ${0.48 + Math.random() * 0.22})`);
-      mGrad.addColorStop(0.55, `rgba(98, 134, 28, ${0.30 + Math.random() * 0.15})`);
-      mGrad.addColorStop(1, 'rgba(98, 134, 28, 0)');
+      // Deep tropical rainforest olive moss
+      mGrad.addColorStop(0, `rgba(46, 78, 20, ${0.52 + Math.random() * 0.22})`);
+      mGrad.addColorStop(0.55, `rgba(36, 64, 16, ${0.35 + Math.random() * 0.15})`);
+      mGrad.addColorStop(1, 'rgba(36, 64, 16, 0)');
     } else {
       // Dark damp rainforest humus crevice
       mGrad.addColorStop(0, `rgba(26, 42, 16, ${0.55 + Math.random() * 0.2})`);
