@@ -81,15 +81,126 @@ export function createIslandTerrainGeometry(island: IslandDefinition): THREE.Buf
   const normal = geo.getAttribute('normal');
   const colors: number[] = [];
   const sand = new THREE.Color('#dfce9e');
-  const rock = new THREE.Color(island.type === 'volcanic' ? '#77756e' : '#b7b1a0');
-  const grass = new THREE.Color(island.type === 'dense-jungle' ? '#52663a' : '#78864c');
+  const sandWet = new THREE.Color('#bfae7e');
+  const cliffRock = new THREE.Color(
+    island.type === 'volcanic' ? '#68655e' :
+    island.type === 'sea-stack' ? '#ada696' : '#a8a292'
+  );
+  const mossyRock = new THREE.Color(
+    island.type === 'volcanic' ? '#5c6052' : '#929d78'
+  );
+
+  // Vibrant tropical forest canopy palettes
+  const jungleDeep = new THREE.Color('#456a26');  // Soft canopy shadow
+  const jungleCore = new THREE.Color('#5b8530');  // Lush broadleaf rainforest canopy
+  const jungleSun = new THREE.Color('#749e3b');   // Sunlit treetop highlights
+  const jungleCrest = new THREE.Color('#88b348'); // Bright tropical canopy shoots
+
+  const hillsDeep = new THREE.Color('#4d7228');   // Woodland hollows
+  const hillsCore = new THREE.Color('#648d33');   // Rolling verdant forest
+  const hillsSun = new THREE.Color('#7ca742');    // Sunlit grassland & canopy
+  const hillsCrest = new THREE.Color('#8ebd4b');  // Bright sunny ridge crests
+
+  const stackDeep = new THREE.Color('#486d28');   // Karst summit canopy
+  const stackCore = new THREE.Color('#5f8a32');   // Karst summit jungle foliage
+  const stackSun = new THREE.Color('#79a33f');    // Karst summit sunlit crown
+
   const c = new THREE.Color();
+  const rockCol = new THREE.Color();
+  const forestCol = new THREE.Color();
+
   for (let i = 0; i < p.count; i++) {
+    const px = p.getX(i), pz = p.getZ(i);
     const y = p.getY(i) + island.height * 0.5;
-    const vegetation = smooth(0.58, 0.91, normal.getY(i)) * smooth(2, 5, y)
-      * (island.type === 'volcanic' ? 1 - smooth(island.height * 0.25, island.height * 0.65, y) : 1);
-    c.copy(rock).lerp(grass, vegetation).lerp(sand, 1 - smooth(1.4, 3.8, y));
-    c.multiplyScalar((0.93 + relief(p.getX(i) / 17, p.getZ(i) / 17, island.seed) * 0.1) * (0.72 + smooth(-0.8, 1.5, y) * 0.28));
+    const ny = normal.getY(i);
+
+    // 1. Procedural Forest Canopy Simulation
+    // Macro grove variation (~20m)
+    const grove = noise(px * 0.05 + island.seed * 0.17, pz * 0.05 - island.seed * 0.23);
+    // Tree crown clumps (~4.5m)
+    const crown = noise(px * 0.24 - island.seed * 0.63, pz * 0.24 + island.seed * 0.41);
+    // Leafy micro-texture (~1.8m)
+    const foliage = noise(px * 0.58 + island.seed * 1.11, pz * 0.58 - island.seed * 0.89);
+    // Combined tree crown structure (-1.0 to 1.0)
+    const canopyClump = crown * 0.55 + foliage * 0.30 + grove * 0.15;
+
+    // Forest color gradient based on tree crown clumping
+    if (island.type === 'dense-jungle') {
+      if (canopyClump > 0.25) {
+        forestCol.copy(jungleSun).lerp(jungleCrest, smooth(0.25, 0.85, canopyClump));
+      } else if (canopyClump > -0.15) {
+        forestCol.copy(jungleCore).lerp(jungleSun, smooth(-0.15, 0.25, canopyClump));
+      } else {
+        forestCol.copy(jungleDeep).lerp(jungleCore, smooth(-0.85, -0.15, canopyClump));
+      }
+    } else if (island.type === 'verdant-hills') {
+      if (canopyClump > 0.25) {
+        forestCol.copy(hillsSun).lerp(hillsCrest, smooth(0.25, 0.85, canopyClump));
+      } else if (canopyClump > -0.15) {
+        forestCol.copy(hillsCore).lerp(hillsSun, smooth(-0.15, 0.25, canopyClump));
+      } else {
+        forestCol.copy(hillsDeep).lerp(hillsCore, smooth(-0.85, -0.15, canopyClump));
+      }
+    } else if (island.type === 'sea-stack') {
+      if (canopyClump > 0.1) {
+        forestCol.copy(stackCore).lerp(stackSun, smooth(0.1, 0.75, canopyClump));
+      } else {
+        forestCol.copy(stackDeep).lerp(stackCore, smooth(-0.75, 0.1, canopyClump));
+      }
+    } else {
+      if (canopyClump > 0.2) {
+        forestCol.copy(jungleCore).lerp(jungleSun, smooth(0.2, 0.8, canopyClump));
+      } else {
+        forestCol.copy(jungleDeep).lerp(jungleCore, smooth(-0.8, 0.2, canopyClump));
+      }
+    }
+
+    // 2. Geological Rock / Cliff Detailing
+    const cliffRelief = relief(px / 12, pz / 12, island.seed);
+    rockCol.copy(cliffRock).lerp(mossyRock, smooth(0.1, 0.7, cliffRelief + (1 - ny) * 0.3));
+
+    // 3. Slope & Elevation Vegetation Coverage per Island Archetype
+    let vegetation: number;
+    const heightEmerge = smooth(1.6, 3.8, y);
+
+    if (island.type === 'dense-jungle') {
+      // In tropical rainforests, dense jungle and vines cover mountain slopes up to ~75° (ny down to 0.20)
+      // and blanket the mountain across all ridges and summits
+      const slopeCoverage = smooth(0.20, 0.48, ny);
+      vegetation = slopeCoverage * heightEmerge;
+    } else if (island.type === 'verdant-hills') {
+      // Verdant rolling green hills with lush grasslands and woodland groves up to hill crests
+      const slopeCoverage = smooth(0.28, 0.58, ny);
+      vegetation = slopeCoverage * heightEmerge;
+    } else if (island.type === 'sea-stack') {
+      // Sea stacks have a dense tropical jungle crown on top plateau, with moss clinging to ledges
+      const summit = smooth(island.height * 0.45, island.height * 0.72, y);
+      const topCoverage = smooth(0.25, 0.55, ny) * summit;
+      const ledgeCoverage = smooth(0.50, 0.80, ny) * smooth(2, 6, y) * (1 - summit);
+      vegetation = Math.min(1, (topCoverage + ledgeCoverage) * heightEmerge);
+    } else if (island.type === 'volcanic') {
+      // Lush jungle lower/mid slopes, fading into dark basalt/ash near summit caldera
+      const slopeCoverage = smooth(0.35, 0.68, ny);
+      const volcanoRock = 1 - smooth(island.height * 0.32, island.height * 0.72, y);
+      vegetation = slopeCoverage * heightEmerge * volcanoRock;
+    } else {
+      vegetation = smooth(0.40, 0.75, ny) * heightEmerge;
+    }
+
+    // 4. Color Assembly: Base rock -> Forest Canopy -> Sand beach
+    c.copy(rockCol).lerp(forestCol, vegetation);
+    const sandFactor = 1 - smooth(1.4, 3.6, y);
+    if (sandFactor > 0) {
+      const tideSand = sandWet.clone().lerp(sand, smooth(0.3, 1.8, y));
+      c.lerp(tideSand, sandFactor);
+    }
+
+    // 5. Gentle Shading & Relief
+    const canopyShade = vegetation > 0.25 ? (0.97 + canopyClump * 0.06) : 1.0;
+    const reliefMod = (0.96 + relief(px / 17, pz / 17, island.seed) * 0.08);
+    const heightWarmth = (0.88 + smooth(-0.8, 1.5, y) * 0.12);
+    c.multiplyScalar(canopyShade * reliefMod * heightWarmth);
+
     colors.push(c.r, c.g, c.b);
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));

@@ -29,7 +29,8 @@ function textures(kind: Surface) {
     const medium = noise(x / 32, y / 32, 16);
     const fine = noise(x / 4, y / 4, 128);
     const grain = Math.sin(x * 127.1 + y * 311.7) * 3;
-    const tone = 218 + (macro - 0.5) * 24 + (medium - 0.5) * 18 + (fine - 0.5) * 10 + grain;
+    const baseTone = 216;
+    const tone = Math.max(40, Math.min(250, Math.round(baseTone + (macro - 0.5) * 24 + (medium - 0.5) * 18 + (fine - 0.5) * 10 + grain)));
     const i = (y * 512 + x) * 4;
     data.data[i] = tone; data.data[i + 1] = tone; data.data[i + 2] = tone; data.data[i + 3] = 255;
   }
