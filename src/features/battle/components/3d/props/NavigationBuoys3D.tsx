@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
+import { isSeaEntityInFrustum } from '../../../utils/frustumCuller';
 
 export interface BuoyDefinition {
   id: string;
@@ -59,6 +60,7 @@ const SingleBuoy: React.FC<SingleBuoyProps> = React.memo(({ buoy, isMobile = fal
   const groupRef = useRef<THREE.Group>(null);
   const lanternRef = useRef<THREE.Mesh>(null);
   const lightRef = useRef<THREE.PointLight>(null);
+  const frameCount = useRef(Math.floor(Math.random() * 4));
 
   const glowColor = buoy.color === 'emerald' ? '#34d399' : buoy.color === 'ruby' ? '#f87171' : '#fbbf24';
   const emissiveColor = buoy.color === 'emerald' ? '#059669' : buoy.color === 'ruby' ? '#dc2626' : '#d97706';
@@ -73,6 +75,17 @@ const SingleBuoy: React.FC<SingleBuoyProps> = React.memo(({ buoy, isMobile = fal
 
   useFrame((state) => {
     if (!groupRef.current) return;
+
+    // Horizon Zero Dawn Frustum Culling: Skip off-screen buoys and disable their dynamic point lights
+    frameCount.current++;
+    if (frameCount.current % 4 === 0) {
+      const inView = isSeaEntityInFrustum(state.camera, buoy.x, buoy.z, 14, 6, 10);
+      if (groupRef.current.visible !== inView) {
+        groupRef.current.visible = inView;
+      }
+    }
+    if (!groupRef.current.visible) return;
+
     const t = state.clock.getElapsedTime();
 
     // Ocean swell buoyancy bobbing with gentle roll & pitch

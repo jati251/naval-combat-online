@@ -27,8 +27,8 @@ test('graphic profiles define fast, balanced, and performance modes correctly', 
   assert.equal(performance.shadows, true);
   assert.equal(performance.shadowMapSize, 2048);
   assert.equal(performance.waveCount, 8);
-  assert.equal(performance.waterSegments, 240);
-  assert.equal(performance.atmosphereParticles, 360);
+  assert.equal(performance.waterSegments, 180);
+  assert.equal(performance.atmosphereParticles, 260);
   assert.equal(performance.waterShader.glitterEnabled, true);
   assert.equal(performance.waterShader.capillaryHarmonics, 5);
 });

@@ -12,8 +12,20 @@ interface OceanWaterProps {
   profile?: GraphicProfile;
 }
 
+// Precompute mathematical constants for Gerstner waves at compile time (avoids ~500k redundant GPU vertex math ops/frame)
+function makeWaveGLSL(dx: number, dy: number, steepness: number, wavelength: number, speed: number): string {
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = (dx / len).toFixed(5);
+  const ny = (dy / len).toFixed(5);
+  const k = ((2 * Math.PI) / wavelength).toFixed(5);
+  const a = (steepness / ((2 * Math.PI) / wavelength)).toFixed(5);
+  const s = steepness.toFixed(4);
+  const spd = speed.toFixed(3);
+  return `Wave(vec2(${nx}, ${ny}), ${s}, ${k}, ${a}, ${spd})`;
+}
+
 export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, isMobile = false, profile }) => {
-  const meshRef = useRef<THREE.Mesh>(null);
+  const groupRef = useRef<THREE.Group>(null);
   const timeOfDay = useGameStore((s) => s.timeOfDay);
   const isNight = timeOfDay === 'NIGHT';
 
@@ -26,13 +38,35 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
   // Responsive vertex grid density:
   // - fast: 90x90 quads (8,100 quads)
   // - balanced: 160x160 quads (25,600 quads)
-  // - performance (Ultra Realism): 240x240 quads (57,600 quads) for high-density physical Gerstner curves
+  // - performance (Ultra Realism): 180x180 quads (32,400 quads) for high-framerate physical Gerstner curves
   const segments = profile ? profile.waterSegments : (isMobile ? 120 : 160);
-  const geometry = useMemo(() => {
-    const geo = new THREE.PlaneGeometry(size, size, segments, segments);
+
+  // 3x3 Frustum-Culled Ocean Grid (Horizon Zero Dawn / Decima Engine ocean tiling):
+  // Divides ocean into 9 seamless tiles sharing identical ShaderMaterial and PlaneGeometry.
+  // Off-screen ocean tiles (behind and beside camera) are automatically culled by Three.js frustum culling.
+  const tileSize = size / 3;
+  const tileSegments = Math.max(16, Math.round(segments / 3));
+
+  const tileGeometry = useMemo(() => {
+    const geo = new THREE.PlaneGeometry(tileSize, tileSize, tileSegments, tileSegments);
     geo.rotateX(-Math.PI / 2);
+    geo.computeBoundingSphere();
     return geo;
-  }, [size, segments]);
+  }, [tileSize, tileSegments]);
+
+  const tileOffsets = useMemo(() => {
+    const offsets: Array<{ key: string; x: number; z: number }> = [];
+    for (let ix = -1; ix <= 1; ix++) {
+      for (let iz = -1; iz <= 1; iz++) {
+        offsets.push({
+          key: `ocean_tile_${ix}_${iz}`,
+          x: ix * tileSize,
+          z: iz * tileSize,
+        });
+      }
+    }
+    return offsets;
+  }, [tileSize]);
 
   // Pack arena islands data into uniform arrays: position/seed and elongation params (supports up to 12 islands)
   const islandPositions = useMemo(() => {
@@ -66,14 +100,14 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
     return list;
   }, [islands]);
 
-  // Modular Gerstner wave spectrum based on quality tier
+  // Modular Gerstner wave spectrum based on quality tier (constants precalculated)
   const waveShaderChunk = useMemo(() => {
     if (qualityTier === 'fast') {
       return `
         const int NUM_WAVES = 2;
         const Wave waves[NUM_WAVES] = Wave[NUM_WAVES](
-          Wave(vec2(1.0, 0.28), 0.11, 92.0, 2.6),
-          Wave(vec2(0.55, 0.85), 0.085, 48.0, 2.1)
+          ${makeWaveGLSL(1.0, 0.28, 0.11, 92.0, 2.6)},
+          ${makeWaveGLSL(0.55, 0.85, 0.085, 48.0, 2.1)}
         );
       `;
     }
@@ -82,21 +116,21 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
         const int NUM_WAVES = 8;
         const Wave waves[NUM_WAVES] = Wave[NUM_WAVES](
           // 1. Primary rolling Caribbean swell
-          Wave(vec2(1.0, 0.28), 0.11, 96.0, 2.6),
+          ${makeWaveGLSL(1.0, 0.28, 0.11, 96.0, 2.6)},
           // 2. Secondary diagonal cross-swell
-          Wave(vec2(0.55, 0.85), 0.085, 52.0, 2.1),
+          ${makeWaveGLSL(0.55, 0.85, 0.085, 52.0, 2.1)},
           // 3. Intermediate surface swell
-          Wave(vec2(-0.35, 0.92), 0.065, 32.0, 1.8),
+          ${makeWaveGLSL(-0.35, 0.92, 0.065, 32.0, 1.8)},
           // 4. Moderate wind swell
-          Wave(vec2(-0.75, -0.65), 0.045, 19.0, 1.5),
+          ${makeWaveGLSL(-0.75, -0.65, 0.045, 19.0, 1.5)},
           // 5. Transverse chop harmonic
-          Wave(vec2(0.88, -0.47), 0.035, 12.5, 1.3),
+          ${makeWaveGLSL(0.88, -0.47, 0.035, 12.5, 1.3)},
           // 6. Opposing sea ripple
-          Wave(vec2(-0.25, 0.96), 0.025, 8.2, 1.1),
+          ${makeWaveGLSL(-0.25, 0.96, 0.025, 8.2, 1.1)},
           // 7. Surface capillary swell
-          Wave(vec2(0.62, 0.78), 0.018, 5.4, 0.95),
+          ${makeWaveGLSL(0.62, 0.78, 0.018, 5.4, 0.95)},
           // 8. Micro-wave interference
-          Wave(vec2(-0.85, 0.52), 0.012, 3.6, 0.82)
+          ${makeWaveGLSL(-0.85, 0.52, 0.012, 3.6, 0.82)}
         );
       `;
     }
@@ -104,10 +138,10 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
     return `
       const int NUM_WAVES = 4;
       const Wave waves[NUM_WAVES] = Wave[NUM_WAVES](
-        Wave(vec2(1.0, 0.28), 0.11, 92.0, 2.6),
-        Wave(vec2(0.55, 0.85), 0.085, 48.0, 2.1),
-        Wave(vec2(-0.35, 0.92), 0.065, 28.0, 1.7),
-        Wave(vec2(-0.75, -0.65), 0.045, 18.0, 1.4)
+        ${makeWaveGLSL(1.0, 0.28, 0.11, 92.0, 2.6)},
+        ${makeWaveGLSL(0.55, 0.85, 0.085, 48.0, 2.1)},
+        ${makeWaveGLSL(-0.35, 0.92, 0.065, 28.0, 1.7)},
+        ${makeWaveGLSL(-0.75, -0.65, 0.045, 18.0, 1.4)}
       );
     `;
   }, [qualityTier]);
@@ -160,9 +194,10 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
         varying float vCrestPinch;
 
         struct Wave {
-          vec2 direction;
+          vec2 dir;
           float steepness;
-          float wavelength;
+          float k;
+          float a;
           float speed;
         };
 
@@ -179,34 +214,31 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
 
           for (int i = 0; i < NUM_WAVES; i++) {
             Wave w = waves[i];
-            vec2 d = normalize(w.direction);
-            float k = 6.2831853 / w.wavelength;
-            float c = w.speed;
-            float a = w.steepness / k;
-
-            float dx = d.x;
-            float dz = d.y;
-
-            float dotProd = dx * pos.x + dz * pos.z;
-            float phase = k * (dotProd - c * uTime);
+            float dotProd = w.dir.x * pos.x + w.dir.y * pos.z;
+            float phase = w.k * (dotProd - w.speed * uTime);
             float cosP = cos(phase);
             float sinP = sin(phase);
 
             // Gerstner trochoidal displacement (peaks pinch, troughs flatten)
-            displaced.x += dx * (a * cosP);
-            displaced.y += a * sinP;
-            displaced.z += dz * (a * cosP);
+            float aCos = w.a * cosP;
+            displaced.x += w.dir.x * aCos;
+            displaced.y += w.a * sinP;
+            displaced.z += w.dir.y * aCos;
 
             // Analytical Jacobian derivatives for exact surface normals
-            tangent.x -= dx * dx * (w.steepness * sinP);
-            tangent.y += dx * (w.steepness * cosP);
-            tangent.z -= dx * dz * (w.steepness * sinP);
+            float sSin = w.steepness * sinP;
+            float sCos = w.steepness * cosP;
+            float dxdz = w.dir.x * w.dir.y;
 
-            binormal.x -= dx * dz * (w.steepness * sinP);
-            binormal.y += dz * (w.steepness * cosP);
-            binormal.z -= dz * dz * (w.steepness * sinP);
+            tangent.x -= w.dir.x * w.dir.x * sSin;
+            tangent.y += w.dir.x * sCos;
+            tangent.z -= dxdz * sSin;
 
-            pinchAccum += w.steepness * cosP;
+            binormal.x -= dxdz * sSin;
+            binormal.y += w.dir.y * sCos;
+            binormal.z -= w.dir.y * w.dir.y * sSin;
+
+            pinchAccum += sCos;
           }
 
           vec3 calcNormal = normalize(cross(binormal, tangent));
@@ -273,45 +305,25 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
           return sqrt(md);
         }
 
-        // Multi-Scale Directional Capillary Micro-Waves (crisp liquid shimmer)
+        // Multi-Scale Directional Capillary Micro-Waves (crisp liquid shimmer with precomputed constants)
         vec3 computeCapillaryNormal(vec2 p, float time, float tier) {
-          vec2 d1 = normalize(vec2(0.707, 0.707));
-          float k1 = 6.2831853 / 4.2;
-          float phase1 = k1 * (dot(d1, p) - 2.2 * time);
-          float a1 = 0.032;
-          float c1 = cos(phase1);
-          float dh_dx = -(d1.x * k1 * a1 * c1);
-          float dh_dz = -(d1.y * k1 * a1 * c1);
+          float c1 = cos(1.496 * (dot(vec2(0.7071, 0.7071), p) - 2.2 * time));
+          float dh_dx = -(0.03385 * c1);
+          float dh_dz = -(0.03385 * c1);
 
           if (tier > 0.5) {
-            vec2 d2 = normalize(vec2(-0.8, 0.6));
-            vec2 d3 = normalize(vec2(0.38, -0.92));
-            float k2 = 6.2831853 / 2.2;
-            float k3 = 6.2831853 / 1.1;
-            float phase2 = k2 * (dot(d2, p) - 2.8 * time);
-            float phase3 = k3 * (dot(d3, p) - 3.4 * time);
-            float a2 = 0.018;
-            float a3 = 0.009;
-            float c2 = cos(phase2);
-            float c3 = cos(phase3);
-            dh_dx -= (d2.x * k2 * a2 * c2 + d3.x * k3 * a3 * c3);
-            dh_dz -= (d2.y * k2 * a2 * c2 + d3.y * k3 * a3 * c3);
+            float c2 = cos(2.856 * (dot(vec2(-0.8000, 0.6000), p) - 2.8 * time));
+            float c3 = cos(5.712 * (dot(vec2(0.3821, -0.9241), p) - 3.4 * time));
+            dh_dx -= (-0.04113 * c2 + 0.01964 * c3);
+            dh_dz -= (0.03085 * c2 - 0.04751 * c3);
           }
 
           if (tier > 1.5) {
             // Ultra Photorealism: 2 additional micro-capillary harmonics
-            vec2 d4 = normalize(vec2(-0.55, -0.83));
-            vec2 d5 = normalize(vec2(0.92, 0.38));
-            float k4 = 6.2831853 / 0.55;
-            float k5 = 6.2831853 / 0.28;
-            float phase4 = k4 * (dot(d4, p) - 4.1 * time);
-            float phase5 = k5 * (dot(d5, p) - 4.9 * time);
-            float a4 = 0.0045;
-            float a5 = 0.0022;
-            float c4 = cos(phase4);
-            float c5 = cos(phase5);
-            dh_dx -= (d4.x * k4 * a4 * c4 + d5.x * k5 * a5 * c5);
-            dh_dz -= (d4.y * k4 * a4 * c4 + d5.y * k5 * a5 * c5);
+            float c4 = cos(11.424 * (dot(vec2(-0.5524, -0.8336), p) - 4.1 * time));
+            float c5 = cos(22.440 * (dot(vec2(0.9241, 0.3821), p) - 4.9 * time));
+            dh_dx -= (-0.02840 * c4 + 0.04562 * c5);
+            dh_dz -= (-0.04285 * c4 + 0.01886 * c5);
           }
 
           return vec3(dh_dx, 1.0, dh_dz);
@@ -344,7 +356,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
 
           // 2. Coastal Water Depth & Island Proximity
           float minDistToShore = 9999.0;
-          float maxInfluenceDist = uIsMobile > 0.5 ? 260.0 : 420.0;
+          float maxInfluenceDist = uIsMobile > 0.5 ? 220.0 : 280.0;
           if (camDist < maxInfluenceDist) {
             for (int i = 0; i < 12; i++) {
               if (uIslandPos[i].z <= 0.0) continue;
@@ -442,32 +454,41 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
           // 6. Dual-Frequency Sun/Moon Specular Glitter Highlights (Trigger for Cinematic Bloom)
           vec3 halfVector = normalize(lightDir + viewDir);
           float NdotH = max(dot(normal, halfVector), 0.0);
-          float specIntensity = 0.0;
-          if (uQualityTier < 0.5) {
-            // Fast mobile mode
-            specIntensity = pow(NdotH, 48.0) * (uIsNight > 0.5 ? 0.65 : 0.90);
-          } else if (uQualityTier > 1.5 && camDist < 360.0) {
-            // Ultra Photorealism: High-intensity diamond specular glints
-            float specularCore    = pow(NdotH, 64.0) * (uIsNight > 0.5 ? 0.85 : 1.20);
-            float specularSharp   = pow(NdotH, 190.0) * (uIsNight > 0.5 ? 1.70 : 2.50);
-            float glitterNoise1   = fract(sin(dot(vWorldPosition.xz * 2.8, vec2(12.9898, 78.233)) + uTime * 0.9) * 43758.5453);
-            float glitterNoise2   = fract(sin(dot(vWorldPosition.xz * 5.6, vec2(93.989, 67.345)) - uTime * 1.3) * 23421.631);
-            float glitter1        = pow(NdotH, 300.0) * step(0.48, glitterNoise1) * (uIsNight > 0.5 ? 2.2 : 3.8);
-            float glitter2        = pow(NdotH, 150.0) * step(0.62, glitterNoise2) * (uIsNight > 0.5 ? 1.5 : 2.4);
-            specIntensity = specularCore + specularSharp + glitter1 + glitter2;
-          } else if (camDist < 240.0) {
-            // Balanced web mode
-            float specularCore    = pow(NdotH, 64.0) * (uIsNight > 0.5 ? 0.72 : 0.95);
-            float specularSharp   = pow(NdotH, 180.0) * (uIsNight > 0.5 ? 1.30 : 1.80);
-            float glitterNoise    = fract(sin(dot(vWorldPosition.xz * 2.2, vec2(12.9898, 78.233)) + uTime * 0.8) * 43758.5453);
-            float glitter         = pow(NdotH, 220.0) * step(0.60, glitterNoise) * (uIsNight > 0.5 ? 1.6 : 2.4);
-            specIntensity = specularCore + specularSharp + glitter;
-          } else {
-            float specularFar = pow(NdotH, 64.0) * (uIsNight > 0.5 ? 0.35 : 0.45);
-            specIntensity = specularFar;
+          if (NdotH > 0.03) {
+            float specIntensity = 0.0;
+            if (uQualityTier < 0.5) {
+              // Fast mobile mode
+              specIntensity = pow(NdotH, 48.0) * (uIsNight > 0.5 ? 0.65 : 0.90);
+            } else if (uQualityTier > 1.5 && camDist < 360.0) {
+              // Ultra Photorealism: High-intensity diamond specular glints
+              float specularCore = pow(NdotH, 64.0) * (uIsNight > 0.5 ? 0.85 : 1.20);
+              float specularSharp = pow(NdotH, 190.0) * (uIsNight > 0.5 ? 1.70 : 2.50);
+              if (NdotH > 0.40) {
+                float glitterNoise1 = fract(sin(dot(vWorldPosition.xz * 2.8, vec2(12.9898, 78.233)) + uTime * 0.9) * 43758.5453);
+                float glitterNoise2 = fract(sin(dot(vWorldPosition.xz * 5.6, vec2(93.989, 67.345)) - uTime * 1.3) * 23421.631);
+                float glitter1 = pow(NdotH, 300.0) * step(0.48, glitterNoise1) * (uIsNight > 0.5 ? 2.2 : 3.8);
+                float glitter2 = pow(NdotH, 150.0) * step(0.62, glitterNoise2) * (uIsNight > 0.5 ? 1.5 : 2.4);
+                specIntensity = specularCore + specularSharp + glitter1 + glitter2;
+              } else {
+                specIntensity = specularCore + specularSharp;
+              }
+            } else if (camDist < 240.0) {
+              // Balanced web mode
+              float specularCore = pow(NdotH, 64.0) * (uIsNight > 0.5 ? 0.72 : 0.95);
+              float specularSharp = pow(NdotH, 180.0) * (uIsNight > 0.5 ? 1.30 : 1.80);
+              if (NdotH > 0.45) {
+                float glitterNoise = fract(sin(dot(vWorldPosition.xz * 2.2, vec2(12.9898, 78.233)) + uTime * 0.8) * 43758.5453);
+                float glitter = pow(NdotH, 220.0) * step(0.60, glitterNoise) * (uIsNight > 0.5 ? 1.6 : 2.4);
+                specIntensity = specularCore + specularSharp + glitter;
+              } else {
+                specIntensity = specularCore + specularSharp;
+              }
+            } else {
+              specIntensity = pow(NdotH, 64.0) * (uIsNight > 0.5 ? 0.35 : 0.45);
+            }
+            specIntensity *= (1.0 - smoothstep(90.0, 360.0, camDist));
+            baseShaded += uSunColor * specIntensity;
           }
-          specIntensity *= (1.0 - smoothstep(90.0, 360.0, camDist));
-          baseShaded += uSunColor * specIntensity;
 
           // 7. Organic Sea Foam on Wave Crests
           float crestFoam = 0.0;
@@ -543,7 +564,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
   }, [isNight, isMobile, activeMap, islandPositions, islandParams, waveShaderChunk, qualityTier, profile]);
 
   useEffect(() => () => shaderMaterial.dispose(), [shaderMaterial]);
-  useEffect(() => () => geometry.dispose(), [geometry]);
+  useEffect(() => () => tileGeometry.dispose(), [tileGeometry]);
 
   // Smoothed real-time ship state refs to prevent 30Hz server-tick wake stutter
   const smoothShipPos = useRef(new THREE.Vector3(0, 0, 0));
@@ -573,14 +594,24 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
       }
     }
 
-    if (meshRef.current) {
-      const gridStep = size / segments;
-      meshRef.current.position.x = Math.round(state.camera.position.x / gridStep) * gridStep;
-      meshRef.current.position.z = Math.round(state.camera.position.z / gridStep) * gridStep;
+    if (groupRef.current) {
+      const gridStep = tileSize / tileSegments;
+      groupRef.current.position.x = Math.round(state.camera.position.x / gridStep) * gridStep;
+      groupRef.current.position.z = Math.round(state.camera.position.z / gridStep) * gridStep;
     }
   });
 
   return (
-    <mesh ref={meshRef} geometry={geometry} material={shaderMaterial} position={[0, -0.05, 0]} />
+    <group ref={groupRef} position={[0, -0.05, 0]}>
+      {tileOffsets.map((tile) => (
+        <mesh
+          key={tile.key}
+          geometry={tileGeometry}
+          material={shaderMaterial}
+          position={[tile.x, 0, tile.z]}
+          frustumCulled={true}
+        />
+      ))}
+    </group>
   );
 });

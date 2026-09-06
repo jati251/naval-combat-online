@@ -18,6 +18,7 @@ import { lerpAngle, damp } from '../../utils/math';
 import { useGameStore } from '@/stores/useGameStore';
 import { findShip } from '@/stores/selectors/shipLookup';
 import { navalAudio } from '../../services/navalAudio';
+import { isSeaEntityInFrustum } from '../../utils/frustumCuller';
 
 const _tempParentQuat = new THREE.Quaternion();
 
@@ -225,25 +226,37 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
       curShip.vz ?? 0
     );
 
-    // Throttled distance check once every 6 frames
+    // Throttled distance and frustum check
     frameCount.current++;
-    if (frameCount.current % 6 === 0) {
-      const dx = camera.position.x - curShip.x;
-      const dz = camera.position.z - curShip.z;
-      const distSq = dx * dx + dz * dz;
+    if (frameCount.current % 4 === 0) {
+      if (isSelf) {
+        if (!groupRef.current.visible) groupRef.current.visible = true;
+      } else {
+        const dx = camera.position.x - curShip.x;
+        const dz = camera.position.z - curShip.z;
+        const distSq = dx * dx + dz * dz;
 
-      // 1. Distance Culling: Skip rendering ships beyond view distance (fully veiled by fog)
-      const maxViewDist = isMobile ? MAX_VIEW_DISTANCE_MOBILE : MAX_VIEW_DISTANCE_DESKTOP;
-      const inView = isSelf || distSq <= maxViewDist * maxViewDist;
-      if (groupRef.current.visible !== inView) {
-        groupRef.current.visible = inView;
-      }
+        // 1. Distance Culling: Skip rendering ships beyond view distance (fully veiled by fog)
+        const maxViewDist = isMobile ? MAX_VIEW_DISTANCE_MOBILE : MAX_VIEW_DISTANCE_DESKTOP;
+        const withinDistance = distSq <= maxViewDist * maxViewDist;
+        if (groupRef.current.visible !== withinDistance) {
+          groupRef.current.visible = withinDistance;
+        }
 
-      // 2. Nameplate Visibility: Never cull at distance; stay visible across the sea as long as ship is in view
-      if (nameplateRef.current) {
-        const shouldShow = inView && !curShip.isSunk;
-        if (nameplateRef.current.visible !== shouldShow) {
-          nameplateRef.current.visible = shouldShow;
+        // 2. Horizon Zero Dawn Frustum Culling: Only evaluate and render nameplates when ship is in camera view
+        if (nameplateRef.current) {
+          const inFrustum = withinDistance && isSeaEntityInFrustum(
+            camera,
+            curShip.x,
+            curShip.z,
+            shipLen * 0.75,
+            mastHeight + 4,
+            24
+          );
+          const shouldShow = inFrustum && !curShip.isSunk;
+          if (nameplateRef.current.visible !== shouldShow) {
+            nameplateRef.current.visible = shouldShow;
+          }
         }
       }
     }

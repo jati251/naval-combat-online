@@ -5,6 +5,7 @@ import { FOG_FAR_DESKTOP } from './Environment3D';
 import { StaticInstances, type InstanceTransform } from './shared/StaticInstances';
 import { useGameStore } from '@/stores/useGameStore';
 import { getMapConfig } from '../../maps';
+import { isSeaEntityInFrustum } from '../../utils/frustumCuller';
 
 export interface ShipwreckDefinition {
   id: string;
@@ -151,14 +152,16 @@ const ShipwreckEntity: React.FC<{ wreck: ShipwreckDefinition }> = React.memo(({ 
   useFrame((state) => {
     if (!rootRef.current) return;
 
-    // Distance culling check: when wreck is fully veiled in 100% fog (> 400m), skip rendering
+    // Horizon Zero Dawn Frustum + Distance Culling:
+    // Skip rendering and animation whenever wreck is outside camera screen or veiled in deep fog
     frameCount.current++;
-    if (frameCount.current % 6 === 0) {
+    if (frameCount.current % 4 === 0) {
       const dx = state.camera.position.x - wreck.x;
       const dz = state.camera.position.z - wreck.z;
       const distSq = dx * dx + dz * dz;
       const cullDist = FOG_FAR_DESKTOP + 20;
-      const inView = distSq <= cullDist * cullDist;
+      const withinDist = distSq <= cullDist * cullDist;
+      const inView = withinDist && isSeaEntityInFrustum(state.camera, wreck.x, wreck.z, wreck.radius + 15, 18, 16);
       if (rootRef.current.visible !== inView) {
         rootRef.current.visible = inView;
       }

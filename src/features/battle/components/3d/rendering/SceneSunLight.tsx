@@ -21,9 +21,9 @@ export function SceneSunLight({ color, intensity, shadows, shadowMapSize = 1024 
     <directionalLight ref={light} target={target} position={[70, 140, -50]}
       color={color} intensity={intensity} castShadow={shadows}
       shadow-mapSize-width={shadowMapSize} shadow-mapSize-height={shadowMapSize}
-      shadow-camera-near={10} shadow-camera-far={300}
-      shadow-camera-left={-60} shadow-camera-right={60}
-      shadow-camera-top={60} shadow-camera-bottom={-60}
-      shadow-bias={-0.0001} shadow-normalBias={0.02} />
+      shadow-camera-near={20} shadow-camera-far={240}
+      shadow-camera-left={-48} shadow-camera-right={48}
+      shadow-camera-top={48} shadow-camera-bottom={-48}
+      shadow-bias={-0.00015} shadow-normalBias={0.025} />
   </>;
 }

@@ -28,20 +28,25 @@ export const NavalPostProcessing: React.FC<NavalPostProcessingProps> = React.mem
       {/* AAA Screen-Space Ambient Occlusion (N8AO): contact shadows under hull, cannons, and rigging */}
       {isUltra && (
         <N8AO
-          aoRadius={2.8}
+          halfRes
+          depthAwareUpsampling
+          aoSamples={10}
+          denoiseSamples={4}
+          denoiseRadius={12}
+          aoRadius={2.4}
           distanceFalloff={1.2}
-          intensity={1.6}
-          quality="medium"
+          intensity={1.5}
           color="#020617"
         />
       )}
 
       {/* Cinematic Photorealistic Bloom: Specular sun glints, lanterns, wave crest highlights */}
       <Bloom
-        luminanceThreshold={isNight ? 0.60 : 0.76}
+        luminanceThreshold={isNight ? 0.62 : 0.78}
         luminanceSmoothing={0.25}
         mipmapBlur
-        intensity={isUltra ? (isNight ? 1.4 : 1.15) : 0.6}
+        levels={5}
+        intensity={isUltra ? (isNight ? 1.35 : 1.1) : 0.6}
         radius={isUltra ? 0.65 : 0.4}
       />
 

@@ -73,12 +73,12 @@ export const NavalCanvas: React.FC = React.memo(() => {
   return (
     <div className={`w-full h-full absolute inset-0 ${isNight ? 'bg-slate-950' : 'bg-sky-700'}`}>
       <Canvas
-        camera={{ position: [0, 25, -45], fov: 55, near: 0.5, far: profile.id === 'performance' ? 1600 : 1400 }}
+        camera={{ position: [0, 25, -45], fov: 55, near: 0.5, far: 1400 }}
         shadows={profile.shadows}
         dpr={profile.dpr}
 
         gl={{
-          antialias: true,
+          antialias: profile.id === 'fast',
           alpha: false,
           powerPreference: 'high-performance',
           toneMapping: THREE.ACESFilmicToneMapping,

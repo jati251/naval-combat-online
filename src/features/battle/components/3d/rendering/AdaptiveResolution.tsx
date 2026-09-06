@@ -60,10 +60,10 @@ export function AdaptiveResolution({ isMobile, dprRange }: { isMobile?: boolean;
 
     const currentDpr = viewport.dpr;
 
-    if (fps < 30) {
+    if (fps < 42) {
       s.lowFpsStreak++;
       s.highFpsStreak = 0;
-    } else if (fps >= 52) {
+    } else if (fps >= 54) {
       s.highFpsStreak++;
       s.lowFpsStreak = 0;
     } else {

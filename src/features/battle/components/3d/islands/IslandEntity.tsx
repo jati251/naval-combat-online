@@ -9,6 +9,7 @@ import { CoastalSettlement } from './CoastalSettlement';
 import { KingstonCity } from './KingstonCity';
 import { MayanPyramid } from './MayanPyramid';
 import { SeaArch } from './SeaArch';
+import { isSeaEntityInFrustum } from '../../../utils/frustumCuller';
 
 export interface IslandMaterials {
   sand: THREE.Material;
@@ -30,6 +31,7 @@ interface IslandEntityProps {
  * organic vegetation scatter, coastal rock formations, and smooth atmospheric fog integration.
  */
 export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, materials, isMobile = false }) => {
+  const rootRef = useRef<THREE.Group>(null);
   const beachRef = useRef<THREE.Group>(null);
   const secondaryRef = useRef<THREE.Group>(null);
   const treesRef = useRef<THREE.Group>(null);
@@ -45,12 +47,24 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
   // 3. Tree canopy smoothly emerges from 230m down to 140m via scale interpolation.
   // 4. Coastal boulders & bushes smoothly emerge from 130m down to 75m via scale interpolation.
   useFrame(({ camera }) => {
+    const scaleX = island.elongation?.scaleX ?? 1;
+    const scaleZ = island.elongation?.scaleZ ?? 1;
+    const islandRadius = Math.max(island.radius, island.sandRadius) * Math.max(scaleX, scaleZ);
+
+    // Horizon Zero Dawn Frustum Culling:
+    // When off-screen, cull heavy foliage and detail groups and skip CPU LOD scale interpolations.
+    // Preserves root terrain to avoid invalidating the PCF shadow map and causing GPU pipeline hangs.
+    const inFrustum = isSeaEntityInFrustum(camera, island.x, island.z, islandRadius, island.height + 20, 50);
+    if (!inFrustum) {
+      if (treesRef.current && treesRef.current.visible) treesRef.current.visible = false;
+      if (detailRef.current && detailRef.current.visible) detailRef.current.visible = false;
+      return;
+    }
+
     const dx = camera.position.x - island.x;
     const dz = camera.position.z - island.z;
     const distSq = dx * dx + dz * dz;
     const dist = Math.sqrt(distSq);
-
-    const islandRadius = island.radius;
 
     // 1. Beach & Shoreline Staging
     const beachFar = (isMobile ? 200 : 350) + islandRadius * 0.5;
@@ -111,7 +125,7 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
   const isSeaArch = island.settlement?.type === 'sea-arch';
 
   return (
-    <group position={[island.x, 0, island.z]} rotation={[0, rotY, 0]}>
+    <group ref={rootRef} position={[island.x, 0, island.z]} rotation={[0, rotY, 0]}>
       {/* Scaled Island Mass (Terrain, Beach, Shallows) - Not rendered for sea-arch formations */}
       {!isSeaArch && (
         <group scale={[scaleX, 1, scaleZ]}>
