@@ -4,7 +4,7 @@ import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
 import { CONTROL_CONFIG } from '../utils/controls';
 import { createInitialCameraState, updateChaseCamera } from '../utils/cameraController';
-import { lerpAngle, damp } from '../utils/math';
+import { dampAngle, damp } from '../utils/math';
 import * as THREE from 'three';
 
 /**
@@ -38,7 +38,7 @@ export const useBattleCamera = () => {
       smoothPos.current.x = damp(smoothPos.current.x, targetShip.x, 24, delta);
       smoothPos.current.y = damp(smoothPos.current.y, targetY, 18, delta);
       smoothPos.current.z = damp(smoothPos.current.z, targetShip.z, 24, delta);
-      smoothHeading.current = lerpAngle(smoothHeading.current, targetShip.rotationY, Math.min(1.0, 20 * delta));
+      smoothHeading.current = dampAngle(smoothHeading.current, targetShip.rotationY, 20, delta);
     }
 
     updateChaseCamera({

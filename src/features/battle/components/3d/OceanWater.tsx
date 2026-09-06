@@ -6,6 +6,7 @@ import { findShip } from '@/stores/selectors/shipLookup';
 import { getMapConfig } from '../../maps';
 import type { GraphicProfile } from '@/features/settings';
 import { getOceanVertexShader, getOceanFragmentShader } from './oceanShaders';
+import { dampAngle } from '../../utils/math';
 
 interface OceanWaterProps {
   size?: number;
@@ -189,17 +190,17 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
       const { ships, selfId } = useGameStore.getState();
       const selfShip = findShip(ships, selfId);
       if (selfShip && !selfShip.isSunk) {
-        smoothShipPos.current.x = THREE.MathUtils.lerp(smoothShipPos.current.x, selfShip.x, Math.min(1.0, 24 * delta));
-        smoothShipPos.current.y = THREE.MathUtils.lerp(smoothShipPos.current.y, selfShip.y, Math.min(1.0, 24 * delta));
-        smoothShipPos.current.z = THREE.MathUtils.lerp(smoothShipPos.current.z, selfShip.z, Math.min(1.0, 24 * delta));
-        smoothShipHeading.current = THREE.MathUtils.lerp(smoothShipHeading.current, selfShip.rotationY, Math.min(1.0, 20 * delta));
-        smoothShipSpeed.current = THREE.MathUtils.lerp(smoothShipSpeed.current, selfShip.speed ?? 0, Math.min(1.0, 14 * delta));
+        smoothShipPos.current.x = THREE.MathUtils.damp(smoothShipPos.current.x, selfShip.x, 24, delta);
+        smoothShipPos.current.y = THREE.MathUtils.damp(smoothShipPos.current.y, selfShip.y, 24, delta);
+        smoothShipPos.current.z = THREE.MathUtils.damp(smoothShipPos.current.z, selfShip.z, 24, delta);
+        smoothShipHeading.current = dampAngle(smoothShipHeading.current, selfShip.rotationY, 20, delta);
+        smoothShipSpeed.current = THREE.MathUtils.damp(smoothShipSpeed.current, selfShip.speed ?? 0, 14, delta);
 
         shaderMaterial.uniforms.uShipPos.value.copy(smoothShipPos.current);
         shaderMaterial.uniforms.uShipHeading.value = smoothShipHeading.current;
         shaderMaterial.uniforms.uShipSpeed.value = smoothShipSpeed.current;
       } else {
-        smoothShipSpeed.current = THREE.MathUtils.lerp(smoothShipSpeed.current, 0, Math.min(1.0, 10 * delta));
+        smoothShipSpeed.current = THREE.MathUtils.damp(smoothShipSpeed.current, 0, 10, delta);
         shaderMaterial.uniforms.uShipSpeed.value = smoothShipSpeed.current;
       }
     }

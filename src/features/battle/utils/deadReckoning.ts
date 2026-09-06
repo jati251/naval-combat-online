@@ -75,21 +75,43 @@ export function pushSnapshot(
 }
 
 /**
- * Computes smoothly extrapolated target position for high-framerate rendering (60-144 FPS).
+ * Computes smoothly extrapolated target position for high-framerate rendering (60-240+ FPS).
  * Reuses internal object to ensure 0 GC heap allocations in the render loop.
+ *
+ * Utilizes a two-phase continuous kinematic model:
+ * 1. Nominal Phase (0 to 35ms): Linear extrapolation matching server tick period (~33.3ms).
+ * 2. Momentum Bleed Phase (35ms to 160ms): Exponential velocity falloff prevents hard-stops
+ *    during network jitter or packet stalls without overshooting or rubber-banding.
  */
 export function extrapolatePosition(
   buffer: DeadReckoningBuffer,
   isSunk: boolean = false
 ): { x: number; y: number; z: number; heading: number } {
   const now = performance.now();
-  // Tightly bound extrapolation to 45ms to smoothly bridge 33ms server ticks without overshoot snapback
-  const elapsed = Math.min(0.045, (now - buffer.packetTime) / 1000);
+  const elapsed = Math.max(0, (now - buffer.packetTime) / 1000);
 
-  const targetX = buffer.snapX + buffer.vx * elapsed;
-  const targetZ = buffer.snapZ + buffer.vz * elapsed;
+  const NOMINAL_TICK_SEC = 0.035;
+  let effectiveTime = elapsed;
+
+  if (elapsed > NOMINAL_TICK_SEC) {
+    // Bleed off excess momentum smoothly over the next ~125ms (up to 160ms total)
+    // Integral of v0 * exp(-6.0 * t) dt = (1 - exp(-6.0 * t)) / 6.0
+    const extraTime = Math.min(0.125, elapsed - NOMINAL_TICK_SEC);
+    const decayedDistance = (1.0 - Math.exp(-6.0 * extraTime)) / 6.0;
+    effectiveTime = NOMINAL_TICK_SEC + decayedDistance;
+  }
+
+  const targetX = buffer.snapX + buffer.vx * effectiveTime;
+  const targetZ = buffer.snapZ + buffer.vz * effectiveTime;
   const targetY = isSunk ? buffer.snapY : buffer.snapY + 0.85;
-  const targetHeading = buffer.snapHeading + buffer.turnRate * elapsed;
+
+  let effectiveTurnTime = elapsed;
+  if (elapsed > NOMINAL_TICK_SEC) {
+    const extraTime = Math.min(0.125, elapsed - NOMINAL_TICK_SEC);
+    const decayedTurnDistance = (1.0 - Math.exp(-9.0 * extraTime)) / 9.0;
+    effectiveTurnTime = NOMINAL_TICK_SEC + decayedTurnDistance;
+  }
+  const targetHeading = buffer.snapHeading + buffer.turnRate * effectiveTurnTime;
 
   const res = buffer.targetResult;
   res.x = targetX;
@@ -99,3 +121,4 @@ export function extrapolatePosition(
 
   return res;
 }
+

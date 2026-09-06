@@ -14,7 +14,7 @@ import {
   extrapolatePosition,
 } from '../../utils/deadReckoning';
 import { createInitialCameraState, updateChaseCamera } from '../../utils/cameraController';
-import { lerpAngle, damp } from '../../utils/math';
+import { dampAngle, damp } from '../../utils/math';
 import { useGameStore } from '@/stores/useGameStore';
 import { findShip } from '@/stores/selectors/shipLookup';
 import { navalAudio } from '../../services/navalAudio';
@@ -242,13 +242,13 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
       // Extrapolate smooth target with collision clamping
       const target = extrapolatePosition(drBuffer.current, curShip.isSunk);
 
-      // High-precision smooth transform damping (60-120fps)
+      // High-precision frame-rate independent exponential damping (60-240+ fps)
       groupRef.current.position.x = damp(groupRef.current.position.x, target.x, 24, delta);
       groupRef.current.position.y = damp(groupRef.current.position.y, target.y, 16, delta);
       groupRef.current.position.z = damp(groupRef.current.position.z, target.z, 24, delta);
 
-      // Shortest-arc angle wrapping
-      groupRef.current.rotation.y = lerpAngle(groupRef.current.rotation.y, target.heading, Math.min(1.0, 20 * delta));
+      // Shortest-arc angle wrapping with exponential decay
+      groupRef.current.rotation.y = dampAngle(groupRef.current.rotation.y, target.heading, 20, delta);
       groupRef.current.rotation.x = damp(groupRef.current.rotation.x, curShip.pitch, 12, delta);
       groupRef.current.rotation.z = damp(groupRef.current.rotation.z, curShip.roll, 12, delta);
     }

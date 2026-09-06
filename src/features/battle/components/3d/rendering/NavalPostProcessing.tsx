@@ -6,6 +6,7 @@ import {
   BrightnessContrast,
   HueSaturation,
   ToneMapping,
+  FXAA,
 } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
 import type { GraphicProfile } from "@/features/settings";
@@ -16,14 +17,18 @@ interface NavalPostProcessingProps {
 }
 
 /**
- * Lightweight Cinematic Post-Processing Pipeline.
- * Features optimized Bloom with clamped luminance threshold and ACES Filmic Tone Mapping
- * to eliminate HDR blowout / glare flickering on ocean waves and ship surfaces.
+ * Cinematic Post-Processing Pipeline with Unified FXAA Anti-Aliasing.
+ * - Fast profile: Lightweight EffectComposer with 0 overhead and pure FXAA pass.
+ * - Balanced & Performance profiles: Full cinematic suite (Bloom, Color Grade, Vignette, ToneMapping) + FXAA.
  */
 export const NavalPostProcessing: React.FC<NavalPostProcessingProps> = React.memo(({ profile, isNight }) => {
-  // Disable post-processing on Fast/Mobile to preserve battery and maximum framerate
+  // Lightweight standalone FXAA on Fast/Mobile to preserve battery and framerate while removing jagged edges
   if (profile.id === "fast") {
-    return null;
+    return (
+      <EffectComposer multisampling={0} enableNormalPass={false}>
+        <FXAA />
+      </EffectComposer>
+    );
   }
 
   const isUltra = profile.id === "performance";
@@ -59,6 +64,10 @@ export const NavalPostProcessing: React.FC<NavalPostProcessingProps> = React.mem
 
       {/* ACES Filmic Tone Mapping to compress HDR luminance smoothly */}
       <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+
+      {/* Unified Fast Approximate Anti-Aliasing (FXAA) to eliminate all jaggies and wireframe shimmer */}
+      <FXAA />
     </EffectComposer>
   );
 });
+

@@ -92,7 +92,7 @@ export const NavalCanvas: React.FC = React.memo(() => {
         dpr={profile.dpr}
 
         gl={{
-          antialias: profile.id === 'fast',
+          antialias: false,
           alpha: false,
           powerPreference: 'high-performance',
           toneMapping: THREE.ACESFilmicToneMapping,

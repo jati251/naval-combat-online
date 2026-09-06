@@ -5,7 +5,7 @@
 export function lerpAngle(current: number, target: number, alpha: number): number {
   const twoPi = Math.PI * 2;
   const diff = ((target - current) % twoPi + twoPi + Math.PI) % twoPi - Math.PI;
-  return current + diff * Math.min(1.0, alpha);
+  return current + diff * Math.min(1.0, Math.max(0.0, alpha));
 }
 
 /**
@@ -16,8 +16,20 @@ export function clamp(value: number, min: number, max: number): number {
 }
 
 /**
- * Frame-rate independent exponential decay interpolation.
+ * Frame-rate independent exponential decay interpolation (Three.js MathUtils.damp formula).
+ * Resolves micro-stutter on high-refresh-rate displays (144Hz - 240Hz+).
  */
 export function damp(current: number, target: number, smoothing: number, delta: number): number {
-  return current + (target - current) * Math.min(1.0, smoothing * delta);
+  return target + (current - target) * Math.exp(-smoothing * delta);
 }
+
+/**
+ * Shortest-arc angular interpolation with frame-rate independent exponential decay.
+ * Guarantees identical angular dampening response across 60Hz, 120Hz, 144Hz, and 240Hz.
+ */
+export function dampAngle(current: number, target: number, smoothing: number, delta: number): number {
+  const twoPi = Math.PI * 2;
+  const diff = ((target - current) % twoPi + twoPi + Math.PI) % twoPi - Math.PI;
+  return current + diff * (1.0 - Math.exp(-smoothing * delta));
+}
+
