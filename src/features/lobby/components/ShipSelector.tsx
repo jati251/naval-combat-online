@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { Shield, Zap, Crosshair, Anchor } from 'lucide-react';
 import { SHIP_PRESETS, type ShipClass } from '@/types';
-import { ShipTurntable3D } from './ShipTurntable3D';
+const ShipTurntable3D = lazy(() => import('./ShipTurntable3D').then(module => ({ default: module.ShipTurntable3D })));
 
 interface ShipSelectorProps {
   selectedShip: ShipClass;
@@ -40,7 +40,9 @@ export const ShipSelector: React.FC<ShipSelectorProps> = ({
 
       {/* 3D Turntable Preview encased in a Brass Porthole Frame */}
       <div className="w-full h-28 sm:h-36 lg:h-44 rounded-lg overflow-hidden bg-gradient-to-b from-[#0e1622] to-[#060b12] my-1.5 sm:my-2.5 border-2 border-amber-600/50 relative flex items-center justify-center shadow-[inset_0_0_20px_rgba(0,0,0,0.8)]">
-        <ShipTurntable3D shipClass={selectedShip} />
+        <Suspense fallback={<span role="status" className="text-xs text-amber-100">Preparing ship model…</span>}>
+          <ShipTurntable3D shipClass={selectedShip} />
+        </Suspense>
         
         {/* Vessel Class Name Badge */}
         <div className="absolute top-1.5 right-1.5 text-[9px] sm:text-[10px] font-cinzel font-bold text-amber-100 bg-stone-950/90 px-2 py-0.5 rounded border border-amber-500/40 shadow-sm">

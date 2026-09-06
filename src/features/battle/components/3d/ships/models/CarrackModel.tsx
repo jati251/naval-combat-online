@@ -2,18 +2,25 @@ import React, { useMemo } from 'react';
 import * as THREE from 'three';
 import type { SubModelProps } from '../types';
 import {
+  ShipWoodMaterial,
+  SternCabinGallery,
+  BowCutwaterFigurehead,
+  SquareRiggedMast,
+  RudderBlade,
+  BroadsideCannons,
+  StandingRigging,
+  CargoHatch,
+  NavalCapstan,
+  MooringBitts,
+  ShipSail,
+} from '../common';
+import {
   createCurvedHullGeometry,
   createCurvedDeckGeometry,
   createSheerRailGeometry,
   createBillowedSailGeometry,
+  createLateenSailGeometry,
 } from '../common/shipGeometries';
-import { RudderBlade } from '../common/RudderBlade';
-import { BroadsideCannons } from '../common/BroadsideCannons';
-import { ShipHelm } from '../common/ShipHelm';
-import { ShipFlag } from '../common/ShipFlag';
-import { ShipSail } from '../common/ShipSail';
-import { StandingRigging } from '../common/StandingRigging';
-import { CargoHatch, NavalCapstan, MooringBitts } from '../common/DeckDetails';
 
 export const CarrackModel: React.FC<SubModelProps> = React.memo(({
   config,
@@ -27,7 +34,6 @@ export const CarrackModel: React.FC<SubModelProps> = React.memo(({
   isSelf,
 }) => {
   const { length, width } = config;
-  const mastPositions = useMemo(() => [-length * 0.32, 0, length * 0.26], [length]);
   const cannonPositions = useMemo(() => [-length * 0.24, -length * 0.08, length * 0.08, length * 0.24], [length]);
 
   const hullDepth = 3.6;
@@ -66,14 +72,17 @@ export const CarrackModel: React.FC<SubModelProps> = React.memo(({
     segmentsZ: 28,
   }, 0.22, 0.28), [length, width]);
 
-  const lowerGeo = useMemo(() => createBillowedSailGeometry(width * 1.4, length * 0.25, 0.45), [width, length]);
-  const upperGeo = useMemo(() => createBillowedSailGeometry(width * 1.1, length * 0.18, 0.35), [width, length]);
+  const foreLowerGeo = useMemo(() => createBillowedSailGeometry(width * 1.35, length * 0.23, 0.42), [width, length]);
+  const foreUpperGeo = useMemo(() => createBillowedSailGeometry(width * 1.05, length * 0.17, 0.32), [width, length]);
+  const mainLowerGeo = useMemo(() => createBillowedSailGeometry(width * 1.45, length * 0.26, 0.46), [width, length]);
+  const mainUpperGeo = useMemo(() => createBillowedSailGeometry(width * 1.15, length * 0.19, 0.35), [width, length]);
+  const lateenMizzenGeo = useMemo(() => createLateenSailGeometry(length * 0.40, length * 0.50, 0.36), [length]);
 
   return (
     <group>
       {/* Charred Dark Timber Curved Hull */}
       <mesh geometry={hullGeo} castShadow receiveShadow>
-        <meshStandardMaterial color="#090d16" map={hullTexture} roughness={0.88} side={THREE.DoubleSide} />
+        <ShipWoodMaterial map={hullTexture} color="#6b6460" />
       </mesh>
 
       {/* Spectral Jade Sheer Molding */}
@@ -83,69 +92,49 @@ export const CarrackModel: React.FC<SubModelProps> = React.memo(({
 
       {/* Weathered Dark Deck Planks */}
       <mesh geometry={deckGeo} receiveShadow>
-        <meshStandardMaterial color="#1c1917" map={deckTexture} roughness={0.9} side={THREE.DoubleSide} />
+        <ShipWoodMaterial map={deckTexture} deck />
       </mesh>
 
       {/* Curved Gothic Beakhead & Skeletal Dragon Figurehead */}
-      <group position={[0, hullDepth + sheerBow * 0.55, length * 0.5 + 0.6]}>
-        <mesh position={[0, -0.28, 0.45]} rotation={[0.45, 0, 0]} castShadow>
-          <boxGeometry args={[0.26, 1.2, 1.4]} />
-          <meshStandardMaterial color="#090d16" roughness={0.85} />
+      <BowCutwaterFigurehead
+        position={[0, hullDepth + sheerBow * 0.55, length * 0.5 + 0.6]}
+        stemScale={1.1}
+        figureheadType="dragon"
+        figureheadColor="#10b981"
+        timberColor="#090d16"
+        isEnemy={isEnemy}
+      />
+
+      {/* Elevated Forecastle Fortification Timber Bracing */}
+      <group position={[0, hullDepth + sheerBow * 0.75, length * 0.38]}>
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[width * 0.82, 1.4, length * 0.18]} />
+          <meshStandardMaterial color="#1e293b" roughness={0.8} />
         </mesh>
-        <mesh position={[0, 0.48, 1.25]} rotation={[-0.45, 0, 0]} castShadow>
-          <coneGeometry args={[0.42, 1.4, 6]} />
-          <meshStandardMaterial color="#10b981" emissive="#047857" emissiveIntensity={0.8} roughness={0.3} metalness={0.7} />
+        <mesh position={[0, 0.75, length * 0.09]}>
+          <boxGeometry args={[width * 0.84, 0.14, 0.08]} />
+          <meshStandardMaterial color="#10b981" metalness={0.7} roughness={0.3} />
         </mesh>
       </group>
 
       {/* Gothic Arched Sterncastle with Cathedral Windows */}
-      <group position={[0, hullDepth + sheerStern * 0.7, -length * 0.35]}>
-        <mesh castShadow receiveShadow>
-          <boxGeometry args={[width * 0.86, 2.2, length * 0.28]} />
-          <meshStandardMaterial color="#1e293b" roughness={0.7} />
-        </mesh>
-        {/* Iron Transom Molding */}
-        <mesh position={[0, 1.12, -length * 0.141]} castShadow>
-          <boxGeometry args={[width * 0.88, 0.12, 0.08]} />
-          <meshStandardMaterial color="#047857" emissive="#065f46" emissiveIntensity={0.6} metalness={0.8} />
-        </mesh>
-        {/* Spectral Emerald Windows */}
-        {[-width * 0.26, -width * 0.09, width * 0.09, width * 0.26].map((wx, wIdx) => (
-          <group key={`win-${wIdx}`} position={[wx, 0.2, -length * 0.142]}>
-            <mesh rotation={[0, Math.PI, 0]}>
-              <planeGeometry args={[width * 0.13, 1.1]} />
-              <meshStandardMaterial
-                color="#6ee7b7"
-                emissive="#10b981"
-                emissiveIntensity={1.5}
-                roughness={0.2}
-                side={THREE.DoubleSide}
-              />
-            </mesh>
-            <mesh position={[0, 0, -0.01]}>
-              <boxGeometry args={[width * 0.145, 1.15, 0.02]} />
-              <meshStandardMaterial color="#022c22" roughness={0.9} />
-            </mesh>
-          </group>
-        ))}
-        {/* Dual Gargoyle Emerald Lanterns */}
-        {[-width * 0.32, width * 0.32].map((lx, lIdx) => (
-          <group key={`lan-${lIdx}`} position={[lx, 1.3, -length * 0.15]}>
-            <mesh castShadow={!isEnemy}>
-              <cylinderGeometry args={[0.14, 0.2, 0.5, 6]} />
-              <meshStandardMaterial color="#34d399" emissive="#10b981" emissiveIntensity={2.0} metalness={0.8} />
-            </mesh>
-          </group>
-        ))}
-        {!isEnemy && (
-          <ShipHelm
-            position={[0, 1.4, length * 0.08]}
-            rudderAngle={rudderAngle}
-            shipId={shipId}
-            isSelf={isSelf}
-          />
-        )}
-      </group>
+      <SternCabinGallery
+        position={[0, hullDepth + sheerStern * 0.7, -length * 0.35]}
+        width={width * 0.86}
+        height={2.2}
+        depth={length * 0.28}
+        tierCount={2}
+        windowCount={4}
+        trimColor="#10b981"
+        hullTexture={hullTexture}
+        rudderAngle={rudderAngle}
+        shipId={shipId}
+        isSelf={isSelf}
+        isEnemy={isEnemy}
+        helmYOffset={0.35}
+        helmZOffset={length * 0.08}
+        lanternCount={2}
+      />
 
       {/* Deck Hardware: Cargo Hatches & Capstan (Player only) */}
       {!isEnemy && (
@@ -159,69 +148,94 @@ export const CarrackModel: React.FC<SubModelProps> = React.memo(({
       <BroadsideCannons positions={cannonPositions} width={width * 0.95} y={hullDepth + 0.12} color="#052e16" isEnemy={isEnemy} />
 
       {/* Bowsprit */}
-      <mesh position={[0, hullDepth + sheerBow + 0.25, length * 0.5 + 2.7]} rotation={[0.36, 0, 0]} castShadow={!isEnemy}>
+      <mesh position={[0, hullDepth + sheerBow + 0.25, length * 0.5 + 2.7]} rotation={[Math.PI / 2 - 0.36, 0, 0]} castShadow={!isEnemy}>
         <cylinderGeometry args={[0.1, 0.22, 5.6, 8]} />
         <meshStandardMaterial color="#1e1b18" roughness={0.9} />
       </mesh>
 
-      {/* 3 Masts with Standing Rigging & Tattered Charcoal Sails */}
-      {mastPositions.map((mastZ, mIdx) => {
-        const mastHeight = length * 0.78 + (mIdx === 1 ? 2.5 : 0);
-        return (
-          <React.Fragment key={`carrack-mast-${mIdx}`}>
-            <StandingRigging
-              mastPosition={[0, hullDepth, mastZ]}
-              mastHeight={mastHeight}
-              hullWidth={width * 0.96}
-              shroudSpread={2.1}
-              includeRatlines={!isEnemy}
-              isEnemy={isEnemy}
-              color="#18181b"
-            />
-            <group position={[0, hullDepth, mastZ]}>
-              <mesh position={[0, mastHeight * 0.5, 0]} castShadow={!isEnemy}>
-                <cylinderGeometry args={[0.18, 0.3, mastHeight, 8]} />
-                <meshStandardMaterial color="#1e1b18" roughness={0.9} />
-              </mesh>
-              <group position={[0, mastHeight * 0.46, 0]}>
-                <mesh rotation={[0, 0, Math.PI / 2]} castShadow={!isEnemy}>
-                  <cylinderGeometry args={[0.08, 0.08, width * 1.42, 8]} />
-                  <meshStandardMaterial color="#18181b" />
-                </mesh>
-                <ShipSail
-                  geometry={lowerGeo}
-                  texture={sailTexture}
-                  sailState={sailState}
-                  height={length * 0.25}
-                  depthOffset={0.22}
-                  type="square"
-                  mastIndex={mIdx * 2}
-                />
-              </group>
-              <group position={[0, mastHeight * 0.83, 0]}>
-                <mesh rotation={[0, 0, Math.PI / 2]} castShadow={!isEnemy}>
-                  <cylinderGeometry args={[0.06, 0.06, width * 1.15, 8]} />
-                  <meshStandardMaterial color="#18181b" />
-                </mesh>
-                <ShipSail
-                  geometry={upperGeo}
-                  texture={sailTexture}
-                  sailState={sailState}
-                  height={length * 0.18}
-                  depthOffset={0.16}
-                  type="square"
-                  mastIndex={mIdx * 2 + 1}
-                />
-              </group>
-              <mesh position={[0, mastHeight * 0.66, 0]} castShadow={!isEnemy}>
-                <cylinderGeometry args={[0.55, 0.42, 0.48, 8]} />
-                <meshStandardMaterial color="#0c0a09" />
-              </mesh>
-              {mIdx === 2 && <ShipFlag position={[0, mastHeight + 0.45, -0.6]} isEnemy={isEnemy} />}
-            </group>
-          </React.Fragment>
-        );
-      })}
+      {/* 1. Fore Mast (Square-Rigged) */}
+      <StandingRigging
+        mastPosition={[0, hullDepth, length * 0.26]}
+        mastHeight={length * 0.75}
+        hullWidth={width * 0.94}
+        shroudSpread={1.9}
+        includeRatlines={!isEnemy}
+        isEnemy={isEnemy}
+        color="#18181b"
+      />
+      <SquareRiggedMast
+        position={[0, hullDepth, length * 0.26]}
+        mastHeight={length * 0.75}
+        yardWidthLower={width * 1.35}
+        yardWidthUpper={width * 1.05}
+        lowerGeo={foreLowerGeo}
+        upperGeo={foreUpperGeo}
+        sailTexture={sailTexture}
+        sailState={sailState}
+        mastIndex={0}
+        mastColor="#1e1b18"
+        yardColor="#18181b"
+        isEnemy={isEnemy}
+      />
+
+      {/* 2. Main Mast (Square-Rigged with Battle Flag) */}
+      <StandingRigging
+        mastPosition={[0, hullDepth, 0]}
+        mastHeight={length * 0.88}
+        hullWidth={width * 0.98}
+        shroudSpread={2.2}
+        includeRatlines={!isEnemy}
+        isEnemy={isEnemy}
+        color="#18181b"
+      />
+      <SquareRiggedMast
+        position={[0, hullDepth, 0]}
+        mastHeight={length * 0.88}
+        yardWidthLower={width * 1.48}
+        yardWidthUpper={width * 1.18}
+        lowerGeo={mainLowerGeo}
+        upperGeo={mainUpperGeo}
+        sailTexture={sailTexture}
+        sailState={sailState}
+        mastIndex={1}
+        mastColor="#1e1b18"
+        yardColor="#18181b"
+        includeFlag={true}
+        isEnemy={isEnemy}
+      />
+
+      {/* 3. Authentic Lateen Mizzenmast (Age of Discovery Nao / Carrack rig) */}
+      <StandingRigging
+        mastPosition={[0, hullDepth + sheerStern * 0.7, -length * 0.32]}
+        mastHeight={length * 0.62}
+        hullWidth={width * 0.88}
+        shroudSpread={1.8}
+        includeRatlines={!isEnemy}
+        isEnemy={isEnemy}
+        color="#18181b"
+      />
+      <group position={[0, hullDepth + sheerStern * 0.7, -length * 0.32]}>
+        <mesh position={[0, length * 0.31, 0]} castShadow={!isEnemy}>
+          <cylinderGeometry args={[0.13, 0.2, length * 0.62, 8]} />
+          <meshStandardMaterial color="#1e1b18" roughness={0.9} />
+        </mesh>
+        <group position={[0, length * 0.32, 0.1]} rotation={[-0.42, 0, 0]}>
+          <mesh castShadow={!isEnemy}>
+            <cylinderGeometry args={[0.06, 0.06, length * 0.72, 8]} />
+            <meshStandardMaterial color="#18181b" />
+          </mesh>
+          <ShipSail
+            geometry={lateenMizzenGeo}
+            texture={sailTexture}
+            sailState={sailState}
+            height={length * 0.50}
+            depthOffset={0.15}
+            type="lateen"
+            rotation={[0, Math.PI / 2, 0]}
+            mastIndex={4}
+          />
+        </group>
+      </group>
 
       <RudderBlade
         length={length}

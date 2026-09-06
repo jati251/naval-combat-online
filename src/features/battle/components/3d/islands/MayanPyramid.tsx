@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import type { IslandSettlement } from './types';
 
@@ -49,6 +49,7 @@ export const MayanPyramid: React.FC<MayanPyramidProps> = React.memo(({ settlemen
       }),
     };
   }, []);
+  useEffect(() => () => Object.values(mats).forEach((material) => material.dispose()), [mats]);
 
   return (
     <group position={[settlement.x, 0, settlement.z]} rotation={[0, settlement.rotationY, 0]}>

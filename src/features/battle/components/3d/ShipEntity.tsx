@@ -20,6 +20,7 @@ import {
 import { createInitialCameraState, updateChaseCamera } from '../../utils/cameraController';
 import { lerpAngle, damp } from '../../utils/math';
 import { useGameStore } from '@/stores/useGameStore';
+import { findShip } from '@/stores/selectors/shipLookup';
 import { navalAudio } from '../../services/navalAudio';
 
 export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf, isMobile = false }) => {
@@ -51,7 +52,7 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf,
 
     // Always fetch latest real-time snapshot from store to prevent stale closure during memoization
     const store = useGameStore.getState();
-    const curShip = store.ships.find((s) => s.id === ship.id) || ship;
+    const curShip = findShip(store.ships, ship.id) || ship;
 
     // Respawn snap detection: if ship was sunk and is now alive, or large position teleport
     const wasSunk = prevWasSunk.current;
@@ -276,6 +277,8 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf,
     prev.ship.sail === next.ship.sail &&
     prev.ship.isSunk === next.ship.isSunk &&
     prev.ship.health === next.ship.health &&
+    prev.ship.maxHealth === next.ship.maxHealth &&
+    prev.ship.name === next.ship.name &&
     prev.isSelf === next.isSelf &&
     prev.isMobile === next.isMobile
   );

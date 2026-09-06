@@ -1,6 +1,18 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import type { IslandSettlement } from './types';
+import { MaritimeCargo } from '../props/MaritimeCargo';
+import type { InstanceTransform } from '../shared/StaticInstances';
+
+const dockCargo: InstanceTransform[] = [
+  { position: [-3.6, 1.575, 25.4] },
+  { position: [-4.5, 1.575, 26.4], rotation: [0, 0.2, 0] },
+  { position: [3.3, 1.575, 26.8] },
+  { position: [4.4, 1.575, 25.6], rotation: [0, -0.15, 0] },
+  { position: [2.5, 0.6, 4] },
+  { position: [3.2, 0.6, 4.2], rotation: [0, 0.5, 0] },
+  { position: [1.5, 0.6, 4.1] },
+];
 
 interface CoastalSettlementProps {
   settlement: IslandSettlement;
@@ -38,9 +50,11 @@ export const CoastalSettlement: React.FC<CoastalSettlementProps> = React.memo(({
       barrelWood: new THREE.MeshStandardMaterial({ color: '#451a03', roughness: 0.8 }),
     };
   }, [isPirate]);
+  useEffect(() => () => Object.values(mats).forEach((material) => material.dispose()), [mats]);
 
   return (
     <group position={[settlement.x, 0, settlement.z]} rotation={[0, settlement.rotationY, 0]}>
+      <MaritimeCargo placements={dockCargo} distance={isMobile ? 90 : 150} />
       {/* =========================================================================
           1. TIMBER PIER & JETTY (Extending towards the bay)
           ========================================================================= */}
@@ -55,17 +69,17 @@ export const CoastalSettlement: React.FC<CoastalSettlementProps> = React.memo(({
           <boxGeometry args={[11, 0.35, 4.5]} />
         </mesh>
 
-        {/* Pier support pilings (timber stilts driven into seabed) */}
+        {/* Pier support pilings (timber stilts driven deep into seabed) */}
         {[-1.8, 1.8].map((xOffset) =>
           [4, 10, 16, 22].map((zOffset) => (
-            <mesh key={`pile-${xOffset}-${zOffset}`} position={[xOffset, 0.4, zOffset]} material={mats.woodPost}>
-              <cylinderGeometry args={[0.22, 0.25, 2.8, 6]} />
+            <mesh key={`pile-${xOffset}-${zOffset}`} position={[xOffset, -1.0, zOffset]} material={mats.woodPost}>
+              <cylinderGeometry args={[0.22, 0.26, 5.2, 6]} />
             </mesh>
           ))
         )}
         {[-4.8, 0, 4.8].map((xOffset, idx) => (
-          <mesh key={`tpile-${idx}`} position={[xOffset, 0.4, 27.5]} material={mats.woodPost}>
-            <cylinderGeometry args={[0.24, 0.26, 2.8, 6]} />
+          <mesh key={`tpile-${idx}`} position={[xOffset, -1.0, 27.5]} material={mats.woodPost}>
+            <cylinderGeometry args={[0.24, 0.28, 5.2, 6]} />
           </mesh>
         ))}
 
@@ -207,30 +221,6 @@ export const CoastalSettlement: React.FC<CoastalSettlementProps> = React.memo(({
             </mesh>
           </group>
         ))}
-      </group>
-
-      {/* =========================================================================
-          6. HARBOR DETAILS: RUM BARRELS & CARGO CRATES
-          ========================================================================= */}
-      <group position={[2.5, 0.6, 4]}>
-        {/* Rum barrels cluster */}
-        <mesh position={[0, 0.4, 0]} material={mats.barrelWood}>
-          <cylinderGeometry args={[0.38, 0.44, 0.9, 8]} />
-        </mesh>
-        <mesh position={[0.7, 0.4, 0.2]} material={mats.barrelWood}>
-          <cylinderGeometry args={[0.38, 0.44, 0.9, 8]} />
-        </mesh>
-        <mesh position={[0.35, 1.1, 0.1]} rotation={[Math.PI * 0.5, 0, 0]} material={mats.barrelWood}>
-          <cylinderGeometry args={[0.36, 0.42, 0.85, 8]} />
-        </mesh>
-
-        {/* Cargo crates */}
-        <mesh position={[-1.0, 0.4, 0.1]} material={mats.woodDeck}>
-          <boxGeometry args={[0.85, 0.85, 0.85]} />
-        </mesh>
-        <mesh position={[-1.0, 1.1, 0.1]} material={mats.woodDeck}>
-          <boxGeometry args={[0.65, 0.65, 0.65]} />
-        </mesh>
       </group>
     </group>
   );

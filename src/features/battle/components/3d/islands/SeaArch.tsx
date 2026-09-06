@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import type { IslandSettlement } from './types';
 
@@ -42,6 +42,7 @@ export const SeaArch: React.FC<SeaArchProps> = React.memo(({ settlement, isMobil
       }),
     };
   }, []);
+  useEffect(() => () => Object.values(mats).forEach((m) => m.dispose()), [mats]);
 
   return (
     <group position={[settlement.x, 0, settlement.z]}>

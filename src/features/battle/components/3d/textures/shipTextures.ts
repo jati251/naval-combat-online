@@ -63,6 +63,8 @@ export function createWoodPlankTexture(
   const texture = new THREE.CanvasTexture(canvas);
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
   texture.needsUpdate = true;
   shipTextureCache.set(cacheKey, texture);
   return texture;
@@ -207,6 +209,8 @@ export function createSailClothTexture(baseColorHex = '#f8fafc'): THREE.CanvasTe
   const texture = new THREE.CanvasTexture(canvas);
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
   texture.needsUpdate = true;
   shipTextureCache.set(cacheKey, texture);
   return texture;

@@ -260,13 +260,13 @@ export function createJungleTreeSpriteTexture(): THREE.CanvasTexture {
     ctx.restore();
   };
 
-  // ── WARM TROPICAL YELLOWISH-GREEN COLOR PALETTE ──
-  const cDark     = '#283b12'; // Deep warm forest shadow
-  const cDeepMid  = '#3e5818'; // Lower canopy olive green
-  const cMid      = '#5d8222'; // Rich tropical foliage green
-  const cLight    = '#7ea828'; // Sun-drenched leaf green
-  const cSunlit   = '#a4d036'; // Warm golden-lime canopy highlight
-  const cGoldTip  = '#c4ea48'; // Brightest sunlit crest highlight
+  // ── RICH CARIBBEAN RAINFOREST COLOR PALETTE ──
+  const cDark     = '#162e0c'; // Deep understory shadow
+  const cDeepMid  = '#264714'; // Lower-mid rainforest canopy
+  const cMid      = '#3a661c'; // Rich tropical foliage emerald
+  const cLight    = '#548827'; // Sunlit leaf foliage
+  const cSunlit   = '#72a832'; // Canopy dome highlight
+  const cGoldTip  = '#94c840'; // Sunlit crest glint
 
   // 3. TIER 1: Upper Canopy (Summit Crest)
   drawCanopyCluster(128, 48, 52, 38, cDark, cMid, cLight, cGoldTip);
@@ -317,7 +317,7 @@ export function createJungleTreeSpriteTexture(): THREE.CanvasTexture {
 
 /**
  * Procedural Dense Tropical Fern & Broadleaf Bush Cluster
- * Wide, voluminous leafy mound in warm yellowish-green tones that blankets the terrain.
+ * Wide, voluminous leafy mound in rich warm tropical tones that blankets the terrain.
  */
 export function createTropicalBushSpriteTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
@@ -358,26 +358,26 @@ export function createTropicalBushSpriteTexture(): THREE.CanvasTexture {
     ctx.restore();
   };
 
-  // Warm golden-green foliage layers from background to foreground
+  // Warm deep tropical foliage layers from background to foreground
   const bushFronds = [
-    // Background layer (deeper olive shadow)
-    { a: -1.35, l: 110, w: 26, s: '#283810', lC: '#3e5618', h: '#557620' },
-    { a: 1.30,  l: 112, w: 26, s: '#283810', lC: '#3e5618', h: '#557620' },
-    { a: -1.05, l: 128, w: 30, s: '#304212', lC: '#4c681c', h: '#668c24' },
-    { a: 1.02,  l: 130, w: 30, s: '#304212', lC: '#4c681c', h: '#668c24' },
-    // Mid layer (rich tropical yellowish-green)
-    { a: -0.72, l: 145, w: 34, s: '#3a5015', lC: '#5c7e22', h: '#7da62a' },
-    { a: 0.68,  l: 148, w: 34, s: '#3a5015', lC: '#5c7e22', h: '#7da62a' },
-    { a: -0.42, l: 156, w: 36, s: '#445e18', lC: '#6e9628', h: '#94c232' },
-    { a: 0.38,  l: 158, w: 36, s: '#445e18', lC: '#6e9628', h: '#94c232' },
-    { a: -0.15, l: 164, w: 38, s: '#4a671a', lC: '#7ea82a', h: '#a8d63a' },
-    { a: 0.12,  l: 166, w: 38, s: '#4a671a', lC: '#7ea82a', h: '#a8d63a' },
-    // Foreground spreading fan (sunlit golden-lime tips)
-    { a: -0.88, l: 122, w: 32, s: '#54761e', lC: '#84b02c', h: '#b8e444' },
-    { a: 0.85,  l: 125, w: 32, s: '#54761e', lC: '#84b02c', h: '#b8e444' },
-    { a: -0.55, l: 136, w: 34, s: '#5a7c20', lC: '#8ebc30', h: '#c4ee4c' },
-    { a: 0.52,  l: 138, w: 34, s: '#5a7c20', lC: '#8ebc30', h: '#c4ee4c' },
-    { a: 0.0,   l: 146, w: 36, s: '#628822', lC: '#9fcb34', h: '#d4f656' },
+    // Background layer (deeper forest shadow)
+    { a: -1.35, l: 110, w: 26, s: '#1e2c0c', lC: '#2a3d12', h: '#3e581a' },
+    { a: 1.30,  l: 112, w: 26, s: '#1e2c0c', lC: '#2a3d12', h: '#3e581a' },
+    { a: -1.05, l: 128, w: 30, s: '#24340e', lC: '#344b16', h: '#4c6c20' },
+    { a: 1.02,  l: 130, w: 30, s: '#24340e', lC: '#344b16', h: '#4c6c20' },
+    // Mid layer (rich emerald foliage)
+    { a: -0.72, l: 145, w: 34, s: '#2c3e10', lC: '#425f1a', h: '#5e8424' },
+    { a: 0.68,  l: 148, w: 34, s: '#2c3e10', lC: '#425f1a', h: '#5e8424' },
+    { a: -0.42, l: 156, w: 36, s: '#364c14', lC: '#527420', h: '#729e2c' },
+    { a: 0.38,  l: 158, w: 36, s: '#364c14', lC: '#527420', h: '#729e2c' },
+    { a: -0.15, l: 164, w: 38, s: '#3c5416', lC: '#5c8224', h: '#80ae32' },
+    { a: 0.12,  l: 166, w: 38, s: '#3c5416', lC: '#5c8224', h: '#80ae32' },
+    // Foreground spreading fan (sunlit foliage tips)
+    { a: -0.88, l: 122, w: 32, s: '#405c18', lC: '#648e28', h: '#8ab836' },
+    { a: 0.85,  l: 125, w: 32, s: '#405c18', lC: '#648e28', h: '#8ab836' },
+    { a: -0.55, l: 136, w: 34, s: '#48661a', lC: '#709c2c', h: '#96c43c' },
+    { a: 0.52,  l: 138, w: 34, s: '#48661a', lC: '#709c2c', h: '#96c43c' },
+    { a: 0.0,   l: 146, w: 36, s: '#50701c', lC: '#7aa830', h: '#a2d242' },
   ];
 
   for (const f of bushFronds) {
@@ -391,21 +391,21 @@ export function createTropicalBushSpriteTexture(): THREE.CanvasTexture {
 
 // ─── CROSSED BILLBOARD GEOMETRIES & SHARED MATERIALS ───
 // Compact, realistically-proportioned vegetation (dense without being oversized)
-const palmPlaneGeo = new THREE.PlaneGeometry(5.4, 7.4);
+export const palmPlaneGeo = new THREE.PlaneGeometry(5.4, 7.4);
 palmPlaneGeo.translate(0, 3.7, 0);
 
-const junglePlaneGeo = new THREE.PlaneGeometry(6.4, 7.2);
+export const junglePlaneGeo = new THREE.PlaneGeometry(6.4, 7.2);
 junglePlaneGeo.translate(0, 3.6, 0);
 
 // Compact, ground-hugging tropical bush geometry (2.6m wide x 1.8m tall)
-const bushPlaneGeo = new THREE.PlaneGeometry(2.6, 1.8);
+export const bushPlaneGeo = new THREE.PlaneGeometry(2.6, 1.8);
 bushPlaneGeo.translate(0, 0.9, 0);
 
 let cachedPalmMat: THREE.MeshStandardMaterial | null = null;
 let cachedJungleMat: THREE.MeshStandardMaterial | null = null;
 let cachedBushMat: THREE.MeshStandardMaterial | null = null;
 
-function getVegMaterials(): {
+export function getVegMaterials(): {
   palmMat: THREE.MeshStandardMaterial;
   jungleMat: THREE.MeshStandardMaterial;
   bushMat: THREE.MeshStandardMaterial;
@@ -413,7 +413,7 @@ function getVegMaterials(): {
   if (!cachedPalmMat) {
     cachedPalmMat = new THREE.MeshStandardMaterial({
       map: createPalmTreeSpriteTexture(),
-      transparent: true,
+      transparent: false,
       alphaTest: 0.28,
       depthWrite: true,
       roughness: 0.68,
@@ -422,7 +422,7 @@ function getVegMaterials(): {
     });
     cachedJungleMat = new THREE.MeshStandardMaterial({
       map: createJungleTreeSpriteTexture(),
-      transparent: true,
+      transparent: false,
       alphaTest: 0.32,
       depthWrite: true,
       roughness: 0.72,
@@ -431,7 +431,7 @@ function getVegMaterials(): {
     });
     cachedBushMat = new THREE.MeshStandardMaterial({
       map: createTropicalBushSpriteTexture(),
-      transparent: true,
+      transparent: false,
       alphaTest: 0.25,
       depthWrite: true,
       roughness: 0.74,

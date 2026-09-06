@@ -2,6 +2,8 @@ import React, { useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import type { SailState } from '@/types/game';
+import { getSurfaceBump } from '../../textures/surfaceTextures';
+import { isObjectVisible } from '../../shared/visibility';
 
 export interface ShipSailProps {
   geometry: THREE.BufferGeometry;
@@ -59,7 +61,7 @@ export const ShipSail: React.FC<ShipSailProps> = React.memo(({
   const currentProgress = useRef(getTargetProgress(sailState));
 
   useFrame((state, delta) => {
-    if (!meshRef.current) return;
+    if (!meshRef.current || !isObjectVisible(meshRef.current)) return;
 
     const dt = Math.min(delta, 0.1);
     const target = getTargetProgress(sailState);
@@ -144,6 +146,8 @@ export const ShipSail: React.FC<ShipSailProps> = React.memo(({
     >
       <meshStandardMaterial
         map={texture}
+        bumpMap={getSurfaceBump('cloth')}
+        bumpScale={0.035}
         side={THREE.DoubleSide}
         roughness={0.78}
         metalness={0.01}

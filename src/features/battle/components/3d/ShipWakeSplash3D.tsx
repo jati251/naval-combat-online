@@ -2,6 +2,7 @@ import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
+import { findShip } from '@/stores/selectors/shipLookup';
 
 /**
  * High-definition 2D stylized cartoon water bubble sprite texture.
@@ -135,7 +136,7 @@ export const ShipWakeSplash3D: React.FC<ShipWakeSplash3DProps> = React.memo(({
 
     // Fetch live state from Zustand on every frame (bypasses parent React.memo prop stagnation)
     const store = useGameStore.getState();
-    const curShip = store.ships.find((s) => s.id === shipId);
+    const curShip = findShip(store.ships, shipId);
     if (!curShip || curShip.isSunk) {
       if (pointsRef.current.visible) pointsRef.current.visible = false;
       return;

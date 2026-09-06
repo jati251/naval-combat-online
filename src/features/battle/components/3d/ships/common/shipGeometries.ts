@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createTriangularSailGeometry } from './triangularSailGeometry';
 
 const geometryCache = new Map<string, THREE.BufferGeometry>();
 
@@ -63,27 +64,7 @@ export function createJibSailGeometry(
   const cached = geometryCache.get(cacheKey);
   if (cached) return cached;
 
-  const shape = new THREE.Shape();
-  shape.moveTo(0, 0);
-  shape.lineTo(0, heightY);
-  shape.lineTo(spanZ, 0);
-  shape.closePath();
-
-  const geo = new THREE.ShapeGeometry(shape, 12);
-  const pos = geo.attributes.position;
-
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i) / spanZ;
-    const y = pos.getY(i) / heightY;
-
-    // Aerodynamic belly pouch in the middle of the triangular canvas
-    const belly = Math.sin(Math.max(0, Math.min(1, x)) * Math.PI) *
-                  Math.sin(Math.max(0, Math.min(1, y)) * Math.PI);
-
-    pos.setZ(i, belly * depth);
-  }
-
-  geo.computeVertexNormals();
+  const geo = createTriangularSailGeometry(0, spanZ, heightY, depth);
   geometryCache.set(cacheKey, geo);
   return geo;
 }
@@ -100,26 +81,7 @@ export function createLateenSailGeometry(
   const cached = geometryCache.get(cacheKey);
   if (cached) return cached;
 
-  const shape = new THREE.Shape();
-  shape.moveTo(-lengthZ * 0.4, 0);
-  shape.lineTo(0, heightY);
-  shape.lineTo(lengthZ * 0.6, 0);
-  shape.closePath();
-
-  const geo = new THREE.ShapeGeometry(shape, 12);
-  const pos = geo.attributes.position;
-
-  for (let i = 0; i < pos.count; i++) {
-    const normX = (pos.getX(i) + lengthZ * 0.4) / lengthZ;
-    const normY = pos.getY(i) / heightY;
-
-    const belly = Math.sin(Math.max(0, Math.min(1, normX)) * Math.PI) *
-                  Math.sin(Math.max(0, Math.min(1, normY)) * Math.PI);
-
-    pos.setZ(i, belly * depth);
-  }
-
-  geo.computeVertexNormals();
+  const geo = createTriangularSailGeometry(-lengthZ * 0.4, lengthZ * 0.6, heightY, depth);
   geometryCache.set(cacheKey, geo);
   return geo;
 }

@@ -14,6 +14,9 @@ import { OceanAtmosphereParticles3D } from './OceanAtmosphereParticles3D';
 import { ShipEntity } from './ShipEntity';
 import { useGameStore } from '@/stores/useGameStore';
 import { useBattleCamera } from '../../hooks/useBattleCamera';
+import { useMobileViewport } from '@/hooks/useMobileViewport';
+import { AdaptiveResolution } from './rendering/AdaptiveResolution';
+import { NavigationBuoys3D } from './props/NavigationBuoys3D';
 
 const BattleCameraRig: React.FC = () => {
   useBattleCamera();
@@ -54,19 +57,14 @@ export const NavalCanvas: React.FC = React.memo(() => {
   const isNight = timeOfDay === 'NIGHT';
   const bgColor = isNight ? NIGHT_FOG_COLOR : FOG_COLOR;
 
-  // Detect mobile device or touch viewport
-  const isMobile = typeof window !== 'undefined' && (
-    'ontouchstart' in window ||
-    navigator.maxTouchPoints > 0 ||
-    window.innerWidth <= 1024
-  );
+  const isMobile = useMobileViewport();
 
   return (
     <div className={`w-full h-full absolute inset-0 ${isNight ? 'bg-slate-950' : 'bg-sky-700'}`}>
       <Canvas
         camera={{ position: [0, 25, -45], fov: 55, near: 0.5, far: 1400 }}
         shadows={!isMobile}
-        dpr={isMobile ? [1.5, 2.25] : [1.5, 2.0]}
+        dpr={isMobile ? [1, 1.5] : [1, 2]}
         gl={{
           antialias: true,
           alpha: false,
@@ -75,11 +73,13 @@ export const NavalCanvas: React.FC = React.memo(() => {
           toneMappingExposure: isNight ? 1.24 : 1.28,
         }}
       >
+        <AdaptiveResolution isMobile={isMobile} />
         <color attach="background" args={[bgColor]} />
         <Environment3D isMobile={isMobile} />
         <OceanWater isMobile={isMobile} />
         <Islands3D isMobile={isMobile} />
         <Shipwrecks3D isMobile={isMobile} />
+        <NavigationBuoys3D isMobile={isMobile} />
         <JumpingFish3D />
         <MapBoundary3D isMobile={isMobile} />
         {!isNight && <CaribbeanSeabirds3D />}

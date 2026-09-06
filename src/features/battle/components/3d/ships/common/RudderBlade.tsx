@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
+import { findShip } from '@/stores/selectors/shipLookup';
 
 interface RudderBladeProps {
   length: number;
@@ -26,7 +27,7 @@ export const RudderBlade: React.FC<RudderBladeProps> = React.memo(({
     const store = useGameStore.getState();
     const targetRudder = isSelf
       ? store.localRudder
-      : (store.ships.find((s) => s.id === shipId)?.rudder ?? rudderAngle ?? 0);
+      : (findShip(store.ships, shipId)?.rudder ?? rudderAngle ?? 0);
 
     const targetRotY = -targetRudder * 0.55;
     meshRef.current.rotation.y = THREE.MathUtils.damp(

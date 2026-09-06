@@ -1,19 +1,11 @@
 import React, { useMemo } from 'react';
 import { type ShipClass, SHIP_PRESETS } from '@/types/game';
 import { createWoodPlankTexture, createSailClothTexture } from './textures/proceduralTextures';
-import {
-  type ShipModelProps,
-  GunboatModel,
-  SloopModel,
-  CorvetteModel,
-  BrigModel,
-  CarrackModel,
-  GalleonModel,
-  FrigateModel,
-  ManOWarModel,
-} from './ships';
+import type { ShipModelProps } from './ships';
+import { shipModels } from './ships/modelRegistry';
 
 import { ShipLanterns } from './ships/common';
+import { ShipCargo } from './ships/common/ShipCargo';
 
 export type { ShipModelProps };
 
@@ -35,7 +27,7 @@ export const ShipModel3D: React.FC<ShipModelProps> = React.memo(({
   const { id, hullColor, sailColor } = config;
 
   const hullTexture = useMemo(() => createWoodPlankTexture(hullColor, '#180e07', 8), [hullColor]);
-  const deckTexture = useMemo(() => createWoodPlankTexture('#a16207', '#451a03', 10), []);
+  const deckTexture = useMemo(() => createWoodPlankTexture('#9b825f', '#534434', 10), []);
   const sailTexture = useMemo(() => createSailClothTexture(sailColor), [sailColor]);
 
   const subProps = {
@@ -50,31 +42,12 @@ export const ShipModel3D: React.FC<ShipModelProps> = React.memo(({
     isSelf,
   };
 
-  const renderModel = () => {
-    switch (id) {
-      case 'gunboat':
-        return <GunboatModel {...subProps} />;
-      case 'sloop':
-        return <SloopModel {...subProps} />;
-      case 'corvette':
-        return <CorvetteModel {...subProps} />;
-      case 'carrack':
-        return <CarrackModel {...subProps} />;
-      case 'galleon':
-        return <GalleonModel {...subProps} />;
-      case 'frigate':
-        return <FrigateModel {...subProps} />;
-      case 'man_o_war':
-        return <ManOWarModel {...subProps} />;
-      case 'brig':
-      default:
-        return <BrigModel {...subProps} />;
-    }
-  };
+  const Model = shipModels[id] ?? shipModels.brig;
 
   return (
     <group>
-      {renderModel()}
+      <Model {...subProps} />
+      <ShipCargo config={config} />
       <ShipLanterns shipClass={id} isEnemy={isEnemy} />
     </group>
   );
@@ -82,7 +55,8 @@ export const ShipModel3D: React.FC<ShipModelProps> = React.memo(({
   const prevId = prev.config?.id || prev.shipClass;
   const nextId = next.config?.id || next.shipClass;
   return (
-    prevId === nextId &&
+    prevId === nextId && prev.config === next.config &&
+    (Boolean(next.shipId) || prev.rudderAngle === next.rudderAngle) &&
     prev.sailState === next.sailState &&
     prev.isEnemy === next.isEnemy &&
     prev.shipId === next.shipId &&

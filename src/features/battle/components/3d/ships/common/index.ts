@@ -8,3 +8,8 @@ export * from './BowCatheadAnchors';
 export * from './StandingRigging';
 export * from './DeckDetails';
 export * from './ShipLanterns';
+export * from './ShipWoodMaterial';
+export * from './ShipCargo';
+export * from './SternCabinGallery';
+export * from './BowCutwaterFigurehead';
+export * from './SquareRiggedMast';

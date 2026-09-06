@@ -2,6 +2,9 @@ import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { FOG_FAR_DESKTOP } from './Environment3D';
+import { StaticInstances, type InstanceTransform } from './shared/StaticInstances';
+import { useGameStore } from '@/stores/useGameStore';
+import { getMapConfig } from '../../maps';
 
 export interface ShipwreckDefinition {
   id: string;
@@ -51,9 +54,7 @@ export const ARENA_SHIPWRECKS: ShipwreckDefinition[] = [
   },
 ];
 
-// ────────────────────────────────────────────────────────────────────────────
 // Shared Static Geometries & Materials (AC: Black Flag Weathered Timbers)
-// ────────────────────────────────────────────────────────────────────────────
 const hullKeelGeo = new THREE.BoxGeometry(4.2, 5.0, 16.0);
 const ribBeamGeo = new THREE.CylinderGeometry(0.22, 0.28, 6.5, 6);
 const snappedMastGeo = new THREE.CylinderGeometry(0.35, 0.48, 14.0, 8);
@@ -61,10 +62,9 @@ const mastYardGeo = new THREE.CylinderGeometry(0.2, 0.25, 8.0, 6);
 const deckPlankGeo = new THREE.BoxGeometry(0.4, 0.18, 3.8);
 const rumBarrelGeo = new THREE.CylinderGeometry(0.65, 0.75, 1.4, 10);
 const cargoCrateGeo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
-const cargoCrateSmallGeo = new THREE.BoxGeometry(0.85, 0.85, 0.85);
 
 const wreckWoodMat = new THREE.MeshStandardMaterial({
-  color: '#2a1a0d', // dark waterlogged oak
+  color: '#2a1a0d',
   roughness: 0.88,
   metalness: 0.05,
 });
@@ -76,7 +76,7 @@ const ribWoodMat = new THREE.MeshStandardMaterial({
 });
 
 const barnacleWoodMat = new THREE.MeshStandardMaterial({
-  color: '#242f2b', // seaweed & barnacle encrusted timber
+  color: '#242f2b',
   roughness: 0.85,
   metalness: 0.08,
 });
@@ -103,7 +103,7 @@ const tatteredSailMat = new THREE.MeshStandardMaterial({
 
 /**
  * Individual Floating Shipwreck with listing hull, snapped mast,
- * and drifting flotsam (cargo barrels & crates) bobbing in the waves.
+ * and drifting batched flotsam bobbing in the waves.
  */
 const ShipwreckEntity: React.FC<{ wreck: ShipwreckDefinition }> = React.memo(({ wreck }) => {
   const rootRef = useRef<THREE.Group>(null);
@@ -111,28 +111,41 @@ const ShipwreckEntity: React.FC<{ wreck: ShipwreckDefinition }> = React.memo(({ 
   const flotsamRef = useRef<THREE.Group>(null);
   const frameCount = useRef(Math.floor(Math.random() * 6));
 
-  // Rib beams array for exposed skeletal hull
-  const ribs = useMemo(() => {
-    const list: Array<[number, number, number, number]> = []; // [x, y, z, rotZ]
+  // Instanced skeletal rib beams
+  const ribInstances = useMemo<InstanceTransform[]>(() => {
+    const list: InstanceTransform[] = [];
     for (let i = -6; i <= 6; i += 1.8) {
-      list.push([-1.8, 1.6, i, -0.35]);
-      list.push([1.8, 1.4, i, 0.45]);
+      list.push({ position: [-1.8, 1.6, i], rotation: [0, 0, -0.35] });
+      list.push({ position: [1.8, 1.4, i], rotation: [0, 0, 0.45] });
     }
     return list;
   }, []);
 
-  // Floating cargo cluster (barrels, crates, planks)
-  const flotsamItems = useMemo(() => {
-    return [
-      { type: 'barrel', x: -4.5, z: 3.2, rot: 0.3, scale: 1.0 },
-      { type: 'barrel', x: -5.6, z: 1.8, rot: 1.2, scale: 0.9 },
-      { type: 'barrel', x: 4.8, z: -2.5, rot: 0.8, scale: 1.05 },
-      { type: 'crate', x: 5.2, z: 2.1, rot: 0.4, scale: 1.1 },
-      { type: 'crateSmall', x: -3.8, z: -4.0, rot: 0.9, scale: 1.0 },
-      { type: 'crate', x: 3.2, z: -5.4, rot: 0.2, scale: 0.95 },
-      { type: 'plank', x: -2.5, z: 5.5, rot: 1.4, scale: 1.2 },
-      { type: 'plank', x: 4.0, z: 4.8, rot: -0.7, scale: 1.0 },
+  // Instanced deck planks
+  const deckPlankInstances = useMemo<InstanceTransform[]>(() => {
+    return [-3, -1, 1, 3].map((pz, idx): InstanceTransform => ({
+      position: [idx % 2 ? 0.8 : -0.8, 2.7, pz],
+      rotation: [0.1, idx * 0.7, 0.2],
+    }));
+  }, []);
+
+  // Batched floating flotsam cargo clusters
+  const { barrelInstances, crateInstances, floatingPlankInstances } = useMemo(() => {
+    const barrels: InstanceTransform[] = [
+      { position: [-4.5, 0.9, 3.2], rotation: [0.1, 0.3, 0.15], scale: [1.0, 1.0, 1.0] },
+      { position: [-5.6, 0.9, 1.8], rotation: [0.1, 1.2, 0.15], scale: [0.9, 0.9, 0.9] },
+      { position: [4.8, 0.9, -2.5], rotation: [0.1, 0.8, 0.15], scale: [1.05, 1.05, 1.05] },
     ];
+    const crates: InstanceTransform[] = [
+      { position: [5.2, 0.9, 2.1], rotation: [0.1, 0.4, 0.15], scale: [1.1, 1.1, 1.1] },
+      { position: [-3.8, 0.9, -4.0], rotation: [0.1, 0.9, 0.15], scale: [0.8, 0.8, 0.8] },
+      { position: [3.2, 0.9, -5.4], rotation: [0.1, 0.2, 0.15], scale: [0.95, 0.95, 0.95] },
+    ];
+    const planks: InstanceTransform[] = [
+      { position: [-2.5, 0.9, 5.5], rotation: [0.1, 1.4, 0.15], scale: [1.4, 1.0, 1.6] },
+      { position: [4.0, 0.9, 4.8], rotation: [0.1, -0.7, 0.15], scale: [1.3, 1.0, 1.5] },
+    ];
+    return { barrelInstances: barrels, crateInstances: crates, floatingPlankInstances: planks };
   }, []);
 
   useFrame((state) => {
@@ -181,17 +194,8 @@ const ShipwreckEntity: React.FC<{ wreck: ShipwreckDefinition }> = React.memo(({ 
         {/* Broken deck timbers */}
         <mesh position={[0.4, 2.5, -2.0]} geometry={hullKeelGeo} scale={[0.8, 0.3, 0.5]} material={wreckWoodMat} castShadow />
 
-        {/* Exposed skeletal rib beams */}
-        {ribs.map(([rx, ry, rz, rotZ], idx) => (
-          <mesh
-            key={`rib-${idx}`}
-            position={[rx, ry, rz]}
-            rotation={[0, 0, rotZ]}
-            geometry={ribBeamGeo}
-            material={ribWoodMat}
-            castShadow
-          />
-        ))}
+        {/* Exposed skeletal rib beams (Instanced) */}
+        <StaticInstances geometry={ribBeamGeo} material={ribWoodMat} instances={ribInstances} castShadow />
 
         {/* Snapped main mast sticking out into the sky and water */}
         <group position={[0.2, 1.8, 1.5]} rotation={[0.45, 0.2, -0.65]}>
@@ -208,49 +212,20 @@ const ShipwreckEntity: React.FC<{ wreck: ShipwreckDefinition }> = React.memo(({ 
         {/* Snapped bowsprit / forward timber */}
         <mesh position={[0, 1.6, 7.8]} rotation={[-0.5, 0, 0.3]} geometry={snappedMastGeo} scale={[0.8, 0.6, 0.8]} material={wreckWoodMat} castShadow />
 
-        {/* Shattered planks scattered along deck */}
-        {[-3, -1, 1, 3].map((pz, pIdx) => (
-          <mesh
-            key={`plank-${pIdx}`}
-            position={[(pIdx % 2 ? 0.8 : -0.8), 2.7, pz]}
-            rotation={[0.1, (pIdx * 0.7), 0.2]}
-            geometry={deckPlankGeo}
-            material={wreckWoodMat}
-            castShadow
-          />
-        ))}
+        {/* Shattered planks scattered along deck (Instanced) */}
+        <StaticInstances geometry={deckPlankGeo} material={wreckWoodMat} instances={deckPlankInstances} castShadow />
       </group>
 
-      {/* Floating flotsam cargo bobbing in ocean around wreck */}
+      {/* Floating flotsam cargo bobbing in ocean around wreck (Batched via InstancedMesh) */}
       <group ref={flotsamRef}>
-        {flotsamItems.map((item, fIdx) => (
-          <group key={`flotsam-${fIdx}`} position={[item.x, 0.9, item.z]} rotation={[0.1, item.rot, 0.15]} scale={item.scale}>
-            {item.type === 'barrel' && (
-              <mesh geometry={rumBarrelGeo} material={barrelWoodMat} castShadow />
-            )}
-            {item.type === 'crate' && (
-              <mesh geometry={cargoCrateGeo} material={crateWoodMat} castShadow />
-            )}
-            {item.type === 'crateSmall' && (
-              <mesh geometry={cargoCrateSmallGeo} material={crateWoodMat} castShadow />
-            )}
-            {item.type === 'plank' && (
-              <mesh geometry={deckPlankGeo} scale={[1.4, 1.0, 1.6]} material={wreckWoodMat} castShadow />
-            )}
-          </group>
-        ))}
+        <StaticInstances geometry={rumBarrelGeo} material={barrelWoodMat} instances={barrelInstances} castShadow />
+        <StaticInstances geometry={cargoCrateGeo} material={crateWoodMat} instances={crateInstances} castShadow />
+        <StaticInstances geometry={deckPlankGeo} material={wreckWoodMat} instances={floatingPlankInstances} castShadow />
       </group>
     </group>
   );
 });
 
-import { useGameStore } from '@/stores/useGameStore';
-import { getMapConfig } from '../../maps';
-
-/**
- * Shipwrecks3D Component: Renders floating shipwrecks and flotsam
- * for the currently active battle map with collision matching server physics.
- */
 export const Shipwrecks3D: React.FC<{ isMobile?: boolean }> = React.memo((_props) => {
   const currentMapId = useGameStore((s) => s.currentMapId || s.currentRoom?.mapId || 'caribbean');
   const activeMap = useMemo(() => getMapConfig(currentMapId), [currentMapId]);

@@ -2,6 +2,7 @@ import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
+import { findShip } from '@/stores/selectors/shipLookup';
 import { SHIP_PRESETS } from '@/types/game';
 import { getBroadsideTransform } from '../../utils/navalCombatMath';
 import {
@@ -70,7 +71,7 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
     lastShipBurstTime.current.set(shipId, now);
 
     const { ships, selfId } = useGameStore.getState();
-    const firingShip = ships.find((s) => s.id === shipId);
+    const firingShip = findShip(ships, shipId);
     if (!firingShip) return;
 
     const isSelf = shipId === selfId;

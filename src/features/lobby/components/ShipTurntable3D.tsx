@@ -1,11 +1,25 @@
-import React, { useRef } from 'react';
+import React, { useRef, useLayoutEffect } from 'react';
 import * as THREE from 'three';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { ShipModel3D } from '@/features/battle/components/3d/ShipModel3D';
 import { SHIP_PRESETS, type ShipClass } from '@/types/game';
 
 interface ShipTurntable3DProps {
   shipClass: ShipClass;
+}
+
+function PreviewCamera({ length }: { length: number }) {
+  const { camera, size } = useThree();
+  useLayoutEffect(() => {
+    const perspective = camera as THREE.PerspectiveCamera;
+    const halfFov = THREE.MathUtils.degToRad(perspective.fov / 2);
+    const aspect = size.width / Math.max(1, size.height);
+    const distance = length * 0.72 / Math.tan(halfFov) / Math.min(1, aspect);
+    camera.position.set(distance * 0.35, length * 0.55, distance);
+    camera.lookAt(0, length * 0.4, 0);
+    perspective.updateProjectionMatrix();
+  }, [camera, size.width, size.height, length]);
+  return null;
 }
 
 const RotatingShip: React.FC<{ shipClass: ShipClass }> = ({ shipClass }) => {
@@ -31,14 +45,14 @@ export const ShipTurntable3D: React.FC<ShipTurntable3DProps> = ({ shipClass }) =
   return (
     <div className="w-full h-full relative">
       <Canvas
-        key={shipClass}
         camera={{ position: [0, camDist * 0.38, camDist], fov: 42 }}
         dpr={[1, 1.5]}
         gl={{ antialias: false, alpha: true, powerPreference: 'high-performance' }}
       >
-        <ambientLight intensity={0.9} />
+        <PreviewCamera length={config.length} />
+        <hemisphereLight args={['#dce9ee', '#715844', 1.8]} />
         <directionalLight position={[12, 22, 16]} intensity={2.6} />
-        <pointLight position={[-12, 6, -10]} color="#38bdf8" intensity={1.5} />
+        <directionalLight position={[-12, 10, -16]} color="#d5e5ed" intensity={1.8} />
 
         <RotatingShip shipClass={shipClass} />
 

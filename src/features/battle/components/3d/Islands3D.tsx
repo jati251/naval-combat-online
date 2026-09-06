@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import {
   type IslandDefinition,
@@ -51,9 +51,9 @@ export const Islands3D: React.FC<Islands3DProps> = React.memo(({ isMobile = fals
       sand: new THREE.MeshStandardMaterial({
         map: sandTexture,
         bumpMap: sandBumpTexture,
-        bumpScale: 0.22,
-        color: '#d8b47a',
-        roughness: 0.9,
+        bumpScale: 0.24,
+        vertexColors: true, // wet-to-dry gradient and tide wash
+        roughness: 0.88,
         metalness: 0.02,
       }),
       rock: new THREE.MeshStandardMaterial({
@@ -82,13 +82,17 @@ export const Islands3D: React.FC<Islands3DProps> = React.memo(({ isMobile = fals
         roughness: 0.72,
       }),
       shallows: new THREE.MeshStandardMaterial({
-        color: '#06b6d4',
+        vertexColors: true,
         transparent: true,
-        opacity: 0.5,
-        roughness: 0.2,
+        opacity: 0.72,
+        roughness: 0.12,
+        metalness: 0.08,
+        depthWrite: false,
+        side: THREE.DoubleSide,
       }),
     };
   }, [rockTexture, rockBumpTexture, rockRoughnessTexture, sandTexture, sandBumpTexture, vegTexture, darkRockTexture]);
+  useEffect(() => () => Object.values(materials).forEach((material) => material.dispose()), [materials]);
 
   return (
     <group>

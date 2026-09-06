@@ -3,8 +3,8 @@ import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import type { IslandDefinition } from './types';
 import { createIslandTerrainGeometry, createBeachGeometry, getIslandElevation, getTerrainSurfaceY } from './islandGeometries';
-import { PalmTree, JungleTree, TropicalBush } from './IslandVegetation';
-import { RockFormation } from './RockFormation';
+import { IslandFoliage } from './IslandFoliage';
+import { IslandRocks } from './RockFormation';
 import { CoastalSettlement } from './CoastalSettlement';
 import { KingstonCity } from './KingstonCity';
 import { MayanPyramid } from './MayanPyramid';
@@ -35,7 +35,7 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
   const treesRef = useRef<THREE.Group>(null);
   const detailRef = useRef<THREE.Group>(null);
 
-  // Procedural terrain geometry (unique per island)
+  // Procedural terrain & beach geometries (unique per island)
   const terrainGeo = useMemo(() => createIslandTerrainGeometry(island), [island]);
   const beachGeo = useMemo(() => createBeachGeometry(island), [island]);
 
@@ -203,81 +203,17 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
         </group>
       )}
 
-      {/* Coastal Rock Formations (High-Detail LOD) - Skipped for sea-arch */}
+      {/* Coastal Rock Formations (Instanced LOD: only 3 draw calls total) - Skipped for sea-arch */}
       {!isSeaArch && (
         <group ref={detailRef}>
-          {island.rocks.map(([rx, rz, rScale, rRot], rIdx) => {
-            const y = getTerrainSurfaceY(island, rx, rz);
-            return (
-              <RockFormation
-                key={`rock-${rIdx}`}
-                position={[rx, y, rz]}
-                scale={rScale}
-                rotation={rRot}
-              />
-            );
-          })}
-
-          {/* Tropical Undergrowth Bushes */}
-          {island.bushes.map(([bx, bz, bScale], bIdx) => {
-            const y = getTerrainSurfaceY(island, bx, bz);
-            return (
-              <TropicalBush
-                key={`bush-${bIdx}`}
-                position={[bx, y, bz]}
-                scale={bScale}
-                seed={bIdx + island.seed}
-              />
-            );
-          })}
+          <IslandRocks island={island} isMobile={isMobile} />
         </group>
       )}
 
       {/* Scattered Coconut Palms & Jungle Canopy Trees - Skipped for sea-arch */}
       {!isSeaArch && (
         <group ref={treesRef}>
-          {island.palms.map(([px, pz, pScale], pIdx) => {
-            const y = getTerrainSurfaceY(island, px, pz);
-            return (
-              <group key={`palm-group-${pIdx}`} position={[px, y, pz]}>
-                <PalmTree
-                  position={[0, 0, 0]}
-                  scale={pScale}
-                  seed={pIdx + island.seed}
-                />
-                {/* Low fern/bush sprout hugging palm base */}
-                <TropicalBush
-                  position={[0.5 * pScale, -0.1, 0.4 * pScale]}
-                  scale={pScale * 0.55}
-                  seed={pIdx * 7 + 3}
-                />
-              </group>
-            );
-          })}
-
-          {island.jungleTrees?.map(([jx, jz, jScale], jIdx) => {
-            const y = getTerrainSurfaceY(island, jx, jz);
-            return (
-              <group key={`jtree-group-${jIdx}`} position={[jx, y, jz]}>
-                <JungleTree
-                  position={[0, 0, 0]}
-                  scale={jScale}
-                  seed={jIdx + island.seed * 3}
-                />
-                {/* Compact undergrowth skirt tightly hugging trunk base */}
-                <TropicalBush
-                  position={[0.7 * jScale, -0.1, 0.5 * jScale]}
-                  scale={jScale * 0.65}
-                  seed={jIdx * 11 + 1}
-                />
-                <TropicalBush
-                  position={[-0.6 * jScale, -0.1, -0.6 * jScale]}
-                  scale={jScale * 0.6}
-                  seed={jIdx * 13 + 5}
-                />
-              </group>
-            );
-          })}
+          <IslandFoliage island={island} isMobile={isMobile} />
         </group>
       )}
 

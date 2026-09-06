@@ -2,7 +2,9 @@ import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import type { SubModelProps } from '../types';
+import { ShipWoodMaterial } from '../common/ShipWoodMaterial';
 import { useGameStore } from '@/stores/useGameStore';
+import { findShip } from '@/stores/selectors/shipLookup';
 import {
   createCurvedHullGeometry,
   createCurvedDeckGeometry,
@@ -37,7 +39,7 @@ export const GunboatModel: React.FC<SubModelProps> = React.memo(({
       if (isSelf) {
         targetAngle = store.localRudder;
       } else if (shipId) {
-        const ship = store.ships.find((s) => s.id === shipId);
+        const ship = findShip(store.ships, shipId);
         if (ship) targetAngle = ship.rudder;
       }
       tillerRef.current.rotation.y = THREE.MathUtils.damp(
@@ -93,7 +95,7 @@ export const GunboatModel: React.FC<SubModelProps> = React.memo(({
     <group>
       {/* Hydrodynamic Curved Skiff Hull */}
       <mesh geometry={hullGeo} castShadow receiveShadow>
-        <meshStandardMaterial map={hullTexture} roughness={0.65} side={THREE.DoubleSide} />
+        <ShipWoodMaterial map={hullTexture} />
       </mesh>
 
       {/* Vibrant Cyan Gunwale Sheer Trim Rail */}
@@ -103,11 +105,32 @@ export const GunboatModel: React.FC<SubModelProps> = React.memo(({
 
       {/* Curved Open Weatherdeck */}
       <mesh geometry={deckGeo} receiveShadow>
-        <meshStandardMaterial map={deckTexture} roughness={0.75} side={THREE.DoubleSide} />
+        <ShipWoodMaterial map={deckTexture} deck />
       </mesh>
 
-      {/* Raised Centerline Bow Swivel Cannon on Bronze Turntable */}
+      {/* Lashed Naval Sweeps / Oars along Gunwales (Classic Armed Skiff/Gunboat) */}
+      {[-1, 1].map((side) => (
+        <group key={`oar-rack-${side}`} position={[side * (width * 0.46), hullDepth + 0.18, 0]}>
+          <mesh rotation={[0, 0, side * 0.1]} castShadow={!isEnemy}>
+            <cylinderGeometry args={[0.03, 0.04, length * 0.55, 6]} />
+            <meshStandardMaterial color="#854d0e" roughness={0.8} />
+          </mesh>
+          <mesh position={[0, -0.04, -length * 0.25]} rotation={[Math.PI / 2, 0, 0]}>
+            <boxGeometry args={[0.12, 0.02, 0.45]} />
+            <meshStandardMaterial color="#713f12" roughness={0.85} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* Coiled Hawser Rope at Bow */}
+      <mesh position={[0, hullDepth + 0.1, length * 0.42]} rotation={[-Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.22, 0.05, 5, 16]} />
+        <meshStandardMaterial color="#aa9270" roughness={0.95} />
+      </mesh>
+
+      {/* Raised Centerline Bow Swivel Cannon on Bronze Turntable with Aiming Tiller */}
       <group position={[0, hullDepth + 0.55, length * 0.38]}>
+        {/* Swivel Gun Barrel */}
         <mesh rotation={[0, 0, 0]} castShadow>
           <cylinderGeometry args={[0.12, 0.18, 1.6, 8]} />
           <meshStandardMaterial color="#18181b" metalness={0.92} roughness={0.2} />
@@ -116,6 +139,11 @@ export const GunboatModel: React.FC<SubModelProps> = React.memo(({
         <mesh position={[0, -0.22, 0]}>
           <cylinderGeometry args={[0.32, 0.36, 0.35, 8]} />
           <meshStandardMaterial color="#d97706" metalness={0.85} roughness={0.25} />
+        </mesh>
+        {/* Aiming cascabel / tiller handle extending aft */}
+        <mesh position={[0, -0.06, -0.75]} rotation={[-0.3, 0, 0]}>
+          <cylinderGeometry args={[0.025, 0.03, 0.65, 6]} />
+          <meshStandardMaterial color="#78350f" roughness={0.7} />
         </mesh>
       </group>
 

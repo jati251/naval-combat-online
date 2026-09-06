@@ -11,7 +11,7 @@ export const MEXICO_ISLANDS: IslandDefinition[] = [
     z: 30,
     radius: 36,
     height: 28,
-    sandRadius: 50,
+    sandRadius: 0,
     type: 'sea-stack',
     seed: 681,
     elongation: {

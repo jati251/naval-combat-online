@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import React, { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
+import { findShip } from '@/stores/selectors/shipLookup';
 import type { CannonballSnapshot } from '@/types/game';
 import { getBroadsideTransform } from '../../utils/navalCombatMath';
 
@@ -86,7 +87,7 @@ export const CannonSystem3D: React.FC<CannonSystem3DProps> = React.memo(({ canno
     // 0. Update Ballistic Aiming Arc Trajectory (zero dynamic array allocation)
     if (isAiming && aimDirection !== 'none') {
       const { selfId, ships } = useGameStore.getState();
-      const selfShip = ships.find((s) => s.id === selfId);
+      const selfShip = findShip(ships, selfId);
       if (selfShip && !selfShip.isSunk && lineGeoRef.current) {
         const transform = getBroadsideTransform(
           selfShip.x,

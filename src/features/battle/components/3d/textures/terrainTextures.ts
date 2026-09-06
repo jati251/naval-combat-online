@@ -64,19 +64,20 @@ export function createCliffRockTexture(): THREE.CanvasTexture {
     for (let px = 0; px < S; px++) {
       const idx = (py * S + px) * 4;
 
-      // Multi-scale geological noise & horizontal sedimentary bedding
+      // Multi-scale geological noise & natural angled bedding planes (20° tilt)
       const n = fbmNoise(px * 0.012, py * 0.012, 5);
-      const strataPrimary = Math.sin(py * 0.045 + n * 9) * 0.18;
-      const strataSecondary = Math.sin(py * 0.012 + n * 3.5) * 0.12;
-      const verticalStreak = Math.sin(px * 0.05 + py * 0.008 + n * 5) * 0.08;
+      const angleStrata = px * 0.35 + py * 0.94;
+      const strataPrimary = Math.sin(angleStrata * 0.018 + n * 5.2) * 0.16;
+      const strataSecondary = Math.sin(angleStrata * 0.007 + n * 2.8) * 0.11;
+      const verticalChutes = Math.sin(px * 0.024 + n * 4.2) * (0.07 + n * 0.06);
 
       const warmTone = fbmNoise(px * 0.007 + 30, py * 0.007 + 30, 3);
       const ironOchre = fbmNoise(px * 0.01 + 80, py * 0.01 + 80, 4) > 0.62 ? 35 : 0;
       const slateShift = fbmNoise(px * 0.005 + 150, py * 0.005 + 150, 3) * 20;
 
-      let r = baseR + (n - 0.5) * 45 + (strataPrimary + strataSecondary) * 55 + verticalStreak * 30 + warmTone * 22 + ironOchre - slateShift * 0.4;
-      let g = baseG + (n - 0.5) * 38 + (strataPrimary + strataSecondary) * 42 + verticalStreak * 25 + warmTone * 15 + ironOchre * 0.6 - slateShift * 0.2;
-      let b = baseB + (n - 0.5) * 32 + (strataPrimary + strataSecondary) * 30 + verticalStreak * 18 + warmTone * 6 + slateShift * 0.6;
+      let r = baseR + (n - 0.5) * 42 + (strataPrimary + strataSecondary) * 50 + verticalChutes * 25 + warmTone * 22 + ironOchre - slateShift * 0.4;
+      let g = baseG + (n - 0.5) * 36 + (strataPrimary + strataSecondary) * 38 + verticalChutes * 20 + warmTone * 15 + ironOchre * 0.6 - slateShift * 0.2;
+      let b = baseB + (n - 0.5) * 30 + (strataPrimary + strataSecondary) * 28 + verticalChutes * 15 + warmTone * 6 + slateShift * 0.6;
 
       // Fine mineral grain
       const grain = (hashNoise(px * 3.7, py * 3.7) - 0.5) * 20;
@@ -93,9 +94,9 @@ export function createCliffRockTexture(): THREE.CanvasTexture {
   ctx.putImageData(imageData, 0, 0);
 
   // Deep vertical fissures and joint cracks
-  for (let c = 0; c < 30; c++) {
+  for (let c = 0; c < 26; c++) {
     const cx = Math.random() * S;
-    ctx.strokeStyle = `rgba(18, 14, 10, ${0.4 + Math.random() * 0.35})`;
+    ctx.strokeStyle = `rgba(18, 14, 10, ${0.45 + Math.random() * 0.35})`;
     ctx.lineWidth = 1.8 + Math.random() * 2.8;
     ctx.beginPath();
     ctx.moveTo(cx, 0);
@@ -107,7 +108,7 @@ export function createCliffRockTexture(): THREE.CanvasTexture {
     ctx.stroke();
 
     // Sharp sunlit fracture edge
-    ctx.strokeStyle = `rgba(165, 145, 120, ${0.25 + Math.random() * 0.15})`;
+    ctx.strokeStyle = `rgba(175, 155, 128, ${0.28 + Math.random() * 0.15})`;
     ctx.lineWidth = 1.0;
     ctx.beginPath();
     ctx.moveTo(cx + 1.8, 0);
@@ -119,29 +120,46 @@ export function createCliffRockTexture(): THREE.CanvasTexture {
     ctx.stroke();
   }
 
-  // Horizontal stepped ledges
-  for (let h = 0; h < 18; h++) {
-    const hy = Math.random() * S;
-    ctx.strokeStyle = `rgba(22, 16, 12, ${0.35 + Math.random() * 0.25})`;
-    ctx.lineWidth = 1.5 + Math.random() * 2.5;
+  // Segmented rock shelf ledges with authentic under-shelf cast shadows & top sunlit rims
+  for (let h = 0; h < 32; h++) {
+    const startX = Math.random() * S;
+    const shelfWidth = 140 + Math.random() * 260;
+    const startY = Math.random() * S;
+    const tilt = (Math.random() - 0.5) * 0.4;
+
+    // 1. Deep cast shadow underneath overhanging rock shelf
+    ctx.strokeStyle = `rgba(10, 8, 6, ${0.45 + Math.random() * 0.35})`;
+    ctx.lineWidth = 3.2 + Math.random() * 2.8;
     ctx.beginPath();
-    ctx.moveTo(0, hy);
-    let curY = hy;
-    for (let hx = 0; hx < S; hx += 20 + Math.random() * 20) {
-      curY += (Math.random() - 0.5) * 10;
-      ctx.lineTo(hx, curY);
+    ctx.moveTo(startX, startY + 2.4);
+    for (let seg = 0; seg < shelfWidth; seg += 18) {
+      const sx = (startX + seg) % S;
+      const sy = startY + 2.4 + seg * tilt + (Math.sin(seg * 0.08) * 4);
+      ctx.lineTo(sx, sy);
     }
     ctx.stroke();
 
-    // Top shelf highlight on ledge
-    ctx.strokeStyle = `rgba(180, 160, 130, 0.2)`;
+    // 2. Structural joint crevice
+    ctx.strokeStyle = `rgba(22, 16, 12, ${0.42 + Math.random() * 0.25})`;
+    ctx.lineWidth = 1.4 + Math.random() * 1.8;
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+    for (let seg = 0; seg < shelfWidth; seg += 18) {
+      const sx = (startX + seg) % S;
+      const sy = startY + seg * tilt + (Math.sin(seg * 0.08) * 4);
+      ctx.lineTo(sx, sy);
+    }
+    ctx.stroke();
+
+    // 3. Top sunlit highlight rim on shelf upper crest
+    ctx.strokeStyle = `rgba(220, 202, 172, ${0.32 + Math.random() * 0.22})`;
     ctx.lineWidth = 1.2;
     ctx.beginPath();
-    ctx.moveTo(0, hy - 1.5);
-    curY = hy - 1.5;
-    for (let hx = 0; hx < S; hx += 20 + Math.random() * 20) {
-      curY += (Math.random() - 0.5) * 10;
-      ctx.lineTo(hx, curY);
+    ctx.moveTo(startX, startY - 1.8);
+    for (let seg = 0; seg < shelfWidth; seg += 18) {
+      const sx = (startX + seg) % S;
+      const sy = startY - 1.8 + seg * tilt + (Math.sin(seg * 0.08) * 4);
+      ctx.lineTo(sx, sy);
     }
     ctx.stroke();
   }
@@ -226,11 +244,12 @@ export function createCliffRockBumpTexture(): THREE.CanvasTexture {
 
       const n1 = fbmNoise(px * 0.015, py * 0.015, 5);
       const n2 = fbmNoise(px * 0.04, py * 0.04, 3);
-      // Sharp horizontal strata relief
-      const strata = Math.sin(py * 0.045 + n1 * 8) * 0.28 + Math.sin(py * 0.09) * 0.12;
-      const grain = (hashNoise(px * 4.2, py * 4.2) - 0.5) * 35;
+      // Natural angled strata matching rock diffuse texture
+      const angleStrata = px * 0.35 + py * 0.94;
+      const strata = Math.sin(angleStrata * 0.018 + n1 * 5.2) * 0.24 + Math.sin(angleStrata * 0.007 + n1 * 2.8) * 0.12;
+      const grain = (hashNoise(px * 4.2, py * 4.2) - 0.5) * 32;
 
-      let val = 128 + (n1 - 0.5) * 80 + (n2 - 0.5) * 40 + strata * 75 + grain;
+      let val = 128 + (n1 - 0.5) * 70 + (n2 - 0.5) * 35 + strata * 65 + grain;
       val = Math.max(0, Math.min(255, val));
 
       data[idx]     = val;
@@ -242,7 +261,7 @@ export function createCliffRockBumpTexture(): THREE.CanvasTexture {
   ctx.putImageData(imageData, 0, 0);
 
   // Deep recessed cracks (dark in height map)
-  for (let c = 0; c < 28; c++) {
+  for (let c = 0; c < 26; c++) {
     const cx = Math.random() * S;
     ctx.strokeStyle = 'rgba(10, 10, 10, 0.75)';
     ctx.lineWidth = 2.0 + Math.random() * 2.5;
@@ -268,17 +287,34 @@ export function createCliffRockBumpTexture(): THREE.CanvasTexture {
     ctx.stroke();
   }
 
-  // Stepped shelf ledges
-  for (let h = 0; h < 16; h++) {
-    const hy = Math.random() * S;
-    ctx.strokeStyle = 'rgba(20, 20, 20, 0.6)';
-    ctx.lineWidth = 2.0 + Math.random() * 2.0;
+  // Segmented shelf ledges (raised top lip + recessed bottom joint)
+  for (let h = 0; h < 26; h++) {
+    const startX = Math.random() * S;
+    const shelfWidth = 140 + Math.random() * 260;
+    const startY = Math.random() * S;
+    const tilt = (Math.random() - 0.5) * 0.4;
+
+    // Recessed joint underneath
+    ctx.strokeStyle = 'rgba(20, 20, 20, 0.65)';
+    ctx.lineWidth = 2.4;
     ctx.beginPath();
-    ctx.moveTo(0, hy);
-    let curY = hy;
-    for (let hx = 0; hx < S; hx += 20 + Math.random() * 20) {
-      curY += (Math.random() - 0.5) * 10;
-      ctx.lineTo(hx, curY);
+    ctx.moveTo(startX, startY + 2);
+    for (let seg = 0; seg < shelfWidth; seg += 18) {
+      const sx = (startX + seg) % S;
+      const sy = startY + 2 + seg * tilt + (Math.sin(seg * 0.08) * 4);
+      ctx.lineTo(sx, sy);
+    }
+    ctx.stroke();
+
+    // Raised top lip
+    ctx.strokeStyle = 'rgba(240, 240, 240, 0.55)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(startX, startY - 1.5);
+    for (let seg = 0; seg < shelfWidth; seg += 18) {
+      const sx = (startX + seg) % S;
+      const sy = startY - 1.5 + seg * tilt + (Math.sin(seg * 0.08) * 4);
+      ctx.lineTo(sx, sy);
     }
     ctx.stroke();
   }
@@ -417,15 +453,27 @@ export function createBeachSandTexture(): THREE.CanvasTexture {
     ctx.fill();
   }
 
-  // Soft tidal ripple lines
-  ctx.strokeStyle = 'rgba(175, 142, 95, 0.14)';
-  ctx.lineWidth = 1.8;
-  for (let r = 0; r < S; r += 24 + Math.random() * 16) {
+  // Soft tidal ripple lines with micro cast-shadows and sunlit crests
+  for (let r = 0; r < S; r += 28 + Math.random() * 20) {
+    // 1. Trough shadow
+    ctx.strokeStyle = 'rgba(120, 95, 65, 0.20)';
+    ctx.lineWidth = 2.2;
     ctx.beginPath();
     for (let x = 0; x < S; x += 4) {
       const ry = r + Math.sin(x * 0.018 + r * 0.1) * 7;
-      if (x === 0) ctx.moveTo(x, ry);
-      else ctx.lineTo(x, ry);
+      if (x === 0) ctx.moveTo(x, ry + 1.2);
+      else ctx.lineTo(x, ry + 1.2);
+    }
+    ctx.stroke();
+
+    // 2. Crest sunlit highlight
+    ctx.strokeStyle = 'rgba(255, 245, 220, 0.22)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    for (let x = 0; x < S; x += 4) {
+      const ry = r + Math.sin(x * 0.018 + r * 0.1) * 7;
+      if (x === 0) ctx.moveTo(x, ry - 0.8);
+      else ctx.lineTo(x, ry - 0.8);
     }
     ctx.stroke();
   }

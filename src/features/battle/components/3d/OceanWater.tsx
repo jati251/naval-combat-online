@@ -1,7 +1,8 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
+import { findShip } from '@/stores/selectors/shipLookup';
 import { getMapConfig } from '../../maps';
 
 interface OceanWaterProps {
@@ -33,7 +34,9 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
     for (let i = 0; i < 12; i++) {
       if (i < islands.length) {
         const isl = islands[i];
-        list.push(new THREE.Vector4(isl.x, isl.z, isl.sandRadius, isl.seed));
+        // For sea-arch formations (navigable stone arches), suppress sandRadius in ocean water
+        const sandR = isl.settlement?.type === 'sea-arch' ? 0 : isl.sandRadius;
+        list.push(new THREE.Vector4(isl.x, isl.z, sandR, isl.seed));
       } else {
         list.push(new THREE.Vector4(9999, 9999, 0, 0));
       }
@@ -299,15 +302,15 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
                 float scaleX = uIslandParams[i].x;
                 float scaleZ = uIslandParams[i].y;
                 vec2 scaledPos = vec2(localPos.x / scaleX, localPos.y / scaleZ);
+                float distScaled = length(scaledPos);
                 float angle = atan(scaledPos.y, scaledPos.x);
 
                 float coastNoise = (sin(angle * 5.0 + seed * 0.1) * 0.08 +
                                     sin(angle * 11.0 + seed * 0.3) * 0.04 +
                                     sin(angle * 17.0 + seed * 0.7) * 0.02) * sandR;
 
-                float scaleFactor = length(vec2(cos(angle) * scaleX, sin(angle) * scaleZ));
-                float worldBeachR = (sandR * 1.2 + coastNoise) * scaleFactor;
-                float distToSand = length(localPos) - worldBeachR;
+                float radialScale = length(vec2(cos(angle) * scaleX, sin(angle) * scaleZ));
+                float distToSand = (distScaled - (sandR * 1.16 + coastNoise)) * radialScale;
                 minDistToShore = min(minDistToShore, distToSand);
               } else {
                 float distToCenter = sqrt(centerDistSq);
@@ -315,7 +318,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
                 float coastNoise = (sin(angle * 5.0 + seed * 0.1) * 0.08 +
                                     sin(angle * 11.0 + seed * 0.3) * 0.04 +
                                     sin(angle * 17.0 + seed * 0.7) * 0.02) * sandR;
-                float distToSand = distToCenter - (sandR * 1.18 + coastNoise);
+                float distToSand = distToCenter - (sandR * 1.16 + coastNoise);
                 minDistToShore = min(minDistToShore, distToSand);
               }
             }
@@ -327,22 +330,22 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
           vec3 deepOceanColor = mix(uDeepWaterColor, uMidWaterColor, 0.14 + 0.86 * waveMod);
           vec3 waterColor = deepOceanColor;
 
-          if (minDistToShore < 60.0) {
+          if (minDistToShore < 72.0) {
             // Normalized depth gradient: 0.0 at shore water edge, 1.0 at deep sea
-            float shoreDepthT = smoothstep(0.0, 48.0, max(0.0, minDistToShore));
+            float shoreDepthT = smoothstep(0.0, 54.0, max(0.0, minDistToShore));
 
             // AC Black Flag Tropical Palette (blended smoothly into nocturnal waters at night)
-            vec3 caribbeanTurquoise = mix(vec3(0.02, 0.62, 0.76), vec3(0.05, 0.22, 0.36), uIsNight);
-            vec3 crystalCyan        = mix(vec3(0.05, 0.80, 0.86), vec3(0.08, 0.27, 0.42), uIsNight);
-            vec3 goldenSandBed      = mix(vec3(0.82, 0.68, 0.44), vec3(0.25, 0.23, 0.20), uIsNight);
+            vec3 caribbeanTurquoise = mix(vec3(0.02, 0.64, 0.76), vec3(0.05, 0.22, 0.36), uIsNight);
+            vec3 crystalCyan        = mix(vec3(0.06, 0.82, 0.88), vec3(0.08, 0.27, 0.42), uIsNight);
+            vec3 goldenSandBed      = mix(vec3(0.84, 0.70, 0.46), vec3(0.25, 0.23, 0.20), uIsNight);
 
             // Smooth continuous water column transition
-            vec3 reefTransition = mix(crystalCyan, caribbeanTurquoise, smoothstep(2.5, 18.0, minDistToShore));
-            reefTransition = mix(reefTransition, uMidWaterColor, smoothstep(18.0, 46.0, minDistToShore));
+            vec3 reefTransition = mix(crystalCyan, caribbeanTurquoise, smoothstep(2.0, 22.0, minDistToShore));
+            reefTransition = mix(reefTransition, uMidWaterColor, smoothstep(22.0, 54.0, minDistToShore));
 
-            // Optical seabed transmission: near the sand edge (< 6m), sand floor is visible through crystal water
-            float sandVisibility = 1.0 - smoothstep(-1.0, 6.0, minDistToShore);
-            vec3 shoreBlend = mix(reefTransition, goldenSandBed * 0.40 + crystalCyan * 0.60, sandVisibility * (uIsNight > 0.5 ? 0.40 : 0.85));
+            // Optical seabed transmission: near the sand edge (< 8m), sand floor is visible through crystal water
+            float sandVisibility = 1.0 - smoothstep(-0.5, 7.5, minDistToShore);
+            vec3 shoreBlend = mix(reefTransition, goldenSandBed * 0.42 + crystalCyan * 0.58, sandVisibility * (uIsNight > 0.5 ? 0.35 : 0.82));
 
             waterColor = mix(shoreBlend, deepOceanColor, shoreDepthT);
           } else {
@@ -390,29 +393,40 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
           specIntensity *= (1.0 - smoothstep(90.0, 360.0, camDist));
           baseShaded += uSunColor * specIntensity;
 
-          // 7. DISTANCE LOD: Organic Lacy Cellular Sea Foam on Wave Crests (180m desktop, 80m mobile)
+          // 7. DISTANCE LOD: Organic Sea Foam on Wave Crests (180m desktop, 80m mobile)
           float crestFoam = 0.0;
           float crestBreak = smoothstep(0.68, 1.25, vWaveHeight) * smoothstep(0.06, 0.28, vCrestPinch);
           float maxFoamDist = uIsMobile > 0.5 ? 80.0 : 180.0;
           if (crestBreak > 0.01 && camDist < maxFoamDist) {
-            float foamCell = cellularFoam(vWorldPosition.xz * 0.85 + vec2(uTime * 0.05, -uTime * 0.03));
-            float bubbleWeb = smoothstep(0.08, 0.45, foamCell) * (1.0 - smoothstep(0.50, 0.88, foamCell));
-            float solidHead = 1.0 - smoothstep(0.0, 0.22, foamCell);
-            float lacyFoam = clamp(bubbleWeb * 1.5 + solidHead * 0.9, 0.0, 1.0);
+            float foamCell = cellularFoam(vWorldPosition.xz * 0.75 + vec2(uTime * 0.05, -uTime * 0.03));
+            float foamStreak = sin(vWorldPosition.x * 1.2 + vWorldPosition.z * 0.8 + uTime * 1.5) * 0.5 + 0.5;
+            float solidFroth = 1.0 - smoothstep(0.12, 0.42, foamCell);
+            float lacyFoam = clamp(solidFroth * 0.85 + foamStreak * 0.35, 0.0, 1.0);
             float foamDistFade = 1.0 - smoothstep(maxFoamDist * 0.5, maxFoamDist, camDist);
             crestFoam = crestBreak * lacyFoam * foamDistFade;
           }
 
-          // 8. DISTANCE LOD: Natural Shoreline Breaking Surf Foam (Skipped on mobile and beyond 280m)
+          // 8. Shoreline Breaking Surf Foam Wavelets (Visible on desktop & mobile within 320m)
+          // Authentic Caribbean swash: narrow translucent wavelet band right at the water contact line.
+          // Zero foam inside the island mass (minDistToShore < -0.3), soft natural wavelets extending out to ~3.6m.
           float totalShoreFoam = 0.0;
-          if (uIsMobile < 0.5 && minDistToShore < 6.0 && camDist < 280.0) {
-            float shoreDist = max(0.0, minDistToShore);
-            float surfPulse = sin(uTime * 1.8 - shoreDist * 0.85) * 0.5 + 0.5;
-            float edgeFoam = 1.0 - smoothstep(0.0, 3.6, shoreDist);
-            float swashWave = smoothstep(0.5, 3.2, shoreDist) * (1.0 - smoothstep(3.2, 5.0, shoreDist)) * surfPulse;
-            float shoreCell = cellularFoam(vWorldPosition.xz * 0.55 + vec2(uTime * 0.03, -uTime * 0.02));
-            float shoreFroth = smoothstep(0.12, 0.55, shoreCell);
-            totalShoreFoam = clamp((edgeFoam * 0.9 + swashWave * 0.6) * (0.4 + shoreFroth * 0.6), 0.0, 1.0);
+          if (minDistToShore > -0.5 && minDistToShore < 6.0 && camDist < 320.0) {
+            // Shore contact band: peaks right along the water edge (0.0 to 1.6m), cleanly drops to 0 inside land
+            float contactBand = smoothstep(-0.5, 0.2, minDistToShore) * (1.0 - smoothstep(1.0, 3.6, minDistToShore));
+            
+            // Rolling tidal surf wavelets
+            float surfPulse = sin(uTime * 2.0 - minDistToShore * 1.5) * 0.5 + 0.5;
+            float swashWave = smoothstep(0.3, 1.8, minDistToShore) * (1.0 - smoothstep(2.0, 4.5, minDistToShore)) * surfPulse;
+            
+            // Cellular organic froth structure (avoids flat solid sheets of white)
+            float frothDetail = cellularFoam(vWorldPosition.xz * 1.2 + vec2(uTime * 0.08, -uTime * 0.06));
+            float lacyFroth = 1.0 - smoothstep(0.12, 0.50, frothDetail);
+            
+            // Soft shore foam noise modulation
+            float shoreNoise = sin(vWorldPosition.x * 0.9 + vWorldPosition.z * 0.7 + uTime * 0.4) * 0.2 + 0.8;
+            
+            // Cap to soft translucent wavelet intensity (0.34 max) so crystal turquoise water remains visible
+            totalShoreFoam = clamp((contactBand * 0.55 + swashWave * 0.45) * (0.55 + lacyFroth * 0.45) * shoreNoise, 0.0, 0.35);
           }
 
           // 9. Dynamic Broad-Spreading Ship Wake (Skipped on mobile)
@@ -449,8 +463,8 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
             }
           }
 
-          // Combine all foam layers naturally
-          float totalFoam = clamp(crestFoam * 0.75 + totalShoreFoam * 0.85 + shipWakeFoam * 0.9, 0.0, 1.0);
+          // Combine all foam layers naturally (crest foam + shore wavelets + wake)
+          float totalFoam = clamp(crestFoam * 0.75 + totalShoreFoam + shipWakeFoam * 0.9, 0.0, 1.0);
           vec3 finalColor = mix(baseShaded, uFoamColor, totalFoam);
 
           // 10. Horizon Fog Blend - Exponential squared Beer-Lambert decay
@@ -458,12 +472,16 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
           finalColor = mix(finalColor, uSkyHorizonColor, horizonFog);
 
           gl_FragColor = vec4(finalColor, 1.0);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
         }
       `,
       transparent: false,
       wireframe: false,
     });
-  }, [isNight, activeMap, islandPositions, islandParams]);
+  }, [isNight, isMobile, activeMap, islandPositions, islandParams]);
+  useEffect(() => () => shaderMaterial.dispose(), [shaderMaterial]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
 
   // Smoothed real-time ship state refs to prevent 30Hz server-tick wake stutter
   const smoothShipPos = useRef(new THREE.Vector3(0, 0, 0));
@@ -477,7 +495,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
 
       // Extract self ship state in real-time with smooth frame-by-frame interpolation
       const { ships, selfId } = useGameStore.getState();
-      const selfShip = ships.find((s) => s.id === selfId);
+      const selfShip = findShip(ships, selfId);
       if (selfShip && !selfShip.isSunk) {
         // High-precision smooth position and heading tracking without GC allocations
         smoothShipPos.current.x = THREE.MathUtils.lerp(smoothShipPos.current.x, selfShip.x, Math.min(1.0, 24 * delta));

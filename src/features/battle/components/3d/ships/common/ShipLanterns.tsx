@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import { useGameStore } from '@/stores/useGameStore';
 import { SHIP_PRESETS, type ShipClass } from '@/types/game';
@@ -60,6 +60,11 @@ export const ShipLanterns: React.FC<ShipLanternsProps> = React.memo(({ shipClass
       }),
     };
   }, [isNight]);
+  useEffect(() => () => {
+    amberGlassMat.dispose();
+    leftRedGlassMat.dispose();
+    rightGreenGlassMat.dispose();
+  }, [amberGlassMat, leftRedGlassMat, rightGreenGlassMat]);
 
   // Lantern offsets based on ship dimensions
   const sternZ = -halfLen * 0.88;
@@ -87,12 +92,12 @@ export const ShipLanterns: React.FC<ShipLanternsProps> = React.memo(({ shipClass
                 blending={THREE.AdditiveBlending}
               />
             </mesh>
-            <pointLight
+            {!isEnemy && <pointLight
               color="#ffaa22"
-              intensity={isEnemy ? 1.5 : 2.4}
-              distance={isEnemy ? 14 : 20}
+              intensity={2.4}
+              distance={20}
               decay={1.5}
-            />
+            />}
           </>
         )}
       </group>

@@ -12,6 +12,7 @@
     "start": "node server/dist/index.js",
     "preview": "vite preview",
     "lint": "eslint .",
+    "test": "node --import tsx --test tests/unit/*.test.ts",
     "lint:fix": "eslint . --fix",
     "prepare": "node -e \"if (process.env.NODE_ENV !== 'production') try { require('child_process').execSync('pnpm exec husky', { stdio: 'inherit' }); } catch {}\""
   },

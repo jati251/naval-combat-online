@@ -1,6 +1,19 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import type { IslandSettlement } from './types';
+import { MaritimeCargo } from '../props/MaritimeCargo';
+import type { InstanceTransform } from '../shared/StaticInstances';
+
+const kingstonQuayCargo: InstanceTransform[] = [
+  { position: [-8, 2.9, 16], rotation: [0, 0.4, 0] },
+  { position: [-6.5, 2.9, 15.2], rotation: [0, -0.3, 0] },
+  { position: [4, 2.9, 16.5], rotation: [0, 0.6, 0] },
+  { position: [5.5, 2.9, 15], rotation: [0, -0.2, 0] },
+  { position: [9, 2.9, 16], rotation: [0, 0.15, 0] },
+  { position: [11, 2.9, 14.5], rotation: [0, 0.8, 0] },
+  { position: [-2, 1.8, 22], rotation: [0, 0.2, 0] },
+  { position: [2, 1.8, 24], rotation: [0, -0.4, 0] },
+];
 
 interface KingstonCityProps {
   settlement: IslandSettlement;
@@ -79,6 +92,7 @@ export const KingstonCity: React.FC<KingstonCityProps> = React.memo(({ settlemen
       }),
     };
   }, []);
+  useEffect(() => () => Object.values(mats).forEach((material) => material.dispose()), [mats]);
 
   return (
     <group position={[settlement.x, 0, settlement.z]} rotation={[0, settlement.rotationY, 0]}>
@@ -300,12 +314,8 @@ export const KingstonCity: React.FC<KingstonCityProps> = React.memo(({ settlemen
           </group>
         ))}
 
-        {/* Cargo Barrels & Crates on Quay */}
-        {[-6, 4, 8].map((cx, idx) => (
-          <mesh key={`crate-cluster-${idx}`} position={[cx, 3.2, 2]} material={mats.timberDeck}>
-            <boxGeometry args={[1.2, 1.0, 1.2]} />
-          </mesh>
-        ))}
+        {/* Rich Batched Maritime Cargo on Quay & Jetty */}
+        <MaritimeCargo placements={kingstonQuayCargo} distance={isMobile ? 120 : 220} />
       </group>
     </group>
   );

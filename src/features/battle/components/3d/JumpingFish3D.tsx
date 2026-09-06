@@ -2,6 +2,7 @@ import React, { useRef, useMemo } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
+import { findShip } from '@/stores/selectors/shipLookup';
 import { navalAudio } from '../../services/navalAudio';
 
 /**
@@ -196,7 +197,7 @@ export const JumpingFish3D: React.FC = React.memo(() => {
       const freeFish = fishStates.current.find((f) => !f.active);
       if (freeFish) {
         const { ships, selfId } = useGameStore.getState();
-        const selfShip = ships.find((s) => s.id === selfId);
+        const selfShip = findShip(ships, selfId);
         const center = selfShip ? new THREE.Vector3(selfShip.x, 0, selfShip.z) : state.camera.position;
 
         const angle = Math.random() * Math.PI * 2;

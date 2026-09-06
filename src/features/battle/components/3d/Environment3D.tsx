@@ -1,8 +1,9 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
 import { getMapConfig } from '../../maps';
+import { SceneSunLight } from './rendering/SceneSunLight';
 
 export const FOG_COLOR = '#70b2db';
 export const NIGHT_FOG_COLOR = '#0d2444';
@@ -386,6 +387,8 @@ const CaribbeanSkyDome: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({ 
           }
 
           gl_FragColor = vec4(sky, 1.0);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
         }
       `,
       side: THREE.BackSide,
@@ -397,6 +400,7 @@ const CaribbeanSkyDome: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({ 
     }
     return mat;
   }, [isNight, isMobile, atmosphere]);
+  useEffect(() => () => shaderMaterial.dispose(), [shaderMaterial]);
 
   useFrame((state) => {
     if (meshRef.current) {
@@ -418,8 +422,6 @@ export const Environment3D: React.FC<{ isMobile?: boolean }> = React.memo(({ isM
   const activeMap = useMemo(() => getMapConfig(currentMapId), [currentMapId]);
   const atmosphere = activeMap.atmosphere;
 
-  const lightPos: [number, number, number] = [70, 140, -50];
-
   const fogCfg = getFogConfig(isMobile, isNight, isNight ? atmosphere.fogColorNight : atmosphere.fogColorDay);
 
   return (
@@ -431,20 +433,10 @@ export const Environment3D: React.FC<{ isMobile?: boolean }> = React.memo(({ isM
       <fogExp2 attach="fog" args={[fogCfg.color, fogCfg.density]} />
 
       {/* Celestial Directional Light (Brilliant Sun vs Silver Moon) */}
-      <directionalLight
-        position={lightPos}
+      <SceneSunLight
         intensity={isNight ? 1.75 : 2.85}
         color={isNight ? atmosphere.moonColorNight : atmosphere.sunColorDay}
-        castShadow={!isMobile}
-        shadow-mapSize-width={isMobile ? 0 : 1024}
-        shadow-mapSize-height={isMobile ? 0 : 1024}
-        shadow-camera-near={10}
-        shadow-camera-far={250}
-        shadow-camera-left={-75}
-        shadow-camera-right={75}
-        shadow-camera-top={75}
-        shadow-camera-bottom={-75}
-        shadow-bias={-0.0003}
+        shadows={!isMobile}
       />
 
       {/* Ambient Fill Lighting - Rich atmospheric moonlight wash */}
