@@ -164,34 +164,51 @@ export function createCliffRockTexture(): THREE.CanvasTexture {
     ctx.stroke();
   }
 
-  // Tropical cliff moss & lichen growth patches
-  for (let m = 0; m < 55; m++) {
+  // Tropical cliff moss, hanging jungle vines & lichen growth patches (AC Black Flag cliff foliage)
+  for (let m = 0; m < 110; m++) {
     const mx = Math.random() * S;
     const my = Math.random() * S;
-    const mr = 18 + Math.random() * 60;
+    const mr = 24 + Math.random() * 75;
     const mossType = Math.random();
 
     const mGrad = ctx.createRadialGradient(mx, my, mr * 0.08, mx, my, mr);
-    if (mossType < 0.45) {
-      // Warm tropical golden-olive moss
-      mGrad.addColorStop(0, `rgba(85, 122, 28, ${0.45 + Math.random() * 0.25})`);
-      mGrad.addColorStop(0.55, `rgba(68, 96, 22, ${0.28 + Math.random() * 0.15})`);
-      mGrad.addColorStop(1, 'rgba(68, 96, 22, 0)');
-    } else if (mossType < 0.8) {
-      // Sunlit golden-lime lichen
-      mGrad.addColorStop(0, `rgba(165, 162, 46, ${0.35 + Math.random() * 0.2})`);
-      mGrad.addColorStop(0.55, `rgba(125, 130, 34, ${0.2 + Math.random() * 0.1})`);
-      mGrad.addColorStop(1, 'rgba(125, 130, 34, 0)');
+    if (mossType < 0.50) {
+      // Deep tropical rainforest emerald moss
+      mGrad.addColorStop(0, `rgba(38, 82, 18, ${0.60 + Math.random() * 0.25})`);
+      mGrad.addColorStop(0.55, `rgba(48, 98, 22, ${0.40 + Math.random() * 0.18})`);
+      mGrad.addColorStop(1, 'rgba(48, 98, 22, 0)');
+    } else if (mossType < 0.82) {
+      // Sunlit golden-lime tropical lichen
+      mGrad.addColorStop(0, `rgba(135, 168, 38, ${0.48 + Math.random() * 0.22})`);
+      mGrad.addColorStop(0.55, `rgba(98, 134, 28, ${0.30 + Math.random() * 0.15})`);
+      mGrad.addColorStop(1, 'rgba(98, 134, 28, 0)');
     } else {
-      // Dark warm cliff dampness
-      mGrad.addColorStop(0, `rgba(38, 44, 22, ${0.4 + Math.random() * 0.2})`);
-      mGrad.addColorStop(0.6, `rgba(45, 48, 26, ${0.2 + Math.random() * 0.1})`);
-      mGrad.addColorStop(1, 'rgba(45, 48, 26, 0)');
+      // Dark damp rainforest humus crevice
+      mGrad.addColorStop(0, `rgba(26, 42, 16, ${0.55 + Math.random() * 0.2})`);
+      mGrad.addColorStop(0.6, `rgba(32, 52, 20, ${0.30 + Math.random() * 0.12})`);
+      mGrad.addColorStop(1, 'rgba(32, 52, 20, 0)');
     }
     ctx.fillStyle = mGrad;
     ctx.beginPath();
     ctx.arc(mx, my, mr, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  // Cascading creeping jungle vine tendrils hanging down cliff faces
+  for (let v = 0; v < 35; v++) {
+    const vx = Math.random() * S;
+    const startY = Math.random() * (S * 0.75);
+    const vineLen = 40 + Math.random() * 110;
+    ctx.strokeStyle = `rgba(34, 76, 16, ${0.55 + Math.random() * 0.3})`;
+    ctx.lineWidth = 1.4 + Math.random() * 2.2;
+    ctx.beginPath();
+    ctx.moveTo(vx, startY);
+    let curX = vx;
+    for (let cy = startY; cy < startY + vineLen; cy += 8 + Math.random() * 8) {
+      curX += (Math.random() - 0.5) * 12;
+      ctx.lineTo(curX, cy);
+    }
+    ctx.stroke();
   }
 
   // Quartz & calcite mineral veins

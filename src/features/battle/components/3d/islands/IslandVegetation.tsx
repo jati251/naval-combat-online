@@ -124,18 +124,18 @@ export function createPalmTreeSpriteTexture(): THREE.CanvasTexture {
     ctx.restore();
   };
 
-  // Warm tropical yellowish-green fronds (no mint/cyan)
+  // Warm tropical deep olive-green fronds (no bright pale lime)
   const frondConfigs = [
-    { a: -2.35, l: 88, d: 0.9,  cS: '#384d16', cL: '#618822', cH: '#8eb830' },
-    { a: -1.95, l: 98, d: 0.82, cS: '#4a671a', cL: '#729e26', cH: '#a6d23a' },
-    { a: -1.45, l: 104, d: 0.72, cS: '#55761e', cL: '#84b22c', cH: '#bee846' },
-    { a: -0.95, l: 100, d: 0.76, cS: '#4a671a', cL: '#7ea828', cH: '#b5de40' },
-    { a: -0.45, l: 94, d: 0.85, cS: '#3f5716', cL: '#6e9824', cH: '#9fcb34' },
-    { a: 0.05,  l: 84, d: 0.95, cS: '#384d16', cL: '#5c8020', cH: '#8ab42e' },
-    { a: -2.75, l: 80, d: 1.05, cS: '#344714', cL: '#54761e', cH: '#7da62a' },
-    { a: -1.2,  l: 95, d: 0.68, cS: '#52721d', cL: '#8ab62e', cH: '#c8ee4c' },
-    { a: -0.7,  l: 90, d: 0.74, cS: '#476219', cL: '#76a028', cH: '#b0da3c' },
-    { a: -1.65, l: 96, d: 0.78, cS: '#4c6b1b', cL: '#7da82a', cH: '#bae444' },
+    { a: -2.35, l: 88, d: 0.9,  cS: '#18260a', cL: '#284012', cH: '#3c5e1a' },
+    { a: -1.95, l: 98, d: 0.82, cS: '#1e2e0c', cL: '#304c16', cH: '#466c20' },
+    { a: -1.45, l: 104, d: 0.72, cS: '#22340e', cL: '#365418', cH: '#4e7624' },
+    { a: -0.95, l: 100, d: 0.76, cS: '#1e2e0c', cL: '#325016', cH: '#4a7222' },
+    { a: -0.45, l: 94, d: 0.85, cS: '#1a280a', cL: '#2c4614', cH: '#42661e' },
+    { a: 0.05,  l: 84, d: 0.95, cS: '#18260a', cL: '#284012', cH: '#3c5e1a' },
+    { a: -2.75, l: 80, d: 1.05, cS: '#162208', cL: '#243a10', cH: '#365416' },
+    { a: -1.2,  l: 95, d: 0.68, cS: '#20320e', cL: '#345218', cH: '#4c7422' },
+    { a: -0.7,  l: 90, d: 0.74, cS: '#1c2c0c', cL: '#2e4a14', cH: '#446a1e' },
+    { a: -1.65, l: 96, d: 0.78, cS: '#1e300c', cL: '#304e16', cH: '#487020' },
   ];
 
   for (const f of frondConfigs) {
@@ -157,12 +157,12 @@ export function createPalmTreeSpriteTexture(): THREE.CanvasTexture {
   };
 
   const baseLeaves = [
-    { ox: 122, oy: 315, a: -1.1, l: 42, c: '#48631a' },
-    { ox: 134, oy: 315, a: 1.05, l: 44, c: '#54741e' },
-    { ox: 120, oy: 312, a: -0.7, l: 52, c: '#6d9426' },
-    { ox: 136, oy: 312, a: 0.65, l: 54, c: '#7aa22a' },
-    { ox: 126, oy: 308, a: -0.3, l: 58, c: '#8eb632' },
-    { ox: 130, oy: 308, a: 0.25, l: 60, c: '#9fc836' },
+    { ox: 122, oy: 315, a: -1.1, l: 42, c: '#1e300c' },
+    { ox: 134, oy: 315, a: 1.05, l: 44, c: '#24380e' },
+    { ox: 120, oy: 312, a: -0.7, l: 52, c: '#2c4412' },
+    { ox: 136, oy: 312, a: 0.65, l: 54, c: '#304c14' },
+    { ox: 126, oy: 308, a: -0.3, l: 58, c: '#365416' },
+    { ox: 130, oy: 308, a: 0.25, l: 60, c: '#3c5e18' },
   ];
   for (const bl of baseLeaves) {
     drawBaseLeaf(bl.ox, bl.oy, bl.a, bl.l, bl.c);
@@ -175,7 +175,7 @@ export function createPalmTreeSpriteTexture(): THREE.CanvasTexture {
 
 /**
  * Procedural Lush Rainforest Canopy Tree with Dense Understory Skirt
- * Multi-tiered golden-green canopy extending from crown down to ground-level foliage skirt.
+ * Deep, dark tropical rainforest canopy (AC Black Flag aesthetic).
  */
 export function createJungleTreeSpriteTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
@@ -187,7 +187,7 @@ export function createJungleTreeSpriteTexture(): THREE.CanvasTexture {
   ctx.clearRect(0, 0, 256, 320);
 
   // 1. Broad tropical hardwood trunk with lateral limbs & buttress roots
-  ctx.fillStyle = '#3a2516';
+  ctx.fillStyle = '#22150a';
   ctx.beginPath();
   // Buttress root base spreading wide
   ctx.moveTo(105, 318);
@@ -203,7 +203,7 @@ export function createJungleTreeSpriteTexture(): THREE.CanvasTexture {
   ctx.fill();
 
   // Bark highlight
-  ctx.fillStyle = '#523722';
+  ctx.fillStyle = '#382414';
   ctx.beginPath();
   ctx.moveTo(122, 318);
   ctx.lineTo(125, 175);
@@ -249,24 +249,24 @@ export function createJungleTreeSpriteTexture(): THREE.CanvasTexture {
     ctx.closePath();
     ctx.fill();
 
-    // Secondary sunlit leaf dappling on top
+    // Subtle sunlit leaf dappling on top
     if (highlightCol) {
       ctx.fillStyle = highlightCol;
       ctx.beginPath();
-      ctx.ellipse(-rx * 0.22, -ry * 0.26, rx * 0.45, ry * 0.35, -0.3, 0, Math.PI * 2);
+      ctx.ellipse(-rx * 0.22, -ry * 0.26, rx * 0.38, ry * 0.28, -0.3, 0, Math.PI * 2);
       ctx.fill();
     }
 
     ctx.restore();
   };
 
-  // ── RICH CARIBBEAN RAINFOREST COLOR PALETTE ──
-  const cDark     = '#162e0c'; // Deep understory shadow
-  const cDeepMid  = '#264714'; // Lower-mid rainforest canopy
-  const cMid      = '#3a661c'; // Rich tropical foliage emerald
-  const cLight    = '#548827'; // Sunlit leaf foliage
-  const cSunlit   = '#72a832'; // Canopy dome highlight
-  const cGoldTip  = '#94c840'; // Sunlit crest glint
+  // ── DEEP CARIBBEAN RAINFOREST COLOR PALETTE (AC BLACK FLAG LUSH JUNGLE) ──
+  const cDark     = '#0a1606'; // Deep interior canopy & understory shadow
+  const cDeepMid  = '#12240b'; // Lower canopy dense emerald
+  const cMid      = '#1a3612'; // Rich tropical jungle green
+  const cLight    = '#264c1a'; // Diffuse rainforest foliage
+  const cSunlit   = '#346022'; // Sunlit canopy foliage (deep rich emerald)
+  const cGoldTip  = '#44782a'; // Subtle canopy crest glint (restrained, no pale mint)
 
   // 3. TIER 1: Upper Canopy (Summit Crest)
   drawCanopyCluster(128, 48, 52, 38, cDark, cMid, cLight, cGoldTip);
@@ -302,13 +302,12 @@ export function createJungleTreeSpriteTexture(): THREE.CanvasTexture {
   }
 
   // 7. TIER 4: DENSE UNDERSTORY JUNGLE SKIRT AT BASE OF TRUNK
-  // Broadleaf tropical ferns, elephant ears, and shrubs covering the ground beneath the tree!
   drawCanopyCluster(84, 285, 46, 28, cDark, cDeepMid, cMid, cLight);
   drawCanopyCluster(172, 288, 48, 30, cDark, cDeepMid, cMid, cLight);
   drawCanopyCluster(128, 292, 54, 26, cDark, cDeepMid, cMid, cSunlit);
   drawCanopyCluster(54, 305, 36, 18, cDark, cDeepMid, cMid, cLight);
   drawCanopyCluster(202, 306, 38, 18, cDark, cDeepMid, cMid, cLight);
-  drawCanopyCluster(128, 312, 60, 16, cDeepMid, cMid, cSunlit, cGoldTip);
+  drawCanopyCluster(128, 312, 60, 16, cDeepMid, cMid, cLight, cSunlit);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.needsUpdate = true;
@@ -358,26 +357,26 @@ export function createTropicalBushSpriteTexture(): THREE.CanvasTexture {
     ctx.restore();
   };
 
-  // Warm deep tropical foliage layers from background to foreground
+  // Deep, dark tropical rainforest undergrowth palette (AC Black Flag aesthetic)
   const bushFronds = [
-    // Background layer (deeper forest shadow)
-    { a: -1.35, l: 110, w: 26, s: '#1e2c0c', lC: '#2a3d12', h: '#3e581a' },
-    { a: 1.30,  l: 112, w: 26, s: '#1e2c0c', lC: '#2a3d12', h: '#3e581a' },
-    { a: -1.05, l: 128, w: 30, s: '#24340e', lC: '#344b16', h: '#4c6c20' },
-    { a: 1.02,  l: 130, w: 30, s: '#24340e', lC: '#344b16', h: '#4c6c20' },
-    // Mid layer (rich emerald foliage)
-    { a: -0.72, l: 145, w: 34, s: '#2c3e10', lC: '#425f1a', h: '#5e8424' },
-    { a: 0.68,  l: 148, w: 34, s: '#2c3e10', lC: '#425f1a', h: '#5e8424' },
-    { a: -0.42, l: 156, w: 36, s: '#364c14', lC: '#527420', h: '#729e2c' },
-    { a: 0.38,  l: 158, w: 36, s: '#364c14', lC: '#527420', h: '#729e2c' },
-    { a: -0.15, l: 164, w: 38, s: '#3c5416', lC: '#5c8224', h: '#80ae32' },
-    { a: 0.12,  l: 166, w: 38, s: '#3c5416', lC: '#5c8224', h: '#80ae32' },
-    // Foreground spreading fan (sunlit foliage tips)
-    { a: -0.88, l: 122, w: 32, s: '#405c18', lC: '#648e28', h: '#8ab836' },
-    { a: 0.85,  l: 125, w: 32, s: '#405c18', lC: '#648e28', h: '#8ab836' },
-    { a: -0.55, l: 136, w: 34, s: '#48661a', lC: '#709c2c', h: '#96c43c' },
-    { a: 0.52,  l: 138, w: 34, s: '#48661a', lC: '#709c2c', h: '#96c43c' },
-    { a: 0.0,   l: 146, w: 36, s: '#50701c', lC: '#7aa830', h: '#a2d242' },
+    // Background layer (deepest undergrowth shadow)
+    { a: -1.35, l: 110, w: 26, s: '#101c06', lC: '#1a2c0a', h: '#2c4612' },
+    { a: 1.30,  l: 112, w: 26, s: '#101c06', lC: '#1a2c0a', h: '#2c4612' },
+    { a: -1.05, l: 128, w: 30, s: '#142208', lC: '#20340c', h: '#345216' },
+    { a: 1.02,  l: 130, w: 30, s: '#142208', lC: '#20340c', h: '#345216' },
+    // Mid layer (rich jungle foliage)
+    { a: -0.72, l: 145, w: 34, s: '#18280a', lC: '#284010', h: '#3c5e1a' },
+    { a: 0.68,  l: 148, w: 34, s: '#18280a', lC: '#284010', h: '#3c5e1a' },
+    { a: -0.42, l: 156, w: 36, s: '#1e300c', lC: '#304c14', h: '#466c1e' },
+    { a: 0.38,  l: 158, w: 36, s: '#1e300c', lC: '#304c14', h: '#466c1e' },
+    { a: -0.15, l: 164, w: 38, s: '#22360e', lC: '#365416', h: '#4e7822' },
+    { a: 0.12,  l: 166, w: 38, s: '#22360e', lC: '#365416', h: '#4e7822' },
+    // Foreground spreading fan (sunlit foliage tips - deep olive emerald)
+    { a: -0.88, l: 122, w: 32, s: '#243810', lC: '#3c5c18', h: '#548226' },
+    { a: 0.85,  l: 125, w: 32, s: '#243810', lC: '#3c5c18', h: '#548226' },
+    { a: -0.55, l: 136, w: 34, s: '#284012', lC: '#42661a', h: '#5c8e2a' },
+    { a: 0.52,  l: 138, w: 34, s: '#284012', lC: '#42661a', h: '#5c8e2a' },
+    { a: 0.0,   l: 146, w: 36, s: '#2c4614', lC: '#48701e', h: '#649a2e' },
   ];
 
   for (const f of bushFronds) {
@@ -401,14 +400,98 @@ junglePlaneGeo.translate(0, 3.6, 0);
 export const bushPlaneGeo = new THREE.PlaneGeometry(2.6, 1.8);
 bushPlaneGeo.translate(0, 0.9, 0);
 
+// Optimized small undergrowth bush sprite geometry (1.8m wide x 1.3m tall)
+export const smallBushPlaneGeo = new THREE.PlaneGeometry(1.8, 1.3);
+smallBushPlaneGeo.translate(0, 0.65, 0);
+
+/**
+ * Procedural Compact Tropical Small Bush / Shrub Sprite Texture (AC Black Flag Understory)
+ * Deep, dark tropical palmetto & broadleaf shrub cluster.
+ */
+export function createSmallBushSpriteTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 192;
+  canvas.height = 144;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return new THREE.CanvasTexture(canvas);
+
+  ctx.clearRect(0, 0, 192, 144);
+
+  const cx = 96;
+  const cy = 138;
+
+  // Multi-lobed lush tropical shrub mound
+  const drawLeafBlade = (angle: number, len: number, wid: number, colStem: string, colLeaf: string, colTip: string) => {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angle);
+
+    const grad = ctx.createLinearGradient(0, 0, 0, -len);
+    grad.addColorStop(0, '#0c1606');
+    grad.addColorStop(0.3, colStem);
+    grad.addColorStop(0.7, colLeaf);
+    grad.addColorStop(1, colTip);
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(wid * 1.1, -len * 0.45, wid * 0.25, -len);
+    ctx.quadraticCurveTo(0, -len * 1.06, -wid * 0.25, -len);
+    ctx.quadraticCurveTo(-wid * 1.1, -len * 0.45, 0, 0);
+    ctx.fill();
+
+    // Central leaf spine
+    ctx.strokeStyle = colStem;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, -len * 0.92);
+    ctx.stroke();
+
+    ctx.restore();
+  };
+
+  // 3-Tier layered dense tropical leaves (Deep AC Black Flag Rainforest green)
+  const smallFronds = [
+    // Back tier (dark shadow leaves)
+    { a: -1.38, l: 78, w: 18, s: '#0c1606', lC: '#16260a', t: '#243c10' },
+    { a: 1.35,  l: 80, w: 18, s: '#0c1606', lC: '#16260a', t: '#243c10' },
+    { a: -1.10, l: 94, w: 22, s: '#101c08', lC: '#1c300c', t: '#2c4814' },
+    { a: 1.08,  l: 96, w: 22, s: '#101c08', lC: '#1c300c', t: '#2c4814' },
+    // Mid tier (deep emerald jungle leaves)
+    { a: -0.78, l: 108, w: 25, s: '#14240a', lC: '#243c10', t: '#385818' },
+    { a: 0.74,  l: 110, w: 25, s: '#14240a', lC: '#243c10', t: '#385818' },
+    { a: -0.45, l: 118, w: 26, s: '#182c0c', lC: '#2c4814', t: '#42681c' },
+    { a: 0.42,  l: 120, w: 26, s: '#182c0c', lC: '#2c4814', t: '#42681c' },
+    { a: -0.18, l: 124, w: 27, s: '#1c320e', lC: '#325216', t: '#4a7420' },
+    { a: 0.16,  l: 126, w: 27, s: '#1c320e', lC: '#325216', t: '#4a7420' },
+    // Front spreading fan (sunlit tips - deep foliage olive)
+    { a: -0.92, l: 88, w: 22, s: '#203610', lC: '#3a5c18', t: '#528024' },
+    { a: 0.88,  l: 90, w: 22, s: '#203610', lC: '#3a5c18', t: '#528024' },
+    { a: -0.58, l: 102, w: 24, s: '#243c12', lC: '#40661c', t: '#5a8c28' },
+    { a: 0.55,  l: 104, w: 24, s: '#243c12', lC: '#40661c', t: '#5a8c28' },
+    { a: 0.0,   l: 112, w: 26, s: '#284414', lC: '#467020', t: '#649a2e' },
+  ];
+
+  for (const sf of smallFronds) {
+    drawLeafBlade(sf.a, sf.l, sf.w, sf.s, sf.lC, sf.t);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
+}
+
 let cachedPalmMat: THREE.MeshStandardMaterial | null = null;
 let cachedJungleMat: THREE.MeshStandardMaterial | null = null;
 let cachedBushMat: THREE.MeshStandardMaterial | null = null;
+let cachedSmallBushMat: THREE.MeshStandardMaterial | null = null;
 
 export function getVegMaterials(): {
   palmMat: THREE.MeshStandardMaterial;
   jungleMat: THREE.MeshStandardMaterial;
   bushMat: THREE.MeshStandardMaterial;
+  smallBushMat: THREE.MeshStandardMaterial;
 } {
   if (!cachedPalmMat) {
     cachedPalmMat = new THREE.MeshStandardMaterial({
@@ -416,8 +499,8 @@ export function getVegMaterials(): {
       transparent: false,
       alphaTest: 0.28,
       depthWrite: true,
-      roughness: 0.68,
-      metalness: 0.02,
+      roughness: 0.82,
+      metalness: 0.0,
       side: THREE.DoubleSide,
     });
     cachedJungleMat = new THREE.MeshStandardMaterial({
@@ -425,8 +508,8 @@ export function getVegMaterials(): {
       transparent: false,
       alphaTest: 0.32,
       depthWrite: true,
-      roughness: 0.72,
-      metalness: 0.02,
+      roughness: 0.88,
+      metalness: 0.0,
       side: THREE.DoubleSide,
     });
     cachedBushMat = new THREE.MeshStandardMaterial({
@@ -434,8 +517,17 @@ export function getVegMaterials(): {
       transparent: false,
       alphaTest: 0.25,
       depthWrite: true,
-      roughness: 0.74,
-      metalness: 0.01,
+      roughness: 0.88,
+      metalness: 0.0,
+      side: THREE.DoubleSide,
+    });
+    cachedSmallBushMat = new THREE.MeshStandardMaterial({
+      map: createSmallBushSpriteTexture(),
+      transparent: false,
+      alphaTest: 0.26,
+      depthWrite: true,
+      roughness: 0.88,
+      metalness: 0.0,
       side: THREE.DoubleSide,
     });
   }
@@ -443,6 +535,7 @@ export function getVegMaterials(): {
     palmMat: cachedPalmMat!,
     jungleMat: cachedJungleMat!,
     bushMat: cachedBushMat!,
+    smallBushMat: cachedSmallBushMat!,
   };
 }
 

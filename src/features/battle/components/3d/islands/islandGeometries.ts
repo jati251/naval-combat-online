@@ -192,18 +192,18 @@ export function createIslandTerrainGeometry(
   const colors = new Float32Array(pos.count * 3);
   const color = new THREE.Color();
 
-  // Natural Deep Tropical Palette
-  const colSunlitTurf  = new THREE.Color('#4c721c'); // Sunlit tropical grass turf (warm golden-olive)
-  const colWarmMeadow  = new THREE.Color('#385614'); // Rich forest turf
-  const colDenseRain   = new THREE.Color('#223a0d'); // Deep rainforest floor moss
-  const colGoldenRidge = new THREE.Color('#647422'); // Sun-baked knoll ridge
-  const colSoil        = new THREE.Color('#48361e'); // Warm fertile tropical soil & loam
-  const colLichen      = new THREE.Color('#506024'); // Clinging warm rock moss/lichen
+  // Natural Deep Caribbean Tropical Palette (AC Black Flag aesthetic)
+  const colSunlitTurf  = new THREE.Color('#326818'); // Sunlit tropical grass turf (rich vibrant green)
+  const colWarmMeadow  = new THREE.Color('#255012'); // Rich rainforest canopy green
+  const colDenseRain   = new THREE.Color('#163a0a'); // Deep jungle emerald moss
+  const colGoldenRidge = new THREE.Color('#3d6e1b'); // Vibrant knoll ridge
+  const colSoil        = new THREE.Color('#3c2c1a'); // Warm fertile tropical soil & loam
+  const colLichen      = new THREE.Color('#385c18'); // Clinging warm rock moss/lichen
   const colSandBase    = new THREE.Color('#8a7952'); // Sandy coastal earth base
   // Authentic Rock Tints (Preserves the 1024x1024 rock texture with strata & fissures)
-  const colRockCliff   = new THREE.Color('#ded7cc'); // Clean, sharp exposed rock face (lets texture pop)
-  const colRockDark    = new THREE.Color('#948c82'); // Weathered dark basalt / crags
-  const colPeakCrag    = new THREE.Color('#6b645c'); // Alpine mountain summits & ridges
+  const colRockCliff   = new THREE.Color('#9c9082'); // Weathered Caribbean limestone cliff
+  const colRockDark    = new THREE.Color('#685e54'); // Dark volcanic crags
+  const colPeakCrag    = new THREE.Color('#504840'); // Exposed rock scarps
 
   for (let i = 0; i < pos.count; i++) {
     const y = pos.getY(i);
@@ -245,33 +245,25 @@ export function createIslandTerrainGeometry(
     }
 
     // High-frequency ridge and ravine perturbation:
-    // Mountain crests and erosion channels expose rock even on gentler slopes
-    const ridgeNoise = ridgedNoise(pos.getX(i) * 0.08 + pos.getZ(i) * 0.08 + seed * 0.4) * 0.13;
+    const ridgeNoise = ridgedNoise(pos.getX(i) * 0.08 + pos.getZ(i) * 0.08 + seed * 0.4) * 0.10;
     const effectiveNy = ny - ridgeNoise;
 
-    // Calibrated Slope-Aware Splatting (based on real cone slope range ny ~ 0.80 - 0.96):
-    // effectiveNy >= 0.93 -> Flat plateau / gentle valley: lush vegetation
-    // effectiveNy <= 0.85 -> Steep cliff face: bare rock strata & crags
-    // 0.85 < effectiveNy < 0.93 -> Transitional ledges, clinging lichen, exposed soil
-    const summitRockBias = t > 0.65 ? (t - 0.65) / 0.35 : 0;
-    const slopeRock = new THREE.Color().lerpColors(colRockCliff, colPeakCrag, t * 0.7 + summitRockBias * 0.3);
-
-    if (effectiveNy < 0.85) {
-      // Sheer cliff face / jagged mountain crags: full exposed rock texture!
-      const cliffT = Math.max(0, Math.min(1, effectiveNy / 0.85));
+    // AC Black Flag Tropical Island Terrain Splatting:
+    // Caribbean mountains are dense lush rainforest over all slopes, hillsides, and summits.
+    // Rock is only exposed on sheer vertical cliffs (ny < 0.48) and steep rocky scarps (ny < 0.70).
+    if (effectiveNy < 0.48) {
+      // Sheer vertical cliff face / crags: exposed rock strata
+      const cliffT = Math.max(0, Math.min(1, effectiveNy / 0.48));
       color.lerpColors(colPeakCrag, colRockCliff, cliffT);
-    } else if (effectiveNy < 0.93) {
-      // Steep slope with rock ledges, clinging lichen & fertile loam
-      const transT = (effectiveNy - 0.85) / 0.08;
-      const transSoilRock = new THREE.Color().lerpColors(colSoil, slopeRock, 0.6);
-      const transRock = new THREE.Color().lerpColors(transSoilRock, colLichen, transT);
-      color.lerpColors(transRock, baseGreen, transT * 0.65);
+    } else if (effectiveNy < 0.70) {
+      // Steep slope with rock ledges, creeping jungle vines, moss, and fertile soil
+      const transT = (effectiveNy - 0.48) / 0.22;
+      const transSoilRock = new THREE.Color().lerpColors(colSoil, colRockCliff, 0.45);
+      const transMossRock = new THREE.Color().lerpColors(transSoilRock, colLichen, transT);
+      color.lerpColors(transMossRock, baseGreen, transT * 0.80);
     } else {
-      // Gentle slope / lush plateau
+      // Slopes, valleys, ridges, and summit plateaus: rich, deep verdant rainforest canopy!
       color.copy(baseGreen);
-      if (summitRockBias > 0) {
-        color.lerp(slopeRock, summitRockBias * 0.7);
-      }
     }
 
     // Coastal waterline blend at base (t < 0.12)
