@@ -1,6 +1,7 @@
 import React from 'react';
 import { Users, Swords, Anchor, Moon, Sun } from 'lucide-react';
 import type { RoomInfo } from '@/types';
+import { getMapConfig } from '@/features/battle/maps';
 
 interface RoomCardProps {
   room: RoomInfo;
@@ -33,7 +34,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({ room, onJoin }) => {
 
           {/* Map Badge */}
           <span className="text-[8px] font-cinzel font-bold px-1.5 py-0.2 rounded bg-black/40 text-amber-200/80 border border-amber-600/30 hidden xs:inline">
-            {room.mapId === 'kingston' ? 'Kingston' : room.mapId === 'mexico' ? 'Mexico' : 'Caribbean'}
+            {getMapConfig(room.mapId).name}
           </span>
 
           {/* Time Badge */}

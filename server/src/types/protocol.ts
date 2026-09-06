@@ -199,7 +199,7 @@ export interface RoomPlayer {
 }
 
 export type TimeOfDay = 'DAY' | 'NIGHT';
-export type MapId = 'caribbean' | 'kingston' | 'mexico';
+export type MapId = 'caribbean' | 'kingston' | 'mexico' | 'english-channel' | 'greece' | 'nusantara';
 
 export interface RoomInfo {
   id: string;

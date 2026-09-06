@@ -265,8 +265,9 @@ export class SecurityGuard {
   }
 
   public static validateMapId(mapId: unknown): MapId {
-    if (mapId === 'kingston' || mapId === 'mexico') {
-      return mapId;
+    const valid: readonly string[] = ['caribbean', 'kingston', 'mexico', 'english-channel', 'greece', 'nusantara'];
+    if (typeof mapId === 'string' && valid.includes(mapId)) {
+      return mapId as MapId;
     }
     return 'caribbean';
   }

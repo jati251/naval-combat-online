@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OceanWater } from "./OceanWater";
@@ -20,6 +20,7 @@ import { AdaptiveResolution } from "./rendering/AdaptiveResolution";
 import { NavigationBuoys3D } from "./props/NavigationBuoys3D";
 import { NavalPostProcessing } from "./rendering/NavalPostProcessing";
 import { setFrameId } from "../../utils/frustumCuller";
+import { getMapConfig } from "../../maps";
 
 import { useGraphicsQuality } from "@/features/settings";
 
@@ -82,7 +83,13 @@ const CannonEntities: React.FC<{ isMobile: boolean }> = React.memo(
 export const NavalCanvas: React.FC = React.memo(() => {
   const timeOfDay = useGameStore((s) => s.timeOfDay);
   const isNight = timeOfDay === "NIGHT";
-  const skyClearColor = isNight ? "#050d1e" : "#0284c7";
+  const currentMapId = useGameStore(
+    (s) => s.currentMapId || s.currentRoom?.mapId || "caribbean",
+  );
+  const activeMap = useMemo(() => getMapConfig(currentMapId), [currentMapId]);
+  const skyClearColor = isNight
+    ? activeMap.atmosphere.skyTopNight
+    : activeMap.atmosphere.skyTopDay;
 
   const isMobile = useMobileViewport();
   const { profile } = useGraphicsQuality();
