@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import * as THREE from 'three';
 import { ShipHelm } from './ShipHelm';
+import { useGameStore } from '@/stores/useGameStore';
 
 interface SternCabinGalleryProps {
   position: [number, number, number];
@@ -38,9 +39,10 @@ export const SternCabinGallery: React.FC<SternCabinGalleryProps> = React.memo(({
   includeHelm = true,
   helmZOffset = 0.08,
   helmYOffset = 0.25,
-  lanternCount = 2,
+  lanternCount = 3,
   hasBalcony = false,
 }) => {
+  const isNight = useGameStore((s) => s.timeOfDay === 'NIGHT');
   const windowPositions = useMemo(() => {
     const list: number[] = [];
     if (windowCount === 1) return [0];
@@ -110,14 +112,15 @@ export const SternCabinGallery: React.FC<SternCabinGalleryProps> = React.memo(({
 
             {windowPositions.map((wx, wIdx) => (
               <group key={`win-${tierIdx}-${wIdx}`} position={[wx, tierY, -depth * 0.508]}>
-                {/* Leaded Window Glass Pane (illuminated warm cabin glow) */}
+                {/* Leaded Window Glass Pane (illuminated warm cabin glow at night, antique leaded glass in day) */}
                 <mesh rotation={[0, Math.PI, 0]}>
                   <planeGeometry args={[windowWidth, tierHeight]} />
                   <meshStandardMaterial
-                    color="#fef08a"
-                    emissive="#f59e0b"
-                    emissiveIntensity={1.2}
-                    roughness={0.15}
+                    color={isNight ? '#fef08a' : '#2b3846'}
+                    emissive={isNight ? '#f59e0b' : '#000000'}
+                    emissiveIntensity={isNight ? 1.4 : 0}
+                    roughness={0.2}
+                    metalness={0.1}
                     side={THREE.DoubleSide}
                   />
                 </mesh>
@@ -134,12 +137,18 @@ export const SternCabinGallery: React.FC<SternCabinGalleryProps> = React.memo(({
         );
       })}
 
-      {/* Heavy Ornamental Stern Lanterns */}
+      {/* Heavy Ornamental Stern Lanterns (Antique brass by day, warm amber fire at night) */}
       {(lanternCount === 3 ? [-width * 0.36, 0, width * 0.36] : [-width * 0.34, width * 0.34]).map((lx, lIdx) => (
         <group key={`lan-${lIdx}`} position={[lx, height * 0.5 + 0.15, -depth * 0.52]}>
           <mesh castShadow={!isEnemy}>
             <cylinderGeometry args={[0.12, 0.18, 0.46, 6]} />
-            <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={1.4} metalness={0.85} roughness={0.3} />
+            <meshStandardMaterial
+              color={isNight ? '#ffb703' : '#4a3820'}
+              emissive={isNight ? '#f59e0b' : '#000000'}
+              emissiveIntensity={isNight ? 1.8 : 0}
+              metalness={isNight ? 0.7 : 0.85}
+              roughness={0.3}
+            />
           </mesh>
           <mesh position={[0, -0.24, 0.05]} rotation={[0.4, 0, 0]}>
             <cylinderGeometry args={[0.03, 0.04, 0.28, 4]} />

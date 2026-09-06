@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Volume2, VolumeX, LogOut, Swords, Skull, Smartphone, Trophy } from 'lucide-react';
+import { Volume2, VolumeX, LogOut, Swords, Skull, Smartphone, Trophy, Sliders } from 'lucide-react';
 import { useGameStore } from '@/stores/useGameStore';
 import { useModalStore } from '@/stores/useModalStore';
+import { useSettingsStore } from '@/features/settings';
 import { networkClient } from '@/services/networkClient';
 import { navalAudio } from '../../services/navalAudio';
 import { useShipControls } from '../../hooks/useShipControls';
@@ -393,6 +394,16 @@ export const BattleHUD: React.FC = () => {
             ) : (
               <Volume2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-300" />
             )}
+          </button>
+
+          {/* Settings Modal Toggle */}
+          <button
+            onClick={() => useSettingsStore.getState().openSettings()}
+            className="p-1 sm:p-1.5 rounded-full bg-stone-900/80 hover:bg-stone-800 border border-amber-600/30 text-amber-300 hover:text-amber-100 hover:border-amber-400 transition cursor-pointer"
+            title="Admiralty Graphic & Acoustic Settings"
+            aria-label="Open Settings"
+          >
+            <Sliders className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-300" />
           </button>
 
           {/* Surrender / Return to Harbor Seal */}

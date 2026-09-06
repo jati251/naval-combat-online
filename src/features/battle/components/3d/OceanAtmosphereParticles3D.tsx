@@ -41,10 +41,10 @@ function getParticleTexture(): THREE.CanvasTexture {
  * Ultra-Lightweight Ambient Sea Spray & Sunlit Marine Particles
  * 200 sparkling water droplets & golden sun motes floating around the ship.
  */
-export const OceanAtmosphereParticles3D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobile = false }) => {
+export const OceanAtmosphereParticles3D: React.FC<{ isMobile?: boolean; particleCount?: number }> = React.memo(({ isMobile = false, particleCount }) => {
   const texture = useMemo(() => getParticleTexture(), []);
   const pointsRef = useRef<THREE.Points>(null);
-  const count = isMobile ? 80 : 180;
+  const count = particleCount ?? (isMobile ? 80 : 180);
 
   const [positions, initialOffsets] = useMemo(() => {
     const pos = new Float32Array(count * 3);

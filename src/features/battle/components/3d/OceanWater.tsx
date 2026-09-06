@@ -4,13 +4,15 @@ import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
 import { findShip } from '@/stores/selectors/shipLookup';
 import { getMapConfig } from '../../maps';
+import type { GraphicProfile } from '@/features/settings';
 
 interface OceanWaterProps {
   size?: number;
   isMobile?: boolean;
+  profile?: GraphicProfile;
 }
 
-export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, isMobile = false }) => {
+export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, isMobile = false, profile }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const timeOfDay = useGameStore((s) => s.timeOfDay);
   const isNight = timeOfDay === 'NIGHT';
@@ -19,9 +21,13 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
   const activeMap = useMemo(() => getMapConfig(currentMapId), [currentMapId]);
   const islands = activeMap.islands;
 
-  // Responsive vertex grid density: 120x120 on mobile (14,400 quads) for crisp wave crests,
-  // 160x160 on desktop (25,600 quads) for rich geometric Gerstner swell curves with low GPU overhead.
-  const segments = isMobile ? 120 : 160;
+  const qualityTier = profile?.id ?? (isMobile ? 'fast' : 'balanced');
+
+  // Responsive vertex grid density:
+  // - fast: 90x90 quads (8,100 quads)
+  // - balanced: 160x160 quads (25,600 quads)
+  // - performance (Ultra Realism): 240x240 quads (57,600 quads) for high-density physical Gerstner curves
+  const segments = profile ? profile.waterSegments : (isMobile ? 120 : 160);
   const geometry = useMemo(() => {
     const geo = new THREE.PlaneGeometry(size, size, segments, segments);
     geo.rotateX(-Math.PI / 2);
@@ -34,7 +40,6 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
     for (let i = 0; i < 12; i++) {
       if (i < islands.length) {
         const isl = islands[i];
-        // For sea-arch formations (navigable stone arches), suppress sandRadius in ocean water
         const sandR = isl.settlement?.type === 'sea-arch' ? 0 : isl.sandRadius;
         list.push(new THREE.Vector4(isl.x, isl.z, sandR, isl.seed));
       } else {
@@ -61,8 +66,64 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
     return list;
   }, [islands]);
 
-  // Assassin's Creed IV: Black Flag & Sea of Thieves AAA Ocean Shader
+  // Modular Gerstner wave spectrum based on quality tier
+  const waveShaderChunk = useMemo(() => {
+    if (qualityTier === 'fast') {
+      return `
+        const int NUM_WAVES = 2;
+        const Wave waves[NUM_WAVES] = Wave[NUM_WAVES](
+          Wave(vec2(1.0, 0.28), 0.11, 92.0, 2.6),
+          Wave(vec2(0.55, 0.85), 0.085, 48.0, 2.1)
+        );
+      `;
+    }
+    if (qualityTier === 'performance') {
+      return `
+        const int NUM_WAVES = 8;
+        const Wave waves[NUM_WAVES] = Wave[NUM_WAVES](
+          // 1. Primary rolling Caribbean swell
+          Wave(vec2(1.0, 0.28), 0.11, 96.0, 2.6),
+          // 2. Secondary diagonal cross-swell
+          Wave(vec2(0.55, 0.85), 0.085, 52.0, 2.1),
+          // 3. Intermediate surface swell
+          Wave(vec2(-0.35, 0.92), 0.065, 32.0, 1.8),
+          // 4. Moderate wind swell
+          Wave(vec2(-0.75, -0.65), 0.045, 19.0, 1.5),
+          // 5. Transverse chop harmonic
+          Wave(vec2(0.88, -0.47), 0.035, 12.5, 1.3),
+          // 6. Opposing sea ripple
+          Wave(vec2(-0.25, 0.96), 0.025, 8.2, 1.1),
+          // 7. Surface capillary swell
+          Wave(vec2(0.62, 0.78), 0.018, 5.4, 0.95),
+          // 8. Micro-wave interference
+          Wave(vec2(-0.85, 0.52), 0.012, 3.6, 0.82)
+        );
+      `;
+    }
+    // Default / Balanced (4 Gerstner waves)
+    return `
+      const int NUM_WAVES = 4;
+      const Wave waves[NUM_WAVES] = Wave[NUM_WAVES](
+        Wave(vec2(1.0, 0.28), 0.11, 92.0, 2.6),
+        Wave(vec2(0.55, 0.85), 0.085, 48.0, 2.1),
+        Wave(vec2(-0.35, 0.92), 0.065, 28.0, 1.7),
+        Wave(vec2(-0.75, -0.65), 0.045, 18.0, 1.4)
+      );
+    `;
+  }, [qualityTier]);
+
+  // Assassin's Creed IV: Black Flag & Sea of Thieves AAA Ocean Shader (Modularized)
   const shaderMaterial = useMemo(() => {
+    const fogDensity = profile
+      ? (isNight ? profile.fogDensityNight : profile.fogDensityDay)
+      : (isMobile ? (isNight ? 0.0015 : 0.0013) : (isNight ? 0.0011 : 0.0010));
+
+    const horizonCutoff = profile?.waterShader.horizonLODCutoff ?? (qualityTier === 'fast' ? 650.0 : 950.0);
+    const maxCapDist = profile?.waterShader.capillaryDist ?? (qualityTier === 'fast' ? 70.0 : qualityTier === 'performance' ? 320.0 : 200.0);
+    const maxSSSDist = profile?.waterShader.sssDist ?? (qualityTier === 'fast' ? 60.0 : qualityTier === 'performance' ? 320.0 : 220.0);
+    const maxFoamDist = profile?.waterShader.foamDist ?? (qualityTier === 'fast' ? 70.0 : qualityTier === 'performance' ? 280.0 : 180.0);
+    const wakesEnabled = profile ? (profile.waterShader.wakesEnabled ? 1.0 : 0.0) : (isMobile ? 0.0 : 1.0);
+
     return new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
@@ -81,9 +142,15 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
         uShipPos: { value: new THREE.Vector3(0, 0, 0) },
         uShipHeading: { value: 0 },
         uShipSpeed: { value: 0 },
-        uIsMobile: { value: isMobile ? 1.0 : 0.0 },
+        uIsMobile: { value: qualityTier === 'fast' ? 1.0 : 0.0 },
         uIsNight: { value: isNight ? 1.0 : 0.0 },
-        uFogDensity: { value: isMobile ? (isNight ? 0.0015 : 0.0013) : (isNight ? 0.0011 : 0.0010) },
+        uFogDensity: { value: fogDensity },
+        uQualityTier: { value: qualityTier === 'fast' ? 0.0 : qualityTier === 'performance' ? 2.0 : 1.0 },
+        uHorizonCutoff: { value: horizonCutoff },
+        uMaxCapDist: { value: maxCapDist },
+        uMaxSSSDist: { value: maxSSSDist },
+        uMaxFoamDist: { value: maxFoamDist },
+        uWakesEnabled: { value: wakesEnabled },
       },
       vertexShader: `
         uniform float uTime;
@@ -99,23 +166,9 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
           float speed;
         };
 
-        // 4 Primary Gerstner wave swells synchronized with server simulation
-        // Sub-grid micro ripples are handled in fragment shader capillary normals
-        // to eliminate Nyquist aliasing and swimming during camera rotation.
-        const int NUM_WAVES = 4;
-        const Wave waves[NUM_WAVES] = Wave[NUM_WAVES](
-          // 1. Dominant Caribbean rolling swell
-          Wave(vec2(1.0, 0.28), 0.11, 92.0, 2.6),
-          // 2. Secondary diagonal cross-swell
-          Wave(vec2(0.55, 0.85), 0.085, 48.0, 2.1),
-          // 3. Intermediate surface swell
-          Wave(vec2(-0.35, 0.92), 0.065, 28.0, 1.7),
-          // 4. Moderate wind swell
-          Wave(vec2(-0.75, -0.65), 0.045, 18.0, 1.4)
-        );
+        ${waveShaderChunk}
 
         void main() {
-          // Compute world origin before displacement so waves stay rock-solid when mesh follows camera
           vec4 worldOrigin = modelMatrix * vec4(position, 1.0);
           vec3 pos = worldOrigin.xyz;
           vec3 displaced = pos;
@@ -153,7 +206,6 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
             binormal.y += dz * (w.steepness * cosP);
             binormal.z -= dz * dz * (w.steepness * sinP);
 
-            // Accumulate crest steepness for physics-based foam detection
             pinchAccum += w.steepness * cosP;
           }
 
@@ -186,6 +238,12 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
         uniform float uIsMobile;
         uniform float uIsNight;
         uniform float uFogDensity;
+        uniform float uQualityTier;
+        uniform float uHorizonCutoff;
+        uniform float uMaxCapDist;
+        uniform float uMaxSSSDist;
+        uniform float uMaxFoamDist;
+        uniform float uWakesEnabled;
 
         varying vec3 vNormal;
         varying vec3 vWorldPosition;
@@ -216,29 +274,45 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
         }
 
         // Multi-Scale Directional Capillary Micro-Waves (crisp liquid shimmer)
-        vec3 computeCapillaryNormal(vec2 p, float time) {
+        vec3 computeCapillaryNormal(vec2 p, float time, float tier) {
           vec2 d1 = normalize(vec2(0.707, 0.707));
-          vec2 d2 = normalize(vec2(-0.8, 0.6));
-          vec2 d3 = normalize(vec2(0.38, -0.92));
-
           float k1 = 6.2831853 / 4.2;
-          float k2 = 6.2831853 / 2.2;
-          float k3 = 6.2831853 / 1.1;
-
           float phase1 = k1 * (dot(d1, p) - 2.2 * time);
-          float phase2 = k2 * (dot(d2, p) - 2.8 * time);
-          float phase3 = k3 * (dot(d3, p) - 3.4 * time);
-
           float a1 = 0.032;
-          float a2 = 0.018;
-          float a3 = 0.009;
-
           float c1 = cos(phase1);
-          float c2 = cos(phase2);
-          float c3 = cos(phase3);
+          float dh_dx = -(d1.x * k1 * a1 * c1);
+          float dh_dz = -(d1.y * k1 * a1 * c1);
 
-          float dh_dx = -(d1.x * k1 * a1 * c1 + d2.x * k2 * a2 * c2 + d3.x * k3 * a3 * c3);
-          float dh_dz = -(d1.y * k1 * a1 * c1 + d2.y * k2 * a2 * c2 + d3.y * k3 * a3 * c3);
+          if (tier > 0.5) {
+            vec2 d2 = normalize(vec2(-0.8, 0.6));
+            vec2 d3 = normalize(vec2(0.38, -0.92));
+            float k2 = 6.2831853 / 2.2;
+            float k3 = 6.2831853 / 1.1;
+            float phase2 = k2 * (dot(d2, p) - 2.8 * time);
+            float phase3 = k3 * (dot(d3, p) - 3.4 * time);
+            float a2 = 0.018;
+            float a3 = 0.009;
+            float c2 = cos(phase2);
+            float c3 = cos(phase3);
+            dh_dx -= (d2.x * k2 * a2 * c2 + d3.x * k3 * a3 * c3);
+            dh_dz -= (d2.y * k2 * a2 * c2 + d3.y * k3 * a3 * c3);
+          }
+
+          if (tier > 1.5) {
+            // Ultra Photorealism: 2 additional micro-capillary harmonics
+            vec2 d4 = normalize(vec2(-0.55, -0.83));
+            vec2 d5 = normalize(vec2(0.92, 0.38));
+            float k4 = 6.2831853 / 0.55;
+            float k5 = 6.2831853 / 0.28;
+            float phase4 = k4 * (dot(d4, p) - 4.1 * time);
+            float phase5 = k5 * (dot(d5, p) - 4.9 * time);
+            float a4 = 0.0045;
+            float a5 = 0.0022;
+            float c4 = cos(phase4);
+            float c5 = cos(phase5);
+            dh_dx -= (d4.x * k4 * a4 * c4 + d5.x * k5 * a5 * c5);
+            dh_dz -= (d4.y * k4 * a4 * c4 + d5.y * k5 * a5 * c5);
+          }
 
           return vec3(dh_dx, 1.0, dh_dz);
         }
@@ -246,10 +320,8 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
         void main() {
           float camDist = length(vWorldPosition - cameraPosition);
 
-          // 0. DISTANCE LOD: Horizon Early Exit (Distant Sea > 950m)
-          // Near the horizon, water blends into sky fog.
-          // Direct return saves all arithmetic for distant pixels.
-          if (camDist > 950.0) {
+          // 0. DISTANCE LOD: Horizon Early Exit
+          if (camDist > uHorizonCutoff) {
             gl_FragColor = vec4(uSkyHorizonColor, 1.0);
             return;
           }
@@ -258,15 +330,11 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
           vec3 lightDir = normalize(uLightDir);
           vec3 viewDir = normalize(cameraPosition - vWorldPosition);
 
-          // 1. DISTANCE LOD: High-Frequency Micro-Wave Capillary Normal Blending (0m - 140m)
-          // Capillary ripples are sub-pixel beyond 120m.
-          // Fading them out saves trigonometry and completely eliminates distant specular shimmering.
-          // 1. DISTANCE LOD: High-Frequency Micro-Wave Capillary Normal Blending (200m desktop, 90m mobile)
+          // 1. High-Frequency Micro-Wave Capillary Normal Blending
           vec3 normal = baseNormal;
-          float maxCapDist = uIsMobile > 0.5 ? 90.0 : 200.0;
-          if (camDist < maxCapDist) {
-            float capStrength = 1.0 - smoothstep(maxCapDist * 0.35, maxCapDist, camDist);
-            vec3 capNorm = computeCapillaryNormal(vWorldPosition.xz, uTime);
+          if (camDist < uMaxCapDist) {
+            float capStrength = 1.0 - smoothstep(uMaxCapDist * 0.35, uMaxCapDist, camDist);
+            vec3 capNorm = computeCapillaryNormal(vWorldPosition.xz, uTime, uQualityTier);
             normal = normalize(vec3(
               baseNormal.x + capNorm.x * (0.34 * capStrength),
               baseNormal.y,
@@ -274,7 +342,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
             ));
           }
 
-          // 2. AC Black Flag Multi-Tiered Coastal Water Depth (Island Proximity)
+          // 2. Coastal Water Depth & Island Proximity
           float minDistToShore = 9999.0;
           float maxInfluenceDist = uIsMobile > 0.5 ? 260.0 : 420.0;
           if (camDist < maxInfluenceDist) {
@@ -283,7 +351,6 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
               vec2 relPos = vWorldPosition.xz - uIslandPos[i].xy;
               float sandR = uIslandPos[i].z;
 
-              // Fast AABB bounding circle check: skip heavy calculation if far from this island
               float centerDistSq = dot(relPos, relPos);
               float maxInfluence = (sandR * 1.8 + 64.0);
               if (centerDistSq > maxInfluence * maxInfluence) {
@@ -324,45 +391,46 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
             }
           }
 
-          // 3. AC Black Flag Seamless Optical Depth Model:
-          // Deep Sea Sapphire -> Outer Shelf Cerulean -> Luminous Crystal Turquoise -> Sunlit Golden Sand Seabed
+          // 3. Optical Depth Absorption Model
           float waveMod = clamp((vWaveHeight + 1.2) / 2.4, 0.0, 1.0);
-          vec3 deepOceanColor = mix(uDeepWaterColor, uMidWaterColor, 0.14 + 0.86 * waveMod);
+          vec3 deepOceanColor = uQualityTier > 1.5
+            ? (uIsNight > 0.5 ? vec3(0.015, 0.035, 0.08) : mix(vec3(0.012, 0.08, 0.17), vec3(0.02, 0.14, 0.28), waveMod))
+            : mix(uDeepWaterColor, uMidWaterColor, 0.14 + 0.86 * waveMod);
           vec3 waterColor = deepOceanColor;
 
           if (minDistToShore < 72.0) {
-            // Normalized depth gradient: 0.0 at shore water edge, 1.0 at deep sea
             float shoreDepthT = smoothstep(0.0, 54.0, max(0.0, minDistToShore));
 
-            // AC Black Flag Tropical Palette (blended smoothly into nocturnal waters at night)
             vec3 caribbeanTurquoise = mix(vec3(0.02, 0.64, 0.76), vec3(0.05, 0.22, 0.36), uIsNight);
             vec3 crystalCyan        = mix(vec3(0.06, 0.82, 0.88), vec3(0.08, 0.27, 0.42), uIsNight);
             vec3 goldenSandBed      = mix(vec3(0.84, 0.70, 0.46), vec3(0.25, 0.23, 0.20), uIsNight);
 
-            // Smooth continuous water column transition
             vec3 reefTransition = mix(crystalCyan, caribbeanTurquoise, smoothstep(2.0, 22.0, minDistToShore));
             reefTransition = mix(reefTransition, uMidWaterColor, smoothstep(22.0, 54.0, minDistToShore));
 
-            // Optical seabed transmission: near the sand edge (< 8m), sand floor is visible through crystal water
             float sandVisibility = 1.0 - smoothstep(-0.5, 7.5, minDistToShore);
             vec3 shoreBlend = mix(reefTransition, goldenSandBed * 0.42 + crystalCyan * 0.58, sandVisibility * (uIsNight > 0.5 ? 0.35 : 0.82));
 
             waterColor = mix(shoreBlend, deepOceanColor, shoreDepthT);
           } else {
-            waterColor = mix(waterColor, uCrestGlowColor, smoothstep(0.70, 1.0, waveMod) * (uIsNight > 0.5 ? 0.34 : 0.28));
+            vec3 crestGlow = uQualityTier > 1.5 ? (uIsNight > 0.5 ? vec3(0.08, 0.22, 0.40) : vec3(0.04, 0.45, 0.65)) : uCrestGlowColor;
+            waterColor = mix(waterColor, crestGlow, smoothstep(0.70, 1.0, waveMod) * (uIsNight > 0.5 ? 0.34 : 0.28));
           }
 
-          // 4. DISTANCE LOD: Subsurface Scattering (Only computed within 220m, simplified on mobile)
+          // 4. Subsurface Scattering (Translucent Wave Crests)
           vec3 sss = vec3(0.0);
-          if (camDist < (uIsMobile > 0.5 ? 80.0 : 220.0)) {
-            vec3 sssLightDir = normalize(lightDir + normal * 0.35);
-            float sssFactor = pow(max(dot(viewDir, -sssLightDir), 0.0), 3.2);
-            float crestThickness = smoothstep(0.20, 1.1, vWaveHeight);
-            float sssDistFade = 1.0 - smoothstep(uIsMobile > 0.5 ? 40.0 : 120.0, uIsMobile > 0.5 ? 80.0 : 220.0, camDist);
-            sss = uSubsurfaceColor * (sssFactor * crestThickness * (uIsNight > 0.5 ? 0.92 : 0.85) * sssDistFade);
+          if (camDist < uMaxSSSDist) {
+            vec3 sssLightDir = normalize(lightDir + normal * (uQualityTier > 1.5 ? 0.45 : 0.35));
+            float sssPower = uQualityTier > 1.5 ? 2.2 : 3.2;
+            float sssFactor = pow(max(dot(viewDir, -sssLightDir), 0.0), sssPower);
+            float crestThickness = smoothstep(uQualityTier > 1.5 ? 0.10 : 0.20, 1.1, vWaveHeight);
+            float sssDistFade = 1.0 - smoothstep(uMaxSSSDist * 0.5, uMaxSSSDist, camDist);
+            float sssMult = uQualityTier > 1.5 ? (uIsNight > 0.5 ? 1.25 : 1.35) : (uIsNight > 0.5 ? 0.92 : 0.85);
+            vec3 sssColor = uQualityTier > 1.5 ? (uIsNight > 0.5 ? vec3(0.08, 0.26, 0.48) : vec3(0.03, 0.72, 0.66)) : uSubsurfaceColor;
+            sss = sssColor * (sssFactor * crestThickness * sssMult * sssDistFade);
           }
 
-          // 5. Accurate Physical Fresnel & Sky Reflection (Deep rich Caribbean water, no white wash)
+          // 5. Physical Fresnel & Sky Reflection
           float NdotV = max(dot(viewDir, normal), 0.0);
           float fresnel = 0.02 + 0.98 * pow(1.0 - NdotV, 5.0);
           vec3 daySkyRefl = mix(vec3(0.04, 0.28, 0.55), vec3(0.20, 0.55, 0.85), fresnel);
@@ -371,15 +439,24 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
 
           vec3 baseShaded = mix(waterColor + sss, skyReflection, fresnel * (uIsNight > 0.5 ? 0.28 : 0.28));
 
-          // 6. DISTANCE LOD: Sun/Moon Glitter Specular Highlight (Rich, sparkling path without white washing horizon)
+          // 6. Dual-Frequency Sun/Moon Specular Glitter Highlights (Trigger for Cinematic Bloom)
           vec3 halfVector = normalize(lightDir + viewDir);
           float NdotH = max(dot(normal, halfVector), 0.0);
           float specIntensity = 0.0;
-          if (uIsMobile > 0.5) {
-            // Mobile: focused sun/moon path
-            float specMobile = pow(NdotH, 48.0) * (uIsNight > 0.5 ? 0.65 : 0.90);
-            specIntensity = specMobile;
+          if (uQualityTier < 0.5) {
+            // Fast mobile mode
+            specIntensity = pow(NdotH, 48.0) * (uIsNight > 0.5 ? 0.65 : 0.90);
+          } else if (uQualityTier > 1.5 && camDist < 360.0) {
+            // Ultra Photorealism: High-intensity diamond specular glints
+            float specularCore    = pow(NdotH, 64.0) * (uIsNight > 0.5 ? 0.85 : 1.20);
+            float specularSharp   = pow(NdotH, 190.0) * (uIsNight > 0.5 ? 1.70 : 2.50);
+            float glitterNoise1   = fract(sin(dot(vWorldPosition.xz * 2.8, vec2(12.9898, 78.233)) + uTime * 0.9) * 43758.5453);
+            float glitterNoise2   = fract(sin(dot(vWorldPosition.xz * 5.6, vec2(93.989, 67.345)) - uTime * 1.3) * 23421.631);
+            float glitter1        = pow(NdotH, 300.0) * step(0.48, glitterNoise1) * (uIsNight > 0.5 ? 2.2 : 3.8);
+            float glitter2        = pow(NdotH, 150.0) * step(0.62, glitterNoise2) * (uIsNight > 0.5 ? 1.5 : 2.4);
+            specIntensity = specularCore + specularSharp + glitter1 + glitter2;
           } else if (camDist < 240.0) {
+            // Balanced web mode
             float specularCore    = pow(NdotH, 64.0) * (uIsNight > 0.5 ? 0.72 : 0.95);
             float specularSharp   = pow(NdotH, 180.0) * (uIsNight > 0.5 ? 1.30 : 1.80);
             float glitterNoise    = fract(sin(dot(vWorldPosition.xz * 2.2, vec2(12.9898, 78.233)) + uTime * 0.8) * 43758.5453);
@@ -389,85 +466,69 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
             float specularFar = pow(NdotH, 64.0) * (uIsNight > 0.5 ? 0.35 : 0.45);
             specIntensity = specularFar;
           }
-          // Distance fade out: attenuates specular as it approaches horizon to eliminate whiteout
           specIntensity *= (1.0 - smoothstep(90.0, 360.0, camDist));
           baseShaded += uSunColor * specIntensity;
 
-          // 7. DISTANCE LOD: Organic Sea Foam on Wave Crests (180m desktop, 80m mobile)
+          // 7. Organic Sea Foam on Wave Crests
           float crestFoam = 0.0;
           float crestBreak = smoothstep(0.68, 1.25, vWaveHeight) * smoothstep(0.06, 0.28, vCrestPinch);
-          float maxFoamDist = uIsMobile > 0.5 ? 80.0 : 180.0;
-          if (crestBreak > 0.01 && camDist < maxFoamDist) {
+          if (crestBreak > 0.01 && camDist < uMaxFoamDist) {
             float foamCell = cellularFoam(vWorldPosition.xz * 0.75 + vec2(uTime * 0.05, -uTime * 0.03));
             float foamStreak = sin(vWorldPosition.x * 1.2 + vWorldPosition.z * 0.8 + uTime * 1.5) * 0.5 + 0.5;
             float solidFroth = 1.0 - smoothstep(0.12, 0.42, foamCell);
             float lacyFoam = clamp(solidFroth * 0.85 + foamStreak * 0.35, 0.0, 1.0);
-            float foamDistFade = 1.0 - smoothstep(maxFoamDist * 0.5, maxFoamDist, camDist);
+            float foamDistFade = 1.0 - smoothstep(uMaxFoamDist * 0.5, uMaxFoamDist, camDist);
             crestFoam = crestBreak * lacyFoam * foamDistFade;
           }
 
-          // 8. Shoreline Breaking Surf Foam Wavelets (Visible on desktop & mobile within 320m)
-          // Authentic Caribbean swash: narrow translucent wavelet band right at the water contact line.
-          // Zero foam inside the island mass (minDistToShore < -0.3), soft natural wavelets extending out to ~3.6m.
+          // 8. Shoreline Breaking Surf Foam Wavelets
           float totalShoreFoam = 0.0;
           if (minDistToShore > -0.5 && minDistToShore < 6.0 && camDist < 320.0) {
-            // Shore contact band: peaks right along the water edge (0.0 to 1.6m), cleanly drops to 0 inside land
             float contactBand = smoothstep(-0.5, 0.2, minDistToShore) * (1.0 - smoothstep(1.0, 3.6, minDistToShore));
-            
-            // Rolling tidal surf wavelets
             float surfPulse = sin(uTime * 2.0 - minDistToShore * 1.5) * 0.5 + 0.5;
             float swashWave = smoothstep(0.3, 1.8, minDistToShore) * (1.0 - smoothstep(2.0, 4.5, minDistToShore)) * surfPulse;
-            
-            // Cellular organic froth structure (avoids flat solid sheets of white)
             float frothDetail = cellularFoam(vWorldPosition.xz * 1.2 + vec2(uTime * 0.08, -uTime * 0.06));
             float lacyFroth = 1.0 - smoothstep(0.12, 0.50, frothDetail);
-            
-            // Soft shore foam noise modulation
             float shoreNoise = sin(vWorldPosition.x * 0.9 + vWorldPosition.z * 0.7 + uTime * 0.4) * 0.2 + 0.8;
-            
-            // Cap to soft translucent wavelet intensity (0.34 max) so crystal turquoise water remains visible
             totalShoreFoam = clamp((contactBand * 0.55 + swashWave * 0.45) * (0.55 + lacyFroth * 0.45) * shoreNoise, 0.0, 0.35);
           }
 
-          // 9. Dynamic Broad-Spreading Ship Wake (Skipped on mobile)
+          // 9. Dynamic Broad-Spreading Ship Wake
           float shipWakeFoam = 0.0;
-          if (uIsMobile < 0.5 && uShipSpeed > 0.35 && camDist < 180.0) {
+          if (uWakesEnabled > 0.5 && uShipSpeed > 0.35 && camDist < 180.0) {
             vec2 rel = vWorldPosition.xz - uShipPos.xz;
             float sinH = sin(uShipHeading);
             float cosH = cos(uShipHeading);
-            // Local coordinates: X = right, Z = forward
             float lx = cosH * rel.x - sinH * rel.y;
             float lz = sinH * rel.x + cosH * rel.y;
 
             float behind = -lz;
-            if (behind > -1.0 && behind < 88.0) {
+            float maxWakeReach = uQualityTier > 1.5 ? 110.0 : 88.0;
+            if (behind > -1.0 && behind < maxWakeReach) {
               float latDist = abs(lx);
 
-              // 1. Soft expanding Kelvin V-wake arms
+              // Soft expanding Kelvin V-wake arms
               float wakeSpread = 1.2 + pow(max(0.0, behind), 0.62) * 1.35;
               float vArm = (1.0 - smoothstep(0.0, 1.6, abs(latDist - wakeSpread))) * 0.55;
 
-              // 2. Smooth soft center churn field
+              // Smooth center churn field
               float centerSpread = 1.8 + behind * 0.12;
               float centerFroth = exp(-(latDist * latDist) / (centerSpread * centerSpread)) * 0.65;
 
-              // 3. Subtle organic wave motion (clean, no harsh polka-dot artifacts)
               float ripple = sin(behind * 0.4 - uTime * 1.8) * 0.1 + 0.9;
-
-              // 4. Smooth emergence from transom and backwards decay
               float leadIn = smoothstep(-0.5, 2.0, behind);
-              float trailFade = exp(-max(0.0, behind) * 0.038) * (1.0 - smoothstep(45.0, 68.0, behind));
+              float trailFade = exp(-max(0.0, behind) * 0.038) * (1.0 - smoothstep(55.0, maxWakeReach, behind));
 
               shipWakeFoam = (vArm + centerFroth) * ripple * leadIn * trailFade * min(1.0, uShipSpeed / 2.0);
-              shipWakeFoam = clamp(shipWakeFoam, 0.0, 0.65);
+              shipWakeFoam = clamp(shipWakeFoam, 0.0, 0.70);
             }
           }
 
-          // Combine all foam layers naturally (crest foam + shore wavelets + wake)
+          // Combine foam layers naturally
           float totalFoam = clamp(crestFoam * 0.75 + totalShoreFoam + shipWakeFoam * 0.9, 0.0, 1.0);
           vec3 finalColor = mix(baseShaded, uFoamColor, totalFoam);
 
-          // 10. Horizon Fog Blend - Exponential squared Beer-Lambert decay
+          // 10. Horizon Fog Blend
           float horizonFog = 1.0 - exp(-pow(camDist * uFogDensity, 2.0));
           finalColor = mix(finalColor, uSkyHorizonColor, horizonFog);
 
@@ -479,7 +540,8 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
       transparent: false,
       wireframe: false,
     });
-  }, [isNight, isMobile, activeMap, islandPositions, islandParams]);
+  }, [isNight, isMobile, activeMap, islandPositions, islandParams, waveShaderChunk, qualityTier, profile]);
+
   useEffect(() => () => shaderMaterial.dispose(), [shaderMaterial]);
   useEffect(() => () => geometry.dispose(), [geometry]);
 
@@ -493,11 +555,9 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
     if (shaderMaterial) {
       shaderMaterial.uniforms.uTime.value = t;
 
-      // Extract self ship state in real-time with smooth frame-by-frame interpolation
       const { ships, selfId } = useGameStore.getState();
       const selfShip = findShip(ships, selfId);
       if (selfShip && !selfShip.isSunk) {
-        // High-precision smooth position and heading tracking without GC allocations
         smoothShipPos.current.x = THREE.MathUtils.lerp(smoothShipPos.current.x, selfShip.x, Math.min(1.0, 24 * delta));
         smoothShipPos.current.y = THREE.MathUtils.lerp(smoothShipPos.current.y, selfShip.y, Math.min(1.0, 24 * delta));
         smoothShipPos.current.z = THREE.MathUtils.lerp(smoothShipPos.current.z, selfShip.z, Math.min(1.0, 24 * delta));
@@ -513,9 +573,6 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
       }
     }
 
-    // Grid snapping: Snap mesh position to exact vertex grid spacing.
-    // The step MUST equal size/segments so the Gerstner world-space coordinates
-    // align perfectly with vertex positions after each snap, preventing flickering.
     if (meshRef.current) {
       const gridStep = size / segments;
       meshRef.current.position.x = Math.round(state.camera.position.x / gridStep) * gridStep;

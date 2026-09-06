@@ -2,8 +2,8 @@ import { useMemo, useRef } from 'react';
 import { DirectionalLight, Object3D, MathUtils } from 'three';
 import { useFrame } from '@react-three/fiber';
 
-export function SceneSunLight({ color, intensity, shadows }: {
-  color: string; intensity: number; shadows: boolean;
+export function SceneSunLight({ color, intensity, shadows, shadowMapSize = 1024 }: {
+  color: string; intensity: number; shadows: boolean; shadowMapSize?: number;
 }) {
   const light = useRef<DirectionalLight>(null);
   const target = useMemo(() => new Object3D(), []);
@@ -20,7 +20,7 @@ export function SceneSunLight({ color, intensity, shadows }: {
     <primitive object={target} />
     <directionalLight ref={light} target={target} position={[70, 140, -50]}
       color={color} intensity={intensity} castShadow={shadows}
-      shadow-mapSize-width={1024} shadow-mapSize-height={1024}
+      shadow-mapSize-width={shadowMapSize} shadow-mapSize-height={shadowMapSize}
       shadow-camera-near={10} shadow-camera-far={300}
       shadow-camera-left={-60} shadow-camera-right={60}
       shadow-camera-top={60} shadow-camera-bottom={-60}

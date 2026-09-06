@@ -359,29 +359,30 @@ const CaribbeanSkyDome: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({ 
 
             sky += moonLight;
           } else {
-            // ──────────────── DAY BATTLE SKY ────────────────
+            // ──────────────── DAY BATTLE SKY (AAA VOLUMETRIC ATMOSPHERE) ────────────────
             // 1. Brilliant white-hot sun disc
-            float sunDisc = smoothstep(0.9986, 0.9998, celestialDot) * 4.0;
+            float sunDisc = smoothstep(0.9986, 0.9998, celestialDot) * 4.5;
             
             // 2. Warm golden inner corona bloom
-            float innerCorona = pow(celestialDot, 42.0) * 1.6;
+            float innerCorona = pow(celestialDot, 36.0) * 2.2;
             
-            // 3. Focused atmospheric sunlight sheen (attenuated near horizon to prevent washing out the center sea)
-            float broadGlow = pow(celestialDot, 16.0) * 0.25 * smoothstep(0.04, 0.20, h);
+            // 3. Volumetric forward Mie scattering haze (tropical golden atmosphere)
+            float mieHaze = pow(celestialDot, 8.0) * 0.45 * smoothstep(0.02, 0.35, h);
             
-            // 4. Subtle crepuscular godrays radiating from the tropical sun
+            // 4. AAA Volumetric Crepuscular Godrays radiating through cloud deck
             vec3 sunToDir = dir - uCelestialPos;
             float rayAngle = atan(sunToDir.x, sunToDir.z);
-            float r1 = sin(rayAngle * 14.0);
-            float r2 = sin(rayAngle * 28.0 + 1.2);
-            float r3 = sin(rayAngle * 42.0 - 0.7);
-            float rayPattern = pow(max(0.0, r1 * 0.5 + r2 * 0.35 + r3 * 0.15 + 0.28), 3.0);
-            float rayFalloff = smoothstep(0.68, 0.995, celestialDot) * (1.0 - smoothstep(0.998, 1.0, celestialDot));
-            float godrays = rayPattern * rayFalloff * 0.35;
+            float r1 = sin(rayAngle * 12.0);
+            float r2 = sin(rayAngle * 26.0 + 1.2);
+            float r3 = sin(rayAngle * 52.0 - 0.7);
+            float r4 = sin(rayAngle * 104.0 + 2.1);
+            float rayPattern = pow(max(0.0, r1 * 0.44 + r2 * 0.30 + r3 * 0.16 + r4 * 0.10 + 0.32), 3.2);
+            float rayFalloff = smoothstep(0.55, 0.992, celestialDot) * (1.0 - smoothstep(0.998, 1.0, celestialDot));
+            float godrays = rayPattern * rayFalloff * 0.72;
 
             vec3 sunLight = vec3(1.0, 0.98, 0.92) * sunDisc +
-                            vec3(1.0, 0.93, 0.72) * (innerCorona + godrays) +
-                            vec3(0.98, 0.92, 0.78) * broadGlow;
+                            vec3(1.0, 0.92, 0.70) * (innerCorona + godrays) +
+                            vec3(0.98, 0.88, 0.72) * mieHaze;
 
             sky += sunLight;
           }
@@ -415,33 +416,46 @@ const CaribbeanSkyDome: React.FC<{ isNight: boolean; isMobile?: boolean }> = ({ 
   );
 };
 
-export const Environment3D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobile = false }) => {
+export const Environment3D: React.FC<{ isMobile?: boolean; profile?: import('@/features/settings').GraphicProfile }> = React.memo(({ isMobile = false, profile }) => {
   const timeOfDay = useGameStore((s) => s.timeOfDay);
   const isNight = timeOfDay === 'NIGHT';
   const currentMapId = useGameStore((s) => s.currentMapId || s.currentRoom?.mapId || 'caribbean');
   const activeMap = useMemo(() => getMapConfig(currentMapId), [currentMapId]);
   const atmosphere = activeMap.atmosphere;
 
-  const fogCfg = getFogConfig(isMobile, isNight, isNight ? atmosphere.fogColorNight : atmosphere.fogColorDay);
+  const activeIsMobile = profile ? profile.id === 'fast' : isMobile;
+  const isUltra = profile?.id === 'performance';
+
+  const fogCfg = profile
+    ? {
+        color: isNight ? atmosphere.fogColorNight : atmosphere.fogColorDay,
+        density: isNight ? profile.fogDensityNight : profile.fogDensityDay,
+        near: profile.fogNear,
+        far: profile.fogFar,
+        viewDistance: profile.maxViewDistance,
+        islandDetailDistance: profile.islandDetailDistance,
+      }
+    : getFogConfig(activeIsMobile, isNight, isNight ? atmosphere.fogColorNight : atmosphere.fogColorDay);
 
   return (
     <>
       {/* Dynamic Celestial Sky Dome (Day Azure or Night Obsidian with Stars & Moon) */}
-      <CaribbeanSkyDome isNight={isNight} isMobile={isMobile} />
+      <CaribbeanSkyDome isNight={isNight} isMobile={activeIsMobile} />
 
       {/* Atmospheric Exponential Maritime Sea Fog (Beer-Lambert Atmospheric Scattering) */}
       <fogExp2 attach="fog" args={[fogCfg.color, fogCfg.density]} />
 
       {/* Celestial Directional Light (Brilliant Sun vs Silver Moon) */}
       <SceneSunLight
-        intensity={isNight ? 1.75 : 2.85}
+        intensity={isUltra ? (isNight ? 1.88 : 3.05) : (isNight ? 1.75 : 2.85)}
         color={isNight ? atmosphere.moonColorNight : atmosphere.sunColorDay}
-        shadows={!isMobile}
+        shadows={profile ? profile.shadows : !activeIsMobile}
+        shadowMapSize={profile?.shadowMapSize ?? 1024}
       />
 
       {/* Ambient Fill Lighting - Rich atmospheric moonlight wash */}
       <ambientLight
-        intensity={isNight ? 1.20 : 1.25}
+        intensity={isUltra ? (isNight ? 1.28 : 1.35) : (isNight ? 1.20 : 1.25)}
         color={isNight ? atmosphere.ambientNight : atmosphere.ambientDay}
       />
 
@@ -449,13 +463,13 @@ export const Environment3D: React.FC<{ isMobile?: boolean }> = React.memo(({ isM
       <hemisphereLight
         args={
           isNight
-            ? [atmosphere.hemiSkyNight, atmosphere.hemiGroundNight, 1.05]
-            : [atmosphere.hemiSkyDay, atmosphere.hemiGroundDay, 1.15]
+            ? [atmosphere.hemiSkyNight, atmosphere.hemiGroundNight, isUltra ? 1.15 : 1.05]
+            : [atmosphere.hemiSkyDay, atmosphere.hemiGroundDay, isUltra ? 1.25 : 1.15]
         }
       />
 
       {/* Multi-Tiered Celestial Cloudscapes (Cumulus & Cirrus) */}
-      <CaribbeanClouds2D isNight={isNight} isMobile={isMobile} />
+      <CaribbeanClouds2D isNight={isNight} isMobile={activeIsMobile} />
     </>
   );
 });

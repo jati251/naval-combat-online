@@ -9,7 +9,7 @@ import { useFrame, useThree } from '@react-three/fiber';
  * - Rate-limits canvas backbuffer resizes to once every 12 seconds to prevent GPU stalls.
  * - Smoothly recovers toward native DPR when FPS is healthy (>= 52 FPS).
  */
-export function AdaptiveResolution({ isMobile }: { isMobile: boolean }) {
+export function AdaptiveResolution({ isMobile, dprRange }: { isMobile?: boolean; dprRange?: [number, number] }) {
   const setDpr = useThree((state) => state.setDpr);
 
   const stateRef = useRef({
@@ -55,10 +55,8 @@ export function AdaptiveResolution({ isMobile }: { isMobile: boolean }) {
     s.frames = 0;
 
     const nativePixelRatio = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-    // On desktop / Mac: max 2.0 (Retina), min 1.25 (keeps crisp text and sharp sea)
-    // On mobile devices: max 1.5, min 1.0
-    const maximum = Math.min(nativePixelRatio, isMobile ? 1.5 : 2.0);
-    const minimum = isMobile ? 1.0 : Math.min(1.25, maximum);
+    const maximum = dprRange ? Math.min(nativePixelRatio, dprRange[1]) : Math.min(nativePixelRatio, isMobile ? 1.5 : 2.0);
+    const minimum = dprRange ? Math.min(dprRange[0], maximum) : (isMobile ? 1.0 : Math.min(1.25, maximum));
 
     const currentDpr = viewport.dpr;
 

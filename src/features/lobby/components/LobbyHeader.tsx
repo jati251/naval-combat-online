@@ -1,5 +1,6 @@
 import React from 'react';
 import { Anchor, Compass, Feather } from 'lucide-react';
+import { SettingsButton } from '@/features/settings';
 
 interface LobbyHeaderProps {
   playerName: string;
@@ -51,8 +52,10 @@ export const LobbyHeader: React.FC<LobbyHeaderProps> = ({
         <span className="text-amber-400/50 text-xs hidden sm:inline">❖</span>
       </div>
 
-      {/* Right: Signal Jewel & Gateway Trigger */}
+      {/* Right: Settings & Gateway Trigger */}
       <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <SettingsButton />
+
         <button
           onClick={handleGatewayClick}
           className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded bg-black/40 hover:bg-black/60 border border-amber-600/40 text-amber-200/90 hover:text-amber-100 hover:border-amber-400 transition cursor-pointer text-xs group"

@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { ShipModel3D } from '@/features/battle/components/3d/ShipModel3D';
 import { SHIP_PRESETS, type ShipClass } from '@/types/game';
+import { useGraphicsQuality } from '@/features/settings';
 
 interface ShipTurntable3DProps {
   shipClass: ShipClass;
@@ -41,13 +42,14 @@ const RotatingShip: React.FC<{ shipClass: ShipClass }> = ({ shipClass }) => {
 export const ShipTurntable3D: React.FC<ShipTurntable3DProps> = ({ shipClass }) => {
   const config = SHIP_PRESETS[shipClass] || SHIP_PRESETS.brig;
   const camDist = Math.max(16, config.length * 1.12);
+  const { profile } = useGraphicsQuality();
 
   return (
     <div className="w-full h-full relative">
       <Canvas
         camera={{ position: [0, camDist * 0.38, camDist], fov: 42 }}
-        dpr={[1, 1.5]}
-        gl={{ antialias: false, alpha: true, powerPreference: 'high-performance' }}
+        dpr={profile.dpr}
+        gl={{ antialias: profile.id !== 'fast', alpha: true, powerPreference: 'high-performance' }}
       >
         <PreviewCamera length={config.length} />
         <hemisphereLight args={['#dce9ee', '#715844', 1.8]} />

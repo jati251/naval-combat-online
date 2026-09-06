@@ -5,6 +5,7 @@ import { LobbyView } from '@/features/lobby';
 import { ToastContainer } from '@/components/ui/ToastContainer';
 import { OrientationLockOverlay } from '@/components/ui/OrientationLockOverlay';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { SettingsModal } from '@/features/settings';
 
 const BattleView = lazy(() => import('@/features/battle/components/BattleView'));
 
@@ -21,6 +22,7 @@ export const App: React.FC = () => {
       <OrientationLockOverlay />
       <ToastContainer />
       <ConfirmDialog />
+      <SettingsModal />
       {stage === 'LOBBY' && <LobbyView />}
 
       {(stage === 'BATTLE' || stage === 'DEBRIEF') && (
