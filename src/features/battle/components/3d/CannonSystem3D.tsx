@@ -125,12 +125,10 @@ export const CannonSystem3D: React.FC<CannonSystem3DProps> = React.memo(({ canno
     }
     const dt = Math.min(delta, 0.05);
     const now = state.clock.elapsedTime;
-    const serverMap = new Map<string, CannonballSnapshot>();
 
-    // 1. Sync from server snapshots
+    // 1. Sync from server snapshots (zero dynamic Map allocation)
     const activeBalls = cannonballs ?? useGameStore.getState().cannonballs;
     for (const b of activeBalls) {
-      serverMap.set(b.id, b);
       const existing = clientBalls.current.get(b.id);
       if (!existing) {
         clientBalls.current.set(b.id, {
@@ -159,10 +157,8 @@ export const CannonSystem3D: React.FC<CannonSystem3DProps> = React.memo(({ canno
 
     // 2. Remove expired balls
     for (const [id, ball] of clientBalls.current.entries()) {
-      if (!serverMap.has(id)) {
-        if (now - ball.lastServerUpdate > 0.25 || ball.y <= -0.5) {
-          clientBalls.current.delete(id);
-        }
+      if (now - ball.lastServerUpdate > 0.22 || ball.y <= -0.5) {
+        clientBalls.current.delete(id);
       }
     }
 
@@ -190,15 +186,13 @@ export const CannonSystem3D: React.FC<CannonSystem3DProps> = React.memo(({ canno
       count++;
     }
 
-    // Hide remaining unused slots below water
-    for (let i = count; i < MAX_RENDER_BALLS; i++) {
-      ballPositions[i * 3 + 1] = -500;
-    }
-
     if (pointsRef.current) {
       const geo = pointsRef.current.geometry;
-      const posAttr = geo.attributes.position as THREE.BufferAttribute;
-      if (posAttr) posAttr.needsUpdate = true;
+      geo.setDrawRange(0, count);
+      if (count > 0) {
+        const posAttr = geo.attributes.position as THREE.BufferAttribute;
+        if (posAttr) posAttr.needsUpdate = true;
+      }
     }
   });
 

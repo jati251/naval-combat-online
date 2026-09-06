@@ -1,15 +1,15 @@
 import { navalAudio } from '../../../services/navalAudio';
 
-export const MAX_FLASH = 160;
-export const MAX_SMOKE = 800;
-export const MAX_SPARKS = 360;
-export const MAX_WATER_PLUMES = 120;
+export const MAX_FLASH = 80;
+export const MAX_SMOKE = 360;
+export const MAX_SPARKS = 160;
+export const MAX_WATER_PLUMES = 60;
 
-// Mobile-optimized pool sizes: ~75% reduction in per-frame iteration budget
-export const MAX_FLASH_MOBILE = 40;
-export const MAX_SMOKE_MOBILE = 200;
-export const MAX_SPARKS_MOBILE = 80;
-export const MAX_WATER_PLUMES_MOBILE = 30;
+// Mobile-optimized pool sizes: lightweight for 60-120 FPS
+export const MAX_FLASH_MOBILE = 30;
+export const MAX_SMOKE_MOBILE = 140;
+export const MAX_SPARKS_MOBILE = 60;
+export const MAX_WATER_PLUMES_MOBILE = 25;
 
 export interface FXParticle {
   x: number;
@@ -152,7 +152,7 @@ export function spawnSparks(
   const len = pool.length;
   if (len === 0) return;
 
-  const sparkCount = 10 + Math.floor(Math.random() * 6);
+  const sparkCount = 5 + Math.floor(Math.random() * 4);
   for (let s = 0; s < sparkCount; s++) {
     const slot = sparkCursor;
     sparkCursor = (sparkCursor + 1) % len;
@@ -213,8 +213,8 @@ export function spawnWaterImpact(
     }
   }
 
-  // Reduced water plume froth on impact
-  for (let d = 0; d < 4; d++) {
+  // Balanced water plume froth on impact
+  for (let d = 0; d < 2; d++) {
     const angle = Math.random() * Math.PI * 2;
     const speed = 3.0 + Math.random() * 5.0;
     spawnSmoke(

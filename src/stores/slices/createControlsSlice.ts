@@ -66,7 +66,7 @@ export const createControlsSlice: StateCreator<
     }
 
     const startTime = performance.now();
-    const intervalMs = 50;
+    const intervalMs = 100;
 
     // Immediately reset progress to 0
     if (side === 'left') {

@@ -1,7 +1,6 @@
-import React, { useRef } from 'react';
+import React, { useRef, useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
-import { Html } from '@react-three/drei';
 import { ShipModel3D } from './ShipModel3D';
 import { ShipWakeSplash3D } from './ShipWakeSplash3D';
 import {
@@ -40,10 +39,73 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf,
   const cameraState = useRef(createInitialCameraState());
 
   const nameplateRef = useRef<THREE.Group>(null);
-  const htmlDivRef = useRef<HTMLDivElement>(null);
   const frameCount = useRef(Math.floor(Math.random() * 6));
   const isInitialized = useRef(false);
   const prevWasSunk = useRef(ship.isSunk);
+
+  // Lightweight 2D canvas texture for ship name badge (rendered once into WebGL texture, 0 DOM overhead)
+  const nameTexture = useMemo(() => {
+    if (isSelf) return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 48;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.clearRect(0, 0, 256, 48);
+
+    // Dark pill background
+    ctx.fillStyle = isTeamMode
+      ? playerTeam === 'red'
+        ? 'rgba(76, 5, 25, 0.88)'
+        : 'rgba(8, 51, 68, 0.88)'
+      : 'rgba(2, 6, 23, 0.88)';
+
+    if ('roundRect' in ctx && typeof ctx.roundRect === 'function') {
+      ctx.beginPath();
+      ctx.roundRect(8, 4, 240, 40, 8);
+      ctx.fill();
+    } else {
+      ctx.fillRect(8, 4, 240, 40);
+    }
+
+    // Border outline
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = isTeamMode
+      ? playerTeam === 'red'
+        ? 'rgba(244, 63, 94, 0.7)'
+        : 'rgba(6, 182, 212, 0.7)'
+      : 'rgba(71, 85, 105, 0.6)';
+
+    if ('roundRect' in ctx && typeof ctx.roundRect === 'function') {
+      ctx.beginPath();
+      ctx.roundRect(8, 4, 240, 40, 8);
+      ctx.stroke();
+    } else {
+      ctx.strokeRect(8, 4, 240, 40);
+    }
+
+    // Text label
+    ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = isTeamMode
+      ? isFriendly
+        ? '#67e8f9'
+        : '#fda4af'
+      : '#fde68a';
+    const tag = isTeamMode ? (isFriendly ? '[ALLY] ' : '[FOE] ') : '';
+    ctx.fillText(`${tag}${ship.name}`, 128, 24);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.minFilter = THREE.LinearFilter;
+    return tex;
+  }, [ship.name, isSelf, isTeamMode, playerTeam, isFriendly]);
+
+  useEffect(() => {
+    return () => {
+      nameTexture?.dispose();
+    };
+  }, [nameTexture]);
 
   // Smooth interpolation with dead reckoning, distance culling, and 100% lockstep camera
   useFrame((state, delta) => {
@@ -105,9 +167,6 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf,
         const shouldShow = inView && distSq <= maxNameplateDist * maxNameplateDist;
         if (nameplateRef.current.visible !== shouldShow) {
           nameplateRef.current.visible = shouldShow;
-          if (htmlDivRef.current) {
-            htmlDivRef.current.style.display = shouldShow ? 'flex' : 'none';
-          }
         }
       }
     }
@@ -196,74 +255,45 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({ ship, isSelf,
       {/* Floating Health Bar and Nameplate (Culled for enemy vessels, hidden for player ship) */}
       {!isSelf && (
         <group ref={nameplateRef} position={[0, nameplateY, 0]} visible={false}>
-          {isMobile ? (
-            /* On mobile: lightweight 3D billboard health bar with 0 DOM mutations */
-            <group scale={[1.2, 1.2, 1.2]}>
-              {/* Dark Backing Bar */}
-              <mesh position={[0, 0, 0]}>
-                <planeGeometry args={[3.2, 0.42]} />
-                <meshBasicMaterial color="#020617" opacity={0.88} transparent depthWrite={false} />
+          <group scale={isMobile ? [1.1, 1.1, 1.1] : [1.35, 1.35, 1.35]}>
+            {/* 3D WebGL Ship Name Badge (Zero DOM elements, zero reflow) */}
+            {nameTexture && (
+              <mesh position={[0, 0.52, 0]}>
+                <planeGeometry args={[3.2, 0.6]} />
+                <meshBasicMaterial map={nameTexture} transparent depthWrite={false} />
               </mesh>
-              {/* Border Outline */}
-              <mesh position={[0, 0, 0.01]}>
-                <planeGeometry args={[3.0, 0.28]} />
-                <meshBasicMaterial color="#1e293b" depthWrite={false} />
-              </mesh>
-              {/* Health Fill Bar */}
-              <mesh
-                position={[-1.45 + (1.45 * hpPercent) / 100, 0, 0.02]}
-                scale={[Math.max(0.001, hpPercent / 100), 1, 1]}
-              >
-                <planeGeometry args={[2.9, 0.22]} />
-                <meshBasicMaterial
-                  color={hpPercent > 50 ? '#34d399' : hpPercent > 25 ? '#fbbf24' : '#f43f5e'}
-                  depthWrite={false}
-                />
-              </mesh>
-            </group>
-          ) : (
-            <Html center distanceFactor={45}>
-              <div ref={htmlDivRef} className="flex flex-col items-center pointer-events-none select-none">
-                <div
-                  className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-950/85 border shadow-md text-[10px] font-bold tracking-wide uppercase ${
-                    isTeamMode
-                      ? playerTeam === 'red'
-                        ? 'border-rose-500/70 text-rose-200'
-                        : 'border-cyan-500/70 text-cyan-200'
-                      : 'border-slate-700/60 text-amber-300'
-                  }`}
-                >
-                  {isTeamMode && (
-                    <span
-                      className={`text-[8px] px-1 rounded font-mono ${
-                        playerTeam === 'red'
-                          ? 'bg-rose-950 text-rose-300 border border-rose-600/50'
-                          : 'bg-cyan-950 text-cyan-300 border border-cyan-600/50'
-                      }`}
-                    >
-                      {isFriendly ? 'ALLY' : 'FOE'}
-                    </span>
-                  )}
-                  <span>{ship.name}</span>
-                </div>
+            )}
 
-                <div className="w-20 h-1 bg-slate-950/90 border border-slate-800 rounded-full overflow-hidden mt-0.5">
-                  <div
-                    className={`h-full rounded-full transition-all duration-150 ${
-                      isTeamMode && isFriendly
-                        ? 'bg-cyan-400'
-                        : hpPercent > 50
-                        ? 'bg-emerald-400'
-                        : hpPercent > 25
-                        ? 'bg-amber-400'
-                        : 'bg-rose-500'
-                    }`}
-                    style={{ width: `${hpPercent}%` }}
-                  />
-                </div>
-              </div>
-            </Html>
-          )}
+            {/* Dark Backing Bar */}
+            <mesh position={[0, 0, 0]}>
+              <planeGeometry args={[3.2, 0.38]} />
+              <meshBasicMaterial color="#020617" opacity={0.88} transparent depthWrite={false} />
+            </mesh>
+            {/* Border Outline */}
+            <mesh position={[0, 0, 0.01]}>
+              <planeGeometry args={[3.04, 0.24]} />
+              <meshBasicMaterial color="#1e293b" depthWrite={false} />
+            </mesh>
+            {/* Health Fill Bar */}
+            <mesh
+              position={[-1.45 + (1.45 * hpPercent) / 100, 0, 0.02]}
+              scale={[Math.max(0.001, hpPercent / 100), 1, 1]}
+            >
+              <planeGeometry args={[2.9, 0.18]} />
+              <meshBasicMaterial
+                color={
+                  isTeamMode && isFriendly
+                    ? '#22d3ee'
+                    : hpPercent > 50
+                    ? '#34d399'
+                    : hpPercent > 25
+                    ? '#fbbf24'
+                    : '#f43f5e'
+                }
+                depthWrite={false}
+              />
+            </mesh>
+          </group>
         </group>
       )}
     </group>

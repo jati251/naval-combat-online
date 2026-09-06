@@ -47,6 +47,7 @@ class NavalAudioController {
 
   // Rate-limiting / voice concurrency trackers
   private lastCannonTime: number = 0;
+  private activeCannonVoices: number = 0;
   private lastSplashTime: number = 0;
   private lastImpactTime: number = 0;
   private lastSailTime: number = 0;
@@ -303,16 +304,18 @@ class NavalAudioController {
   public playCannonFire(options?: SpatialAudioOptions): void {
     if (this.isMuted) return;
     const now = performance.now();
-    // Rate limit: at most one cannon discharge every 45ms
-    if (now - this.lastCannonTime < 45) return;
+    const isLocal = options?.side !== undefined || options?.isSelf;
+
+    // Rate limit: 55ms for local player, 95ms for remote ships
+    const minInterval = isLocal ? 55 : 95;
+    if (now - this.lastCannonTime < minInterval) return;
     this.lastCannonTime = now;
+
+    // Concurrency throttle: cap active complex cannon graphs to 3
+    if (!isLocal && this.activeCannonVoices >= 3) return;
 
     this.init();
     if (!this.ctx) return;
-
-    const brownBuffer = this.getBrownNoiseBuffer();
-    const whiteBuffer = this.getWhiteNoiseBuffer();
-    const distCurve = this.getDistortionCurve();
 
     const spatial = this.calculateSpatial(options);
     if (spatial.volume <= 0.01) return;
@@ -321,7 +324,48 @@ class NavalAudioController {
     if (!voice) return;
 
     const t = this.ctx.currentTime;
-    const isLocal = options?.side !== undefined || options?.isSelf;
+    const brownBuffer = this.getBrownNoiseBuffer();
+
+    // STREAMLINED GRAPH FOR DISTANT / REMOTE SHIPS:
+    // Only 2 nodes (brown noise roar + lowpass filter). Reduces WebAudio node count by 85%!
+    if (!isLocal) {
+      if (brownBuffer) {
+        const roar = this.ctx.createBufferSource();
+        roar.buffer = brownBuffer;
+        const roarFilter = this.ctx.createBiquadFilter();
+        roarFilter.type = 'lowpass';
+        roarFilter.frequency.setValueAtTime(380, t);
+        roarFilter.frequency.exponentialRampToValueAtTime(80, t + 0.38);
+
+        const roarGain = this.ctx.createGain();
+        roarGain.gain.setValueAtTime(0.65, t);
+        roarGain.gain.exponentialRampToValueAtTime(0.005, t + 0.42);
+
+        roar.connect(roarFilter);
+        roarFilter.connect(roarGain);
+        roarGain.connect(voice.input);
+
+        roar.start(t);
+        roar.stop(t + 0.45);
+
+        setTimeout(() => {
+          try {
+            roar.disconnect();
+            roarFilter.disconnect();
+            roarGain.disconnect();
+            voice.disconnect();
+          } catch {
+            // Cleaned up
+          }
+        }, 500);
+      }
+      return;
+    }
+
+    // FULL HIGH-IMPACT CINEMATIC STACK FOR LOCAL PLAYER SHIP:
+    this.activeCannonVoices++;
+    const whiteBuffer = this.getWhiteNoiseBuffer();
+    const distCurve = this.getDistortionCurve();
 
     // 1. Initial Shockwave Muzzle Crack (0 to 45ms) - Sharp black powder ignition
     if (whiteBuffer) {
@@ -330,11 +374,11 @@ class NavalAudioController {
 
       const crackFilter = this.ctx.createBiquadFilter();
       crackFilter.type = 'bandpass';
-      crackFilter.frequency.setValueAtTime(isLocal ? 2400 : 1200, t);
+      crackFilter.frequency.setValueAtTime(2400, t);
       crackFilter.Q.setValueAtTime(1.8, t);
 
       const crackGain = this.ctx.createGain();
-      crackGain.gain.setValueAtTime(isLocal ? 0.7 : 0.4, t);
+      crackGain.gain.setValueAtTime(0.7, t);
       crackGain.gain.exponentialRampToValueAtTime(0.001, t + 0.055);
 
       crack.connect(crackFilter);
@@ -356,19 +400,19 @@ class NavalAudioController {
     }
 
     // 2. Visceral Sub-bass Heavy Punch (Sine pitch drop through analog WaveShaper saturation)
-    // Pure sine wave gives massive chest-thumping bass, NO electronic buzzer/sawtooth sound!
+    // oversample: 'none' eliminates heavy polyphase FFT processing on WebAudio audio thread!
     const subOsc = this.ctx.createOscillator();
     subOsc.type = 'sine';
-    subOsc.frequency.setValueAtTime(isLocal ? 140 : 115, t);
+    subOsc.frequency.setValueAtTime(140, t);
     subOsc.frequency.exponentialRampToValueAtTime(24, t + 0.32);
 
     const subGain = this.ctx.createGain();
-    subGain.gain.setValueAtTime(isLocal ? 0.95 : 0.7, t);
+    subGain.gain.setValueAtTime(0.95, t);
     subGain.gain.exponentialRampToValueAtTime(0.005, t + 0.48);
 
     const shaper = this.ctx.createWaveShaper();
     shaper.curve = distCurve as Float32Array<ArrayBuffer>;
-    shaper.oversample = '2x';
+    shaper.oversample = 'none';
 
     subOsc.connect(subGain);
     subGain.connect(shaper);
@@ -378,18 +422,17 @@ class NavalAudioController {
     subOsc.stop(t + 0.5);
 
     // 3. Heavy Gunpowder Expansion Roar (Brown Noise through lowpass sweep)
-    // Deep, rumbling, earthy combustion roar
     if (brownBuffer) {
       const roar = this.ctx.createBufferSource();
       roar.buffer = brownBuffer;
 
       const roarFilter = this.ctx.createBiquadFilter();
       roarFilter.type = 'lowpass';
-      roarFilter.frequency.setValueAtTime(isLocal ? 600 : 400, t);
+      roarFilter.frequency.setValueAtTime(600, t);
       roarFilter.frequency.exponentialRampToValueAtTime(75, t + 0.42);
 
       const roarGain = this.ctx.createGain();
-      roarGain.gain.setValueAtTime(isLocal ? 0.85 : 0.6, t);
+      roarGain.gain.setValueAtTime(0.85, t);
       roarGain.gain.exponentialRampToValueAtTime(0.005, t + 0.5);
 
       roar.connect(roarFilter);
@@ -410,7 +453,7 @@ class NavalAudioController {
 
       const echoGain = this.ctx.createGain();
       echoGain.gain.setValueAtTime(0.001, t);
-      echoGain.gain.linearRampToValueAtTime(isLocal ? 0.4 : 0.25, t + 0.1);
+      echoGain.gain.linearRampToValueAtTime(0.4, t + 0.1);
       echoGain.gain.exponentialRampToValueAtTime(0.002, t + 1.05);
 
       echo.connect(echoFilter);
@@ -435,6 +478,7 @@ class NavalAudioController {
     }
 
     setTimeout(() => {
+      this.activeCannonVoices = Math.max(0, this.activeCannonVoices - 1);
       try {
         subOsc.disconnect();
         subGain.disconnect();
@@ -443,7 +487,7 @@ class NavalAudioController {
       } catch {
         // Disconnected
       }
-    }, 1200);
+    }, 550);
   }
 
   // Alias for backward compatibility
@@ -458,7 +502,7 @@ class NavalAudioController {
   public playWoodHit(options?: SpatialAudioOptions): void {
     if (this.isMuted) return;
     const now = performance.now();
-    if (now - this.lastImpactTime < 55) return;
+    if (now - this.lastImpactTime < 80) return;
     this.lastImpactTime = now;
 
     this.init();
@@ -489,6 +533,7 @@ class NavalAudioController {
 
     const shaper = this.ctx.createWaveShaper();
     shaper.curve = distCurve as Float32Array<ArrayBuffer>;
+    shaper.oversample = 'none';
 
     osc.connect(oscGain);
     oscGain.connect(shaper);
@@ -552,7 +597,7 @@ class NavalAudioController {
   public playWaterSplash(options?: SpatialAudioOptions): void {
     if (this.isMuted) return;
     const now = performance.now();
-    if (now - this.lastSplashTime < 65) return;
+    if (now - this.lastSplashTime < 120) return;
     this.lastSplashTime = now;
 
     this.init();

@@ -53,10 +53,10 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
   const sparkPointsRef = useRef<THREE.Points>(null);
   const plumePointsRef = useRef<THREE.Points>(null);
 
-  const [flashPos, flashSz] = useMemo(() => [new Float32Array(maxFlash * 3), new Float32Array(maxFlash)], [maxFlash]);
-  const [smokePos, smokeSz] = useMemo(() => [new Float32Array(maxSmoke * 3), new Float32Array(maxSmoke)], [maxSmoke]);
-  const [sparkPos, sparkSz] = useMemo(() => [new Float32Array(maxSparks * 3), new Float32Array(maxSparks)], [maxSparks]);
-  const [plumePos, plumeSz] = useMemo(() => [new Float32Array(maxPlumes * 3), new Float32Array(maxPlumes)], [maxPlumes]);
+  const flashPos = useMemo(() => new Float32Array(maxFlash * 3), [maxFlash]);
+  const smokePos = useMemo(() => new Float32Array(maxSmoke * 3), [maxSmoke]);
+  const sparkPos = useMemo(() => new Float32Array(maxSparks * 3), [maxSparks]);
+  const plumePos = useMemo(() => new Float32Array(maxPlumes * 3), [maxPlumes]);
 
   const knownBallIds = useRef<Map<string, { x: number; y: number; z: number }>>(new Map());
   const processedFireEvents = useRef<Set<string>>(new Set());
@@ -80,7 +80,7 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
 
     // For player ship: full cinematic salvo; for bot/opponent ships: clean balanced emitters
     const numGuns = isSelf
-      ? (isMobile ? Math.min(4, Math.max(2, Math.floor(shipCfg.length / 3.0))) : Math.min(8, Math.max(3, Math.floor(shipCfg.length / 2.2))))
+      ? (isMobile ? Math.min(4, Math.max(2, Math.floor(shipCfg.length / 3.0))) : Math.min(6, Math.max(3, Math.floor(shipCfg.length / 2.4))))
       : (isMobile ? 2 : 3);
 
     for (let g = 0; g < numGuns; g++) {
@@ -89,24 +89,23 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
       const gx = transform.spawnX;
       const gy = gunDeckY + (Math.random() - 0.5) * 0.2;
       const gz = transform.spawnZ;
+      const normX = Math.sin(transform.fireAngle);
+      const normZ = Math.cos(transform.fireAngle);
 
-      const normX = transform.lateralX;
-      const normZ = transform.lateralZ;
+      // Bright fiery muzzle flash point
+      spawnFlash(flashPool.current, gx, gy, gz, 5.0 + Math.random() * 2.0);
 
-      // Bright muzzle explosion burst
-      spawnFlash(flashPool.current, gx, gy, gz, isSelf ? 4.8 + Math.random() * 2.0 : 3.8);
-      if (!isMobile && isSelf) {
-        spawnSparks(sparkPool.current, gx, gy, gz, normX, normZ);
-      }
+      // Gunpowder sparks & burning wad debris
+      spawnSparks(sparkPool.current, gx, gy, gz, normX, normZ);
 
       // Billowy smoke clouds per gun emitter (lean on opponents to prevent particle pool thrashing)
-      const smokeCount = isSelf ? (isMobile ? 2 : (2 + Math.floor(Math.random() * 2))) : 1;
+      const smokeCount = isSelf ? (isMobile ? 1 : 2) : 1;
       for (let sm = 0; sm < smokeCount; sm++) {
-        const outSpeed = 5.0 + Math.random() * 10.0;
-        const svx = normX * outSpeed + (Math.random() - 0.5) * 3.5;
-        const svy = 1.0 + Math.random() * 2.5;
-        const svz = normZ * outSpeed + (Math.random() - 0.5) * 3.5;
-        spawnSmoke(smokePool.current, gx, gy, gz, svx, svy, svz, 3.8 + Math.random() * 2.2);
+        const outSpeed = 4.0 + Math.random() * 8.0;
+        const svx = normX * outSpeed + (Math.random() - 0.5) * 3.0;
+        const svy = 1.0 + Math.random() * 2.0;
+        const svz = normZ * outSpeed + (Math.random() - 0.5) * 3.0;
+        spawnSmoke(smokePool.current, gx, gy, gz, svx, svy, svz, 3.6 + Math.random() * 2.0);
       }
     }
   };
@@ -141,7 +140,7 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
     currentBallIds.current.clear();
     const totalBalls = cannonballs.length;
     // Dynamic smoke ribbon throttling when many cannonballs are active
-    const smokeInterval = totalBalls > 20 ? (isMobile ? 6 : 4) : (isMobile ? 4 : 2);
+    const smokeInterval = totalBalls > 15 ? (isMobile ? 8 : 6) : (isMobile ? 5 : 3);
     const shouldSpawnBallSmoke = frameCounter.current % smokeInterval === 0;
 
     for (const b of cannonballs) {
@@ -156,17 +155,17 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
         ballPos.z = b.z;
       }
 
-      // Persistent smoke ribbon following each flying cannonball (throttled for high FPS)
-      if (shouldSpawnBallSmoke) {
+      // Persistent smoke ribbon following flying cannonballs (throttled)
+      if (shouldSpawnBallSmoke && totalBalls <= 32) {
         spawnSmoke(
           smokePool.current,
           b.x - (b.vx ?? 0) * 0.03,
           b.y - (b.vy ?? 0) * 0.03,
           b.z - (b.vz ?? 0) * 0.03,
-          (Math.random() - 0.5) * 0.3,
+          (Math.random() - 0.5) * 0.25,
           0.2 + (Math.random() - 0.5) * 0.2,
-          (Math.random() - 0.5) * 0.3,
-          1.5 + Math.random() * 0.8
+          (Math.random() - 0.5) * 0.25,
+          1.5 + Math.random() * 0.7
         );
       }
     }
@@ -176,46 +175,39 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
     for (const [id, lastPos] of knownBallIds.current.entries()) {
       if (!currentBallIds.current.has(id)) {
         if (lastPos.y <= 1.8) {
-          if (plumesSpawnedThisFrame < 3) {
+          if (plumesSpawnedThisFrame < 2) {
             spawnWaterImpact(plumePool.current, smokePool.current, lastPos.x, lastPos.z);
             plumesSpawnedThisFrame++;
           }
         } else {
-          spawnFlash(flashPool.current, lastPos.x, lastPos.y, lastPos.z, 4.5);
-          const hitSmokeCount = isMobile ? 2 : 4;
-          for (let sp = 0; sp < hitSmokeCount; sp++) {
-            spawnSmoke(
-              smokePool.current,
-              lastPos.x,
-              lastPos.y,
-              lastPos.z,
-              (Math.random() - 0.5) * 6.0,
-              1.5 + Math.random() * 3.0,
-              (Math.random() - 0.5) * 6.0,
-              1.8
-            );
-          }
+          spawnFlash(flashPool.current, lastPos.x, lastPos.y, lastPos.z, 4.0);
+          spawnSmoke(
+            smokePool.current,
+            lastPos.x,
+            lastPos.y,
+            lastPos.z,
+            (Math.random() - 0.5) * 4.0,
+            1.5 + Math.random() * 2.0,
+            (Math.random() - 0.5) * 4.0,
+            1.6
+          );
         }
         knownBallIds.current.delete(id);
       }
     }
 
-    // 3. Update GPU Particles Buffers
+    // 3. Update GPU Particles Buffers with Compacted Draw Ranges (zero waste uploads)
     // A. Smoke Update
     if (smokePointsRef.current) {
       const geo = smokePointsRef.current.geometry;
       const posAttr = geo.attributes.position as THREE.BufferAttribute;
-      const szAttr = geo.attributes.size as THREE.BufferAttribute;
       const posArr = posAttr.array as Float32Array;
-      const szArr = szAttr.array as Float32Array;
 
+      let activeSmoke = 0;
       for (let i = 0; i < maxSmoke; i++) {
         const p = smokePool.current[i];
         if (p.life > 0) {
           p.life -= delta;
-          const prog = 1.0 - p.life / p.maxLife;
-
-          // Drag / deceleration & expansion
           p.x += p.vx * delta;
           p.y += p.vy * delta;
           p.z += p.vz * delta;
@@ -223,52 +215,48 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
           p.vz *= 0.94;
           p.vy = Math.max(0.15, p.vy * 0.96);
 
-          posArr[i * 3] = p.x;
-          posArr[i * 3 + 1] = Math.max(0.2, p.y);
-          posArr[i * 3 + 2] = p.z;
-          szArr[i] = p.size * (1.0 + prog * p.growth);
-        } else {
-          posArr[i * 3 + 1] = -500;
-          szArr[i] = 0;
+          posArr[activeSmoke * 3] = p.x;
+          posArr[activeSmoke * 3 + 1] = Math.max(0.2, p.y);
+          posArr[activeSmoke * 3 + 2] = p.z;
+          activeSmoke++;
         }
       }
-      posAttr.needsUpdate = true;
-      szAttr.needsUpdate = true;
+      geo.setDrawRange(0, activeSmoke);
+      if (activeSmoke > 0) {
+        posAttr.needsUpdate = true;
+      }
     }
 
     // B. Flash Update
     if (flashPointsRef.current) {
       const geo = flashPointsRef.current.geometry;
       const posAttr = geo.attributes.position as THREE.BufferAttribute;
-      const szAttr = geo.attributes.size as THREE.BufferAttribute;
       const posArr = posAttr.array as Float32Array;
-      const szArr = szAttr.array as Float32Array;
 
+      let activeFlash = 0;
       for (let i = 0; i < maxFlash; i++) {
         const p = flashPool.current[i];
         if (p.life > 0) {
           p.life -= delta;
-          posArr[i * 3] = p.x;
-          posArr[i * 3 + 1] = p.y;
-          posArr[i * 3 + 2] = p.z;
-          szArr[i] = p.size * (1.0 + (1.0 - p.life / p.maxLife) * p.growth);
-        } else {
-          posArr[i * 3 + 1] = -500;
-          szArr[i] = 0;
+          posArr[activeFlash * 3] = p.x;
+          posArr[activeFlash * 3 + 1] = p.y;
+          posArr[activeFlash * 3 + 2] = p.z;
+          activeFlash++;
         }
       }
-      posAttr.needsUpdate = true;
-      szAttr.needsUpdate = true;
+      geo.setDrawRange(0, activeFlash);
+      if (activeFlash > 0) {
+        posAttr.needsUpdate = true;
+      }
     }
 
     // C. Sparks Update
     if (sparkPointsRef.current) {
       const geo = sparkPointsRef.current.geometry;
       const posAttr = geo.attributes.position as THREE.BufferAttribute;
-      const szAttr = geo.attributes.size as THREE.BufferAttribute;
       const posArr = posAttr.array as Float32Array;
-      const szArr = szAttr.array as Float32Array;
 
+      let activeSparks = 0;
       for (let i = 0; i < maxSparks; i++) {
         const p = sparkPool.current[i];
         if (p.life > 0) {
@@ -278,46 +266,42 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
           p.z += p.vz * delta;
           p.vy -= 9.8 * delta;
 
-          posArr[i * 3] = p.x;
-          posArr[i * 3 + 1] = Math.max(0.1, p.y);
-          posArr[i * 3 + 2] = p.z;
-          szArr[i] = Math.max(0.2, p.size * (p.life / p.maxLife));
-        } else {
-          posArr[i * 3 + 1] = -500;
-          szArr[i] = 0;
+          posArr[activeSparks * 3] = p.x;
+          posArr[activeSparks * 3 + 1] = Math.max(0.1, p.y);
+          posArr[activeSparks * 3 + 2] = p.z;
+          activeSparks++;
         }
       }
-      posAttr.needsUpdate = true;
-      szAttr.needsUpdate = true;
+      geo.setDrawRange(0, activeSparks);
+      if (activeSparks > 0) {
+        posAttr.needsUpdate = true;
+      }
     }
 
     // D. Water Plumes Update
     if (plumePointsRef.current) {
       const geo = plumePointsRef.current.geometry;
       const posAttr = geo.attributes.position as THREE.BufferAttribute;
-      const szAttr = geo.attributes.size as THREE.BufferAttribute;
       const posArr = posAttr.array as Float32Array;
-      const szArr = szAttr.array as Float32Array;
 
+      let activePlumes = 0;
       for (let i = 0; i < maxPlumes; i++) {
         const p = plumePool.current[i];
         if (p.life > 0) {
           p.life -= delta;
-          const prog = 1.0 - p.life / p.maxLife;
           p.y += p.vy * delta;
           p.vy -= 4.0 * delta;
 
-          posArr[i * 3] = p.x;
-          posArr[i * 3 + 1] = Math.max(0.4, p.y);
-          posArr[i * 3 + 2] = p.z;
-          szArr[i] = p.size * (1.0 + prog * 1.5) * (1.0 - prog * 0.5);
-        } else {
-          posArr[i * 3 + 1] = -500;
-          szArr[i] = 0;
+          posArr[activePlumes * 3] = p.x;
+          posArr[activePlumes * 3 + 1] = Math.max(0.4, p.y);
+          posArr[activePlumes * 3 + 2] = p.z;
+          activePlumes++;
         }
       }
-      posAttr.needsUpdate = true;
-      szAttr.needsUpdate = true;
+      geo.setDrawRange(0, activePlumes);
+      if (activePlumes > 0) {
+        posAttr.needsUpdate = true;
+      }
     }
   });
 
@@ -327,7 +311,6 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
       <points ref={smokePointsRef} frustumCulled={false}>
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[smokePos, 3]} />
-          <bufferAttribute attach="attributes-size" args={[smokeSz, 1]} />
         </bufferGeometry>
         <pointsMaterial
           map={smokeTex}
@@ -345,7 +328,6 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
       <points ref={flashPointsRef} frustumCulled={false}>
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[flashPos, 3]} />
-          <bufferAttribute attach="attributes-size" args={[flashSz, 1]} />
         </bufferGeometry>
         <pointsMaterial
           map={flashTex}
@@ -363,7 +345,6 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
       <points ref={sparkPointsRef} frustumCulled={false}>
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[sparkPos, 3]} />
-          <bufferAttribute attach="attributes-size" args={[sparkSz, 1]} />
         </bufferGeometry>
         <pointsMaterial
           map={sparkTex}
@@ -381,7 +362,6 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
       <points ref={plumePointsRef} frustumCulled={false}>
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[plumePos, 3]} />
-          <bufferAttribute attach="attributes-size" args={[plumeSz, 1]} />
         </bufferGeometry>
         <pointsMaterial
           map={plumeTex}

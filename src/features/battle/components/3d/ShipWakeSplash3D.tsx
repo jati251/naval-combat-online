@@ -222,6 +222,7 @@ export const ShipWakeSplash3D: React.FC<ShipWakeSplash3DProps> = React.memo(({
     }
 
     // Update active 2D bubbles
+    let activeCount = 0;
     for (let i = 0; i < count; i++) {
       const p = particles.current[i];
       if (p.life > 0) {
@@ -239,16 +240,19 @@ export const ShipWakeSplash3D: React.FC<ShipWakeSplash3DProps> = React.memo(({
         p.vx *= Math.max(0, 1.0 - 1.1 * delta);
         p.vz *= Math.max(0, 1.0 - 0.85 * delta);
 
-        // Clamp y to float buoyant right at the waterline
-        posArr[i * 3] = p.x;
-        posArr[i * 3 + 1] = Math.min(waterLevelY + 0.35, Math.max(waterLevelY - 0.05, p.y));
-        posArr[i * 3 + 2] = p.z;
-      } else {
-        posArr[i * 3 + 1] = -100;
+        // Pack active particles to the start of the GPU vertex buffer
+        const idx = activeCount * 3;
+        posArr[idx] = p.x;
+        posArr[idx + 1] = Math.min(waterLevelY + 0.35, Math.max(waterLevelY - 0.05, p.y));
+        posArr[idx + 2] = p.z;
+        activeCount++;
       }
     }
 
-    posAttr.needsUpdate = true;
+    geo.setDrawRange(0, activeCount);
+    if (activeCount > 0) {
+      posAttr.needsUpdate = true;
+    }
   });
 
   return (
