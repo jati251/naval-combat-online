@@ -3,6 +3,7 @@ import { Sliders, Volume2, VolumeX } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import { GraphicQualitySelector } from './GraphicQualitySelector';
+import { ResolutionSelector } from './ResolutionSelector';
 import { useGameStore } from '@/stores/useGameStore';
 
 export const SettingsModal: React.FC = () => {
@@ -32,8 +33,11 @@ export const SettingsModal: React.FC = () => {
       }
     >
       <div className="space-y-3.5 py-1">
-        {/* Graphic Quality 3-Tier Selector */}
+        {/* Graphic Quality 3-Tier Preset */}
         <GraphicQualitySelector />
+
+        {/* Resolution Scale / Limit Preset */}
+        <ResolutionSelector />
 
         {/* Audio Section */}
         <div className="pt-2 border-t border-amber-600/25">

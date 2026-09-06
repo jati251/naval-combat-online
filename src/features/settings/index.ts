@@ -3,5 +3,7 @@ export * from './config/graphicProfiles';
 export * from './stores/useSettingsStore';
 export * from './hooks/useGraphicsQuality';
 export * from './components/GraphicQualitySelector';
+export * from './components/ResolutionSelector';
+export * from './utils/resolutionClamping';
 export * from './components/SettingsModal';
 export * from './components/SettingsButton';

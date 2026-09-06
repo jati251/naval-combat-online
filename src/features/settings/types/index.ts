@@ -1,4 +1,5 @@
 export type GraphicQuality = 'fast' | 'balanced' | 'performance';
+export type ResolutionLimit = '720p' | '1080p' | 'native';
 
 export interface WaterShaderFeatures {
   /** Distance in meters within which capillary micro-ripples are rendered */
@@ -39,13 +40,17 @@ export interface GraphicProfile {
   islandDetailDistance: number;
   toneMappingExposureDay: number;
   toneMappingExposureNight: number;
+  maxResolution?: { width: number; height: number };
 }
 
 export interface SettingsState {
   graphicQuality: GraphicQuality;
+  resolutionLimit: ResolutionLimit;
   isSettingsOpen: boolean;
   setGraphicQuality: (quality: GraphicQuality) => void;
+  setResolutionLimit: (limit: ResolutionLimit) => void;
   openSettings: () => void;
   closeSettings: () => void;
   toggleSettings: () => void;
 }
+
