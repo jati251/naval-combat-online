@@ -3,7 +3,6 @@ import React, { useMemo, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
-import { isSeaEntityInFrustum } from '../../../utils/frustumCuller';
 
 export interface BuoyDefinition {
   id: string;
@@ -88,12 +87,15 @@ const SingleBuoy: React.FC<SingleBuoyProps> = React.memo(({ buoy, isMobile = fal
   useFrame((state) => {
     if (!groupRef.current) return;
 
-    // Horizon Zero Dawn Frustum Culling: Skip off-screen buoys and disable their dynamic point lights
+    // Distance Culling: Skip animations when far in fog.
+    // Meshes are natively frustum-culled by Three.js per draw call.
     frameCount.current++;
     if (frameCount.current % 4 === 0) {
-      const inView = isSeaEntityInFrustum(state.camera, buoy.x, buoy.z, 14, 6, 10);
-      if (groupRef.current.visible !== inView) {
-        groupRef.current.visible = inView;
+      const dx = state.camera.position.x - buoy.x;
+      const dz = state.camera.position.z - buoy.z;
+      const withinDist = (dx * dx + dz * dz) <= 380 * 380;
+      if (groupRef.current.visible !== withinDist) {
+        groupRef.current.visible = withinDist;
       }
     }
     if (!groupRef.current.visible) return;

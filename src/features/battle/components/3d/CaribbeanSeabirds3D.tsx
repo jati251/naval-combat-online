@@ -1,7 +1,6 @@
 import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
-import { isSphereInFrustum } from '../../utils/frustumCuller';
 
 /**
  * Generates an in-memory crisp 2D white seagull silhouette texture.
@@ -110,36 +109,15 @@ export const CaribbeanSeabirds3D: React.FC = React.memo(() => {
   }, []);
 
   const spriteRefs = useRef<(THREE.Sprite | null)[]>([]);
-  const flockVisibleRef = useRef<boolean[]>([true, true, true]);
-  const frameCount = useRef(0);
 
   useFrame((state) => {
     const t = state.clock.getElapsedTime();
 
-    // Horizon Zero Dawn Frustum Culling: Test each of the 3 flocks every 4 frames
-    frameCount.current++;
-    if (frameCount.current % 4 === 0) {
-      const flockCenters: Array<[number, number]> = [
-        [-110, 90],
-        [90, 40],
-        [-70, -80],
-      ];
-      for (let f = 0; f < 3; f++) {
-        const c = flockCenters[f];
-        flockVisibleRef.current[f] = isSphereInFrustum(state.camera, c[0], 35, c[1], 85, 20);
-      }
-    }
-
+    // Native Three.js GPU Frustum Culling:
+    // Sprites have frustumCulled={true} by default, eliminating batch popping.
     birds.forEach((bird, idx) => {
       const sprite = spriteRefs.current[idx];
       if (!sprite) return;
-
-      const flockIdx = idx % 3;
-      const isVisible = flockVisibleRef.current[flockIdx];
-      if (sprite.visible !== isVisible) {
-        sprite.visible = isVisible;
-      }
-      if (!isVisible) return;
 
       const angle = bird.phase + t * bird.speed;
       const x = bird.orbitCenter[0] + Math.cos(angle) * bird.orbitRadius;

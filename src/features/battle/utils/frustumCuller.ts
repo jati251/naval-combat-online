@@ -1,12 +1,10 @@
-import * as THREE from 'three';
+import * as THREE from "three";
 
 /**
  * AAA Camera Frustum Culling Engine
- * Inspired by Horizon Zero Dawn / Decima Engine:
- * Dynamically tests bounding spheres and boxes against the active camera view frustum.
  * Features zero heap allocation during gameplay (reuses internal matrices & vectors)
  * and frame-level deduplication so multiple entities calling it on the same frame
- * never recompute the view-projection matrix.
+ * reuse the computed view-projection matrix without redundant matrix inversions.
  */
 
 const _projScreenMatrix = new THREE.Matrix4();
@@ -14,41 +12,32 @@ const _frustum = new THREE.Frustum();
 const _tempSphere = new THREE.Sphere();
 const _tempVector = new THREE.Vector3();
 
-// Frame-level deduplication: track which camera + frame was last computed.
-// Prevents 30+ redundant camera.updateMatrixWorld() + frustum extraction calls per frame.
 let _lastFrameId: number = -1;
 let _cachedFrame: number = -1;
 let _cachedCam: number = -1;
 
 /**
  * Sets the current render frame ID. Call once per frame from the main scene useFrame hook.
- * This enables all frustum checks within the same frame to skip redundant matrix extraction.
  */
 export function setFrameId(frameId: number): void {
   _lastFrameId = frameId;
 }
 
 /**
- * Internal: extracts frustum planes from camera exactly once per frame+camera combo.
+ * Extracts frustum planes from camera.
+ * Deduplicates extraction per frame+camera combo, but allows explicit force refresh.
  */
-function updateFrustumOnce(camera: THREE.Camera): void {
+export function updateFrustum(camera: THREE.Camera, force = false): void {
   const frameId = _lastFrameId;
   const camId = camera.id;
-  if (frameId === _cachedFrame && camId === _cachedCam) {
-    return; // Already computed for this exact frame + camera — skip entirely
+  if (!force && frameId !== -1 && frameId === _cachedFrame && camId === _cachedCam) {
+    return; // Already computed for this exact frame + camera — skip recomputation
   }
   _cachedFrame = frameId;
   _cachedCam = camId;
   camera.updateMatrixWorld();
   _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
   _frustum.setFromProjectionMatrix(_projScreenMatrix);
-}
-
-/**
- * @deprecated Use updateFrustumOnce internally. Kept for test compatibility.
- */
-export function updateFrustum(camera: THREE.Camera): void {
-  updateFrustumOnce(camera);
 }
 
 /**
@@ -63,7 +52,7 @@ export function isSphereInFrustum(
   radius: number,
   buffer = 0
 ): boolean {
-  updateFrustumOnce(camera);
+  updateFrustum(camera);
 
   _tempVector.set(x, y, z);
   _tempSphere.center = _tempVector;
@@ -76,7 +65,7 @@ export function isSphereInFrustum(
  * Returns whether an axis-aligned bounding box intersects the camera view frustum.
  */
 export function isBoxInFrustum(camera: THREE.Camera, box: THREE.Box3): boolean {
-  updateFrustumOnce(camera);
+  updateFrustum(camera);
   return _frustum.intersectsBox(box);
 }
 

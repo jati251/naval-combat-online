@@ -18,7 +18,7 @@ import { lerpAngle, damp } from '../../utils/math';
 import { useGameStore } from '@/stores/useGameStore';
 import { findShip } from '@/stores/selectors/shipLookup';
 import { navalAudio } from '../../services/navalAudio';
-import { isSeaEntityInFrustum } from '../../utils/frustumCuller';
+import { isSeaEntityInFrustum, updateFrustum } from '../../utils/frustumCuller';
 
 const _tempParentQuat = new THREE.Quaternion();
 
@@ -226,6 +226,28 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
       curShip.vz ?? 0
     );
 
+    // First frame initialization or continuous dead reckoning extrapolation
+    if (!isInitialized.current) {
+      groupRef.current.position.set(curShip.x, curShip.isSunk ? curShip.y : curShip.y + 0.85, curShip.z);
+      groupRef.current.rotation.y = curShip.rotationY;
+      groupRef.current.rotation.x = curShip.pitch;
+      groupRef.current.rotation.z = curShip.roll;
+      isInitialized.current = true;
+    } else {
+      // Extrapolate smooth target with collision clamping
+      const target = extrapolatePosition(drBuffer.current, curShip.isSunk);
+
+      // High-precision smooth transform damping (60-120fps)
+      groupRef.current.position.x = damp(groupRef.current.position.x, target.x, 24, delta);
+      groupRef.current.position.y = damp(groupRef.current.position.y, target.y, 16, delta);
+      groupRef.current.position.z = damp(groupRef.current.position.z, target.z, 24, delta);
+
+      // Shortest-arc angle wrapping
+      groupRef.current.rotation.y = lerpAngle(groupRef.current.rotation.y, target.heading, Math.min(1.0, 20 * delta));
+      groupRef.current.rotation.x = damp(groupRef.current.rotation.x, curShip.pitch, 12, delta);
+      groupRef.current.rotation.z = damp(groupRef.current.rotation.z, curShip.roll, 12, delta);
+    }
+
     // Throttled distance and frustum check
     frameCount.current++;
     if (frameCount.current % 4 === 0) {
@@ -243,7 +265,7 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
           groupRef.current.visible = withinDistance;
         }
 
-        // 2. Horizon Zero Dawn Frustum Culling: Only evaluate and render nameplates when ship is in camera view
+        // 2. Frustum Culling: Only evaluate and render nameplates when ship is in camera view
         if (nameplateRef.current) {
           const inFrustum = withinDistance && isSeaEntityInFrustum(
             camera,
@@ -287,27 +309,7 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
     }
 
 
-    // First frame initialization (snap immediately without initial sweeping lerp)
-    if (!isInitialized.current) {
-      groupRef.current.position.set(curShip.x, curShip.isSunk ? curShip.y : curShip.y + 0.85, curShip.z);
-      groupRef.current.rotation.y = curShip.rotationY;
-      groupRef.current.rotation.x = curShip.pitch;
-      groupRef.current.rotation.z = curShip.roll;
-      isInitialized.current = true;
-    } else {
-      // Extrapolate smooth target with collision clamping
-      const target = extrapolatePosition(drBuffer.current, curShip.isSunk);
 
-      // High-precision smooth transform damping (60-120fps)
-      groupRef.current.position.x = damp(groupRef.current.position.x, target.x, 24, delta);
-      groupRef.current.position.y = damp(groupRef.current.position.y, target.y, 16, delta);
-      groupRef.current.position.z = damp(groupRef.current.position.z, target.z, 24, delta);
-
-      // Shortest-arc angle wrapping
-      groupRef.current.rotation.y = lerpAngle(groupRef.current.rotation.y, target.heading, Math.min(1.0, 20 * delta));
-      groupRef.current.rotation.x = damp(groupRef.current.rotation.x, curShip.pitch, 12, delta);
-      groupRef.current.rotation.z = damp(groupRef.current.rotation.z, curShip.roll, 12, delta);
-    }
 
     // 100% Lockstep Chase Camera: camera follows the visual ship transform directly
     if (isSelf && !curShip.isSunk) {
@@ -332,6 +334,9 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
         cameraState: cameraState.current,
         shakeEvent: store.cameraShake,
       });
+
+      // Synchronize frustum culler immediately with the fresh camera matrix
+      updateFrustum(camera, true);
     }
   });
 

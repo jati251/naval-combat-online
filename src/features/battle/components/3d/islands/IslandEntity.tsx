@@ -9,7 +9,6 @@ import { CoastalSettlement } from './CoastalSettlement';
 import { KingstonCity } from './KingstonCity';
 import { MayanPyramid } from './MayanPyramid';
 import { SeaArch } from './SeaArch';
-import { isSeaEntityInFrustum } from '../../../utils/frustumCuller';
 
 export interface IslandMaterials {
   rock: THREE.Material;
@@ -44,15 +43,8 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
     const scaleZ = island.elongation?.scaleZ ?? 1;
     const islandRadius = Math.max(island.radius, island.sandRadius) * Math.max(scaleX, scaleZ);
 
-    // Horizon Zero Dawn Frustum Culling:
-    // When off-screen, cull heavy foliage and detail groups and skip CPU LOD scale interpolations.
-    // Preserves root terrain to avoid invalidating the PCF shadow map and causing GPU pipeline hangs.
-    const inFrustum = isSeaEntityInFrustum(camera, island.x, island.z, islandRadius, island.height + 20, 50);
-    if (!inFrustum) {
-      if (treesRef.current && treesRef.current.visible) treesRef.current.visible = false;
-      if (detailRef.current && detailRef.current.visible) detailRef.current.visible = false;
-      return;
-    }
+    // Three.js InstancedMesh automatically performs GPU/render-pass frustum culling per draw call.
+    // Preserving group visibility maintains consistent directional shadow maps with zero pipeline stalls.
 
     const dx = camera.position.x - island.x;
     const dz = camera.position.z - island.z;

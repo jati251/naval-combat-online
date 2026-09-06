@@ -5,7 +5,6 @@ import { FOG_FAR_DESKTOP } from './Environment3D';
 import { StaticInstances, type InstanceTransform } from './shared/StaticInstances';
 import { useGameStore } from '@/stores/useGameStore';
 import { getMapConfig } from '../../maps';
-import { isSeaEntityInFrustum } from '../../utils/frustumCuller';
 
 export interface ShipwreckDefinition {
   id: string;
@@ -152,18 +151,17 @@ const ShipwreckEntity: React.FC<{ wreck: ShipwreckDefinition }> = React.memo(({ 
   useFrame((state) => {
     if (!rootRef.current) return;
 
-    // Horizon Zero Dawn Frustum + Distance Culling:
-    // Skip rendering and animation whenever wreck is outside camera screen or veiled in deep fog
+    // Distance Culling: Skip rendering and animation when veiled in deep fog.
+    // Preserves native Three.js GPU frustum culling so shadow maps never flicker.
     frameCount.current++;
     if (frameCount.current % 4 === 0) {
       const dx = state.camera.position.x - wreck.x;
       const dz = state.camera.position.z - wreck.z;
       const distSq = dx * dx + dz * dz;
-      const cullDist = FOG_FAR_DESKTOP + 20;
+      const cullDist = FOG_FAR_DESKTOP + 30;
       const withinDist = distSq <= cullDist * cullDist;
-      const inView = withinDist && isSeaEntityInFrustum(state.camera, wreck.x, wreck.z, wreck.radius + 15, 18, 16);
-      if (rootRef.current.visible !== inView) {
-        rootRef.current.visible = inView;
+      if (rootRef.current.visible !== withinDist) {
+        rootRef.current.visible = withinDist;
       }
     }
 

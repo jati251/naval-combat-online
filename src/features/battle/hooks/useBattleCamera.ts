@@ -1,3 +1,4 @@
+import { updateFrustum } from '../utils/frustumCuller';
 import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
@@ -54,5 +55,6 @@ export const useBattleCamera = () => {
       cameraState: cameraState.current,
       shakeEvent: selfShip ? cameraShake : null,
     });
+    updateFrustum(camera, true);
   });
 };

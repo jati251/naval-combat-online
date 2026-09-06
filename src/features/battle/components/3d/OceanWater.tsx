@@ -25,7 +25,7 @@ function makeWaveGLSL(dx: number, dy: number, steepness: number, wavelength: num
 }
 
 export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, isMobile = false, profile }) => {
-  const groupRef = useRef<THREE.Group>(null);
+  const meshRef = useRef<THREE.Mesh>(null);
   const timeOfDay = useGameStore((s) => s.timeOfDay);
   const isNight = timeOfDay === 'NIGHT';
 
@@ -41,32 +41,15 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
   // - performance (Ultra Realism): 180x180 quads (32,400 quads) for high-framerate physical Gerstner curves
   const segments = profile ? profile.waterSegments : (isMobile ? 120 : 160);
 
-  // 3x3 Frustum-Culled Ocean Grid (Horizon Zero Dawn / Decima Engine ocean tiling):
-  // Divides ocean into 9 seamless tiles sharing identical ShaderMaterial and PlaneGeometry.
-  // Off-screen ocean tiles (behind and beside camera) are automatically culled by Three.js frustum culling.
-  const tileSize = size / 3;
-  const tileSegments = Math.max(16, Math.round(segments / 3));
-
-  const tileGeometry = useMemo(() => {
-    const geo = new THREE.PlaneGeometry(tileSize, tileSize, tileSegments, tileSegments);
+  // Unified Continuous Ocean Mesh:
+  // Centered around the camera, snaps to gridStep to eliminate vertex shimmer.
+  // Single draw call eliminates WebGL state-binding overhead.
+  // frustumCulled={false} ensures vertex-displaced Gerstner wave crests never clip.
+  const geometry = useMemo(() => {
+    const geo = new THREE.PlaneGeometry(size, size, segments, segments);
     geo.rotateX(-Math.PI / 2);
-    geo.computeBoundingSphere();
     return geo;
-  }, [tileSize, tileSegments]);
-
-  const tileOffsets = useMemo(() => {
-    const offsets: Array<{ key: string; x: number; z: number }> = [];
-    for (let ix = -1; ix <= 1; ix++) {
-      for (let iz = -1; iz <= 1; iz++) {
-        offsets.push({
-          key: `ocean_tile_${ix}_${iz}`,
-          x: ix * tileSize,
-          z: iz * tileSize,
-        });
-      }
-    }
-    return offsets;
-  }, [tileSize]);
+  }, [size, segments]);
 
   // Pack arena islands data into uniform arrays: position/seed and elongation params (supports up to 12 islands)
   const islandPositions = useMemo(() => {
@@ -560,7 +543,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
   }, [isNight, isMobile, activeMap, islandPositions, islandParams, waveShaderChunk, qualityTier, profile]);
 
   useEffect(() => () => shaderMaterial.dispose(), [shaderMaterial]);
-  useEffect(() => () => tileGeometry.dispose(), [tileGeometry]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
 
   // Smoothed real-time ship state refs to prevent 30Hz server-tick wake stutter
   const smoothShipPos = useRef(new THREE.Vector3(0, 0, 0));
@@ -590,24 +573,20 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
       }
     }
 
-    if (groupRef.current) {
-      const gridStep = tileSize / tileSegments;
-      groupRef.current.position.x = Math.round(state.camera.position.x / gridStep) * gridStep;
-      groupRef.current.position.z = Math.round(state.camera.position.z / gridStep) * gridStep;
+    if (meshRef.current) {
+      const gridStep = size / segments;
+      meshRef.current.position.x = Math.round(state.camera.position.x / gridStep) * gridStep;
+      meshRef.current.position.z = Math.round(state.camera.position.z / gridStep) * gridStep;
     }
   });
 
   return (
-    <group ref={groupRef} position={[0, -0.05, 0]}>
-      {tileOffsets.map((tile) => (
-        <mesh
-          key={tile.key}
-          geometry={tileGeometry}
-          material={shaderMaterial}
-          position={[tile.x, 0, tile.z]}
-          frustumCulled={true}
-        />
-      ))}
-    </group>
+    <mesh
+      ref={meshRef}
+      geometry={geometry}
+      material={shaderMaterial}
+      position={[0, -0.05, 0]}
+      frustumCulled={false}
+    />
   );
 });
