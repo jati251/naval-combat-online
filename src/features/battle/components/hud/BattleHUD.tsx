@@ -18,6 +18,8 @@ import { CombatLogFeed } from './CombatLogFeed';
 import { BoundaryWarningAlert } from './BoundaryWarningAlert';
 import { BattleDeploymentLoader } from './BattleDeploymentLoader';
 import { MobileNavalControls } from './MobileNavalControls';
+import { isMobileDevice } from '@/hooks/useMobileViewport';
+
 
 /**
  * Decoupled Leaf Components:
@@ -288,13 +290,9 @@ export const BattleHUD: React.FC = () => {
   const setMuted = useGameStore((s) => s.setMuted);
   const [showScoreboard, setShowScoreboard] = useState(false);
 
-  const [isTouchDevice] = useState(() => {
-    return (
-      typeof window !== 'undefined' &&
-      ('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth <= 1024)
-    );
-  });
+  const [isTouchDevice] = useState(() => isMobileDevice());
   const [showTouchControls, setShowTouchControls] = useState(isTouchDevice);
+
 
   // Tab key listener to toggle tactical Scoreboard
   useEffect(() => {

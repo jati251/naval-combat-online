@@ -1,22 +1,22 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Compass, RotateCw, Maximize } from 'lucide-react';
+import { isMobileDevice } from '@/hooks/useMobileViewport';
 
 export const OrientationLockOverlay: React.FC = () => {
   const [isPortrait, setIsPortrait] = useState(false);
 
   useEffect(() => {
     const checkOrientation = () => {
-      // Check if width < height and viewport is a mobile/tablet device (<= 1024px)
-      const isMobileDevice =
-        window.innerWidth <= 1024 ||
-        'ontouchstart' in window ||
-        navigator.maxTouchPoints > 0;
+      // Check if viewport is an actual mobile/tablet device and in portrait mode
+      const isMobile = isMobileDevice();
+
 
       const isCurrentPortrait =
         window.matchMedia('(orientation: portrait)').matches ||
         window.innerHeight > window.innerWidth;
 
-      setIsPortrait(isMobileDevice && isCurrentPortrait);
+      setIsPortrait(isMobile && isCurrentPortrait);
+
     };
 
     checkOrientation();

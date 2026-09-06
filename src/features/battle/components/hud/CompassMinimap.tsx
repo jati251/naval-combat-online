@@ -4,6 +4,8 @@ import type { ShipSnapshot } from '@/types';
 import { getMapConfig } from '../../maps';
 import { CONTROL_CONFIG } from '../../utils/controls';
 import { useGameStore } from '@/stores/useGameStore';
+import { isMobileDevice } from '@/hooks/useMobileViewport';
+
 
 interface CompassMinimapProps {
   selfShip?: ShipSnapshot | undefined;
@@ -41,7 +43,8 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({ hideW
     canvas.height = CANVAS_SIZE * dpr;
 
     // Detect mobile device for canvas render throttling
-    const isMobileDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth <= 1024;
+    const isMobile = isMobileDevice();
+
 
     let animId: number;
     let frameCount = 0;
@@ -53,7 +56,8 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({ hideW
       frameCount++;
 
       // Throttle canvas rendering: ~30fps on desktop (skip alternate frames), ~15fps on mobile (skip 3 of 4)
-      const skipInterval = isMobileDevice ? 4 : 2;
+      const skipInterval = isMobile ? 4 : 2;
+
       if (frameCount % skipInterval !== 0) {
         animId = requestAnimationFrame(render);
         return;

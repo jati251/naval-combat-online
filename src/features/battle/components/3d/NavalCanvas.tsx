@@ -68,7 +68,8 @@ export const NavalCanvas: React.FC = React.memo(() => {
       <Canvas
         camera={{ position: [0, 25, -45], fov: 55, near: 0.5, far: 1400 }}
         shadows={!isMobile}
-        dpr={isMobile ? [1, 1.5] : [1, 2]}
+        dpr={isMobile ? [1, 1.5] : [1.25, 2]}
+
         gl={{
           antialias: true,
           alpha: false,
