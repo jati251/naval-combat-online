@@ -11,6 +11,8 @@ interface CompassMinimapProps {
   selfId?: string;
   windAngle?: number;
   windSpeed?: number;
+  hideWind?: boolean;
+  compact?: boolean;
 }
 
 const CANVAS_SIZE = 148; // CSS display size (148x148px)
@@ -24,7 +26,7 @@ const SCALE = CONTROL_CONFIG.RADAR_SCALE; // 0.14
  * - Rotating Fleur-de-lis Compass Rose with true magnetic bearing.
  * - Pure native HTML5 canvas: zero React state thrashing during 30Hz snapshots.
  */
-export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(() => {
+export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({ hideWind = false, compact = false }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const telemetryRef = useRef<HTMLSpanElement | null>(null);
 
@@ -59,7 +61,7 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(() => {
       const cy = CANVAS_SIZE * 0.5;
 
       // Throttle telemetry text updates to once every 15 frames (~250ms)
-      if (frameCount % 15 === 0 && telemetryRef.current) {
+      if (!hideWind && frameCount % 15 === 0 && telemetryRef.current) {
         if (curSelf) {
           const shipHeading = curSelf.rotationY || 0;
           const angleDiff = Math.abs((((shipHeading - curWindAngle + Math.PI) % (Math.PI * 2)) - Math.PI));
@@ -343,26 +345,35 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(() => {
     return () => cancelAnimationFrame(animId);
   }, []);
 
+  const containerSizeClass = compact
+    ? 'w-[112px] h-[112px] sm:w-[128px] sm:h-[128px]'
+    : 'w-[148px] h-[148px]';
+  const canvasStyle = compact
+    ? { width: '100%', height: '100%' }
+    : { width: `${CANVAS_SIZE}px`, height: `${CANVAS_SIZE}px` };
+
   return (
-    <div className="relative flex flex-col items-center select-none pointer-events-auto">
+    <div className="relative flex flex-col items-center select-none pointer-events-auto shrink-0">
       {/* Heavy Carved Binnacle Housing with Brass Bezel */}
-      <div className="relative flex items-center justify-center w-[148px] h-[148px] rounded-full pirate-panel border-2 border-amber-600/60 shadow-2xl p-0 overflow-hidden">
+      <div className={`relative flex items-center justify-center ${containerSizeClass} rounded-full pirate-panel border-2 border-amber-600/60 shadow-2xl p-0 overflow-hidden`}>
         <canvas
           ref={canvasRef}
-          style={{ width: `${CANVAS_SIZE}px`, height: `${CANVAS_SIZE}px` }}
-          className="block pointer-events-none"
+          style={canvasStyle}
+          className="block pointer-events-none w-full h-full"
         />
         {/* Inner Brass Shadow Bezel */}
         <div className="absolute inset-0 rounded-full border border-amber-400/25 pointer-events-none shadow-[inset_0_0_12px_rgba(0,0,0,0.8)]" />
       </div>
 
-      {/* Integrated Wind & Sail Telemetry Bar */}
-      <div className="mt-1 flex items-center justify-center w-[148px] gap-1 px-1.5 py-0.5 naval-plaque text-[9px] font-fell border border-amber-600/40 rounded-sm shadow-md overflow-hidden">
-        <Wind className="w-2.5 h-2.5 text-amber-400 shrink-0" />
-        <span ref={telemetryRef} className="text-amber-200 font-bold tracking-wide truncate tabular-nums text-center">
-          -- KTS · RUNNING FREE (100%)
-        </span>
-      </div>
+      {/* Integrated Wind & Sail Telemetry Bar (Desktop only) */}
+      {!hideWind && (
+        <div className="mt-1 hidden sm:flex items-center justify-center w-[148px] gap-1 px-1.5 py-0.5 bg-stone-950/80 backdrop-blur-sm text-[8.5px] font-cinzel border border-amber-600/30 rounded-full shadow-md overflow-hidden">
+          <Wind className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+          <span ref={telemetryRef} className="text-amber-200 font-bold tracking-wide truncate tabular-nums text-center">
+            -- KTS · RUNNING FREE (100%)
+          </span>
+        </div>
+      )}
     </div>
   );
 });

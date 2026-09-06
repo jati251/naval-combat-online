@@ -66,17 +66,26 @@ export const createBattleSlice: StateCreator<
   setWind: (windAngle, windSpeed) => set({ windAngle, windSpeed }),
 
   addCombatLog: (text, type = 'info') =>
-    set((state) => ({
-      combatLogs: [
-        {
-          id: Math.random().toString(36).substring(2, 9),
-          text,
-          type,
-          timestamp: Date.now(),
-        },
-        ...state.combatLogs.slice(0, 19),
-      ],
-    })),
+    set((state) => {
+      const now = Date.now();
+      // Deduplicate identical messages in quick succession (e.g. repeated kill/sink or respawn events)
+      const isDuplicate = state.combatLogs.some(
+        (log) => log.text === text && now - log.timestamp < 2500
+      );
+      if (isDuplicate) return state;
+
+      return {
+        combatLogs: [
+          {
+            id: Math.random().toString(36).substring(2, 9),
+            text,
+            type,
+            timestamp: now,
+          },
+          ...state.combatLogs.slice(0, 19),
+        ],
+      };
+    }),
 
   setWinner: (winnerName) => set({ winnerName, stage: 'DEBRIEF' }),
 

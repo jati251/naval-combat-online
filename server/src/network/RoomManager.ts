@@ -98,8 +98,8 @@ export class RoomManager {
         const room = new GameRoom(
           roomId,
           msg.roomName || `Fleet Arena #${roomId.substring(5)}`,
-          msg.maxPlayers || 4,
-          msg.targetKills || 5,
+          msg.maxPlayers || 16,
+          msg.targetKills || 20,
           resolvedTimeOfDay,
           msg.gameMode || 'FFA',
           msg.mapId || 'caribbean',

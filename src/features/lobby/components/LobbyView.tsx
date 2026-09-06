@@ -39,6 +39,8 @@ export const LobbyView: React.FC = () => {
     handleCreateRoom,
   } = useLobby();
 
+  const activeShipClass = currentRoom ? (selfPlayer?.shipClass || selectedShip) : selectedShip;
+
   const handleOpenGateway = () => {
     setConsoleTab('gateway');
     setShowConsoleOnMobile(true);
@@ -50,32 +52,32 @@ export const LobbyView: React.FC = () => {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,#12253d_0%,#0a1626_60%,#040a12_100%)] pointer-events-none" />
       <div className="absolute inset-0 cartography-grid opacity-30 pointer-events-none" />
 
-      {/* Centerpiece 3D Ship Showcase (Visible in Dockyard mode) */}
-      {!currentRoom && (
-        <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-auto">
-          <Suspense
-            fallback={
-              <div role="status" className="text-xs text-amber-200/80 font-cinzel animate-pulse">
-                Rigging vessel model…
-              </div>
-            }
-          >
-            <div className="w-full h-full max-w-4xl max-h-[85dvh] flex items-center justify-center">
-              <ShipTurntable3D shipClass={selectedShip} />
+      {/* Centerpiece 3D Ship Showcase (Visible in BOTH Dockyard and Match Staging Room) */}
+      <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-auto">
+        <Suspense
+          fallback={
+            <div role="status" className="text-xs text-amber-200/80 font-cinzel animate-pulse">
+              Rigging vessel model…
             </div>
-          </Suspense>
+          }
+        >
+          <div className="w-full h-full max-w-4xl max-h-[85dvh] flex items-center justify-center">
+            <ShipTurntable3D shipClass={activeShipClass} />
+          </div>
+        </Suspense>
+      </div>
+
+      {/* Top Header Bar (Dockyard only; RoomLobby has its own dedicated staging command deck) */}
+      {!currentRoom && (
+        <div className="w-full max-w-6xl mx-auto shrink-0 z-20">
+          <LobbyHeader
+            playerName={playerName}
+            isConnected={isConnected}
+            onPlayerNameChange={setPlayerName}
+            onOpenGateway={handleOpenGateway}
+          />
         </div>
       )}
-
-      {/* Top Header Bar */}
-      <div className="w-full max-w-6xl mx-auto shrink-0 z-20">
-        <LobbyHeader
-          playerName={playerName}
-          isConnected={isConnected}
-          onPlayerNameChange={setPlayerName}
-          onOpenGateway={handleOpenGateway}
-        />
-      </div>
 
       {/* Main Content Area */}
       <main className="w-full max-w-7xl mx-auto flex-1 min-h-0 flex items-center justify-center my-1 z-20 relative pointer-events-none">
@@ -158,19 +160,21 @@ export const LobbyView: React.FC = () => {
         )}
       </main>
 
-      {/* Footer: Compact Standing Orders & High Seas Legend */}
-      <footer className="w-full max-w-6xl mx-auto shrink-0 flex items-center justify-between text-amber-300/60 text-[8.5px] sm:text-[9.5px] font-fell italic z-20 pt-0.5 border-t border-amber-600/20">
-        <span className="flex items-center gap-1">
-          <span className="font-cinzel font-bold not-italic text-amber-400 text-[8px] sm:text-[8.5px] uppercase">
-            Orders:
+      {/* Footer: Compact Standing Orders (Dockyard only) */}
+      {!currentRoom && (
+        <footer className="w-full max-w-6xl mx-auto shrink-0 flex items-center justify-between text-amber-300/60 text-[8.5px] sm:text-[9.5px] font-fell italic z-20 pt-0.5 border-t border-amber-600/20">
+          <span className="flex items-center gap-1">
+            <span className="font-cinzel font-bold not-italic text-amber-400 text-[8px] sm:text-[8.5px] uppercase">
+              Orders:
+            </span>
+            <span className="hidden sm:inline">[W/S] Sails • [A/D] Helm • [Q/E] Guns • [Space] Fire</span>
+            <span className="sm:hidden">[W/S] Sails • [A/D] Helm • [Space] Fire</span>
           </span>
-          <span className="hidden sm:inline">[W/S] Sails • [A/D] Helm • [Q/E] Guns • [Space] Fire</span>
-          <span className="sm:hidden">[W/S] Sails • [A/D] Helm • [Space] Fire</span>
-        </span>
-        <span className="font-cinzel text-[7.5px] sm:text-[8.5px] tracking-widest text-amber-400/50 uppercase hidden xs:inline">
-          High Seas Fleet Warfare
-        </span>
-      </footer>
+          <span className="font-cinzel text-[7.5px] sm:text-[8.5px] tracking-widest text-amber-400/50 uppercase hidden xs:inline">
+            High Seas Fleet Warfare
+          </span>
+        </footer>
+      )}
     </div>
   );
 };

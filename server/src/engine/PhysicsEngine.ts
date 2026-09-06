@@ -329,8 +329,17 @@ export class PhysicsEngine {
           const nz = -(pushLocalX / minSafeDist) * sinA + (pushLocalZ / minSafeDist) * cosA;
           const dot = fwdX * nx + fwdZ * nz;
           if (dot < 0) {
-            // Deflection / scrape rather than dead stop (speed penalty 75% so player can steer away)
-            ship.speed *= 0.25;
+            // Decelerate smoothly to a scrape speed (retains enough steerage to turn away)
+            ship.speed = Math.max(1.5, Math.min(ship.speed * 0.7, 4.0));
+            // Gently glance heading along the island shoreline tangent
+            const tangentX = -nz;
+            const tangentZ = nx;
+            const tangentDot = fwdX * tangentX + fwdZ * tangentZ;
+            const targetYaw = Math.atan2(tangentDot >= 0 ? tangentX : -tangentX, tangentDot >= 0 ? tangentZ : -tangentZ);
+            let yawDiff = targetYaw - ship.rotationY;
+            while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+            while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+            ship.rotationY += yawDiff * 1.5 * dt;
           }
         }
       } else {
@@ -346,7 +355,15 @@ export class PhysicsEngine {
           ship.z = isl.z + nz * minSafeDist;
           const dot = fwdX * nx + fwdZ * nz;
           if (dot < 0) {
-            ship.speed *= 0.25;
+            ship.speed = Math.max(1.5, Math.min(ship.speed * 0.7, 4.0));
+            const tangentX = -nz;
+            const tangentZ = nx;
+            const tangentDot = fwdX * tangentX + fwdZ * tangentZ;
+            const targetYaw = Math.atan2(tangentDot >= 0 ? tangentX : -tangentX, tangentDot >= 0 ? tangentZ : -tangentZ);
+            let yawDiff = targetYaw - ship.rotationY;
+            while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+            while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+            ship.rotationY += yawDiff * 1.5 * dt;
           }
         }
       }
@@ -501,33 +518,33 @@ export class PhysicsEngine {
         if (shipId === ball.ownerId || ship.isSunk) continue;
         if (isFriendly && isFriendly(ball.ownerId, shipId)) continue;
 
-        // Fast distance early rejection: skip if further than maximum ship radius (18m)
+        // Fast distance early rejection: skip if further than maximum ship radius (25m)
         const dx = ball.x - ship.x;
         const dz = ball.z - ship.z;
-        if (Math.abs(dx) > 18 || Math.abs(dz) > 18) {
+        if (Math.abs(dx) > 25 || Math.abs(dz) > 25) {
           continue;
         }
 
         const dy = ball.y - ship.y;
-        if (dy < -1.5 || dy > 6.0) {
+        if (dy < -2.0 || dy > 7.5) {
           continue;
         }
 
         const config = SERVER_SHIP_CONFIGS[ship.shipClass];
-        // Bounding box approximation (aligned with ship yaw)
-        const cosYaw = Math.cos(-ship.rotationY);
-        const sinYaw = Math.sin(-ship.rotationY);
-        const localX = dx * cosYaw - dz * sinYaw; // lateral
-        const localZ = dx * sinYaw + dz * cosYaw; // longitudinal
+        // Accurate projected coordinates along ship's forward (sinH, cosH) and right (cosH, -sinH) axes
+        const sinH = Math.sin(ship.rotationY);
+        const cosH = Math.cos(ship.rotationY);
+        const localX = dx * cosH - dz * sinH; // lateral (beam)
+        const localZ = dx * sinH + dz * cosH; // longitudinal (bow to stern)
 
-        const halfLen = config.length * 0.5 + 0.8;
-        const halfWid = config.width * 0.5 + 0.8;
-        const heightThreshold = 5.0; // ship deck height allowance
+        const halfLen = config.length * 0.5 + 1.2;
+        const halfWid = config.width * 0.5 + 1.4;
+        const heightThreshold = 6.5; // ship deck height allowance
 
         if (
           Math.abs(localX) <= halfWid &&
           Math.abs(localZ) <= halfLen &&
-          dy >= -1.0 &&
+          dy >= -1.8 &&
           dy <= heightThreshold
         ) {
           hit = true;
@@ -542,5 +559,116 @@ export class PhysicsEngine {
     }
 
     return activeBalls;
+  }
+
+  /**
+   * Resolves mutual physical collisions between ships.
+   * Uses dual-sphere bounding hull collision (bow sphere & stern sphere) to accurately model
+   * elongated ships (length 14-36m, width 4-10m).
+   * Separates intersecting hulls along contact normals and applies realistic scrape deceleration.
+   */
+  public static resolveShipCollisions(
+    ships: Map<string, ShipSimulationState>,
+    _dt: number
+  ): void {
+    const aliveShips: ShipSimulationState[] = [];
+    for (const ship of ships.values()) {
+      if (!ship.isSunk) {
+        aliveShips.push(ship);
+      }
+    }
+    if (aliveShips.length < 2) return;
+
+    for (let i = 0; i < aliveShips.length; i++) {
+      const shipA = aliveShips[i];
+      const cfgA = SERVER_SHIP_CONFIGS[shipA.shipClass];
+      const halfLenA = cfgA.length * 0.28;
+      const radiusA = cfgA.width * 0.5 + 0.4;
+      const sinA = Math.sin(shipA.rotationY);
+      const cosA = Math.cos(shipA.rotationY);
+
+      // Centers of bow and stern spheres for shipA
+      const bowAx = shipA.x + sinA * halfLenA;
+      const bowAz = shipA.z + cosA * halfLenA;
+      const sternAx = shipA.x - sinA * halfLenA;
+      const sternAz = shipA.z - cosA * halfLenA;
+
+      for (let j = i + 1; j < aliveShips.length; j++) {
+        const shipB = aliveShips[j];
+        const cfgB = SERVER_SHIP_CONFIGS[shipB.shipClass];
+
+        // Fast broad-phase rejection with squared distance
+        const maxDist = cfgA.length * 0.65 + cfgB.length * 0.65;
+        const cdx = shipA.x - shipB.x;
+        const cdz = shipA.z - shipB.z;
+        if (cdx * cdx + cdz * cdz > maxDist * maxDist) {
+          continue;
+        }
+
+        const halfLenB = cfgB.length * 0.28;
+        const radiusB = cfgB.width * 0.5 + 0.4;
+        const sinB = Math.sin(shipB.rotationY);
+        const cosB = Math.cos(shipB.rotationY);
+
+        const bowBx = shipB.x + sinB * halfLenB;
+        const bowBz = shipB.z + cosB * halfLenB;
+        const sternBx = shipB.x - sinB * halfLenB;
+        const sternBz = shipB.z - cosB * halfLenB;
+
+        const minSphereDist = radiusA + radiusB;
+        const minSphereDistSq = minSphereDist * minSphereDist;
+
+        let maxOverlap = 0;
+        let pushNx = 0;
+        let pushNz = 0;
+
+        // Check 4 sphere pairs without allocating temporary arrays/objects
+        const pairs = [
+          bowAx - bowBx, bowAz - bowBz,
+          bowAx - sternBx, bowAz - sternBz,
+          sternAx - bowBx, sternAz - bowBz,
+          sternAx - sternBx, sternAz - sternBz,
+        ];
+
+        for (let p = 0; p < 8; p += 2) {
+          const dx = pairs[p];
+          const dz = pairs[p + 1];
+          const distSq = dx * dx + dz * dz;
+          if (distSq < minSphereDistSq) {
+            const dist = Math.sqrt(distSq);
+            const overlap = minSphereDist - dist;
+            if (overlap > maxOverlap) {
+              maxOverlap = overlap;
+              if (dist > 0.001) {
+                pushNx = dx / dist;
+                pushNz = dz / dist;
+              } else {
+                pushNx = Math.sin(shipA.rotationY + Math.PI * 0.5);
+                pushNz = Math.cos(shipA.rotationY + Math.PI * 0.5);
+              }
+            }
+          }
+        }
+
+        if (maxOverlap > 0) {
+          // Push both ships apart along the separation normal
+          const separation = maxOverlap * 0.52;
+          shipA.x += pushNx * separation;
+          shipA.z += pushNz * separation;
+          shipB.x -= pushNx * separation;
+          shipB.z -= pushNz * separation;
+
+          // Mutual scrape deceleration (ramming slows down both vessels)
+          shipA.speed = Math.max(0, shipA.speed * 0.72);
+          shipB.speed = Math.max(0, shipB.speed * 0.72);
+
+          // Update velocity components
+          shipA.vx = Math.sin(shipA.rotationY) * (shipA.speed * 0.514444);
+          shipA.vz = Math.cos(shipA.rotationY) * (shipA.speed * 0.514444);
+          shipB.vx = Math.sin(shipB.rotationY) * (shipB.speed * 0.514444);
+          shipB.vz = Math.cos(shipB.rotationY) * (shipB.speed * 0.514444);
+        }
+      }
+    }
   }
 }

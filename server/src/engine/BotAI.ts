@@ -1,6 +1,12 @@
 import type { ShipSimulationState, SailState, MapId } from '../types/protocol.js';
 import { getServerMap } from '../maps/mapConfigs.js';
 import type { GameRoom } from './GameRoom.js';
+interface BotEvasionMemory {
+  rudder: number;
+  timer: number;
+}
+
+const botMemory = new Map<string, BotEvasionMemory>();
 
 export class BotAI {
   /**
@@ -60,8 +66,27 @@ export class BotAI {
   }
 
   /**
+   * Checks if a coordinate is dangerously close to another unsunk vessel.
+   */
+  public static isShipHazard(
+    x: number,
+    z: number,
+    margin: number,
+    selfId: string,
+    room: GameRoom
+  ): boolean {
+    for (const ship of room.ships.values()) {
+      if (ship.id === selfId || ship.isSunk) continue;
+      if (Math.hypot(x - ship.x, z - ship.z) < margin) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Steps the Bot AI logic for a single bot ship:
-   * 1. Multi-ray obstacle avoidance (never rams islands/reefs)
+   * 1. Multi-ray obstacle avoidance (never rams islands/reefs or fellow vessels)
    * 2. Target selection & pursuit
    * 3. Broadside engagement & firing
    */
@@ -78,10 +103,28 @@ export class BotAI {
     const heading = bot.rotationY;
     const speedKnots = Math.max(0, bot.speed);
 
+    // --- 0. Persistent Evasion Memory & Close-Quarters Collision Avoidance ---
+    const existingMemory = botMemory.get(bot.id);
+
+    let closestShipDist = 999;
+    let closestShipBearing = 0;
+    for (const other of room.ships.values()) {
+      if (other.id === bot.id || other.isSunk) continue;
+      const dx = other.x - bot.x;
+      const dz = other.z - bot.z;
+      const d = Math.hypot(dx, dz);
+      if (d < closestShipDist) {
+        closestShipDist = d;
+        closestShipBearing = this.normalizeAngle(Math.atan2(dx, dz) - heading);
+      }
+    }
+
+    const hasCloseShip = closestShipDist < 36 && Math.abs(closestShipBearing) < 1.25;
+
     // Dynamic lookahead distance scales with ship speed
     const lookDist = Math.max(42, speedKnots * 2.6 + 28);
 
-    // --- 1. Multi-Ray Obstacle Detection ---
+    // --- 1. Multi-Ray Obstacle Detection (Islands, Wrecks & Other Ships) ---
     const aheadX = bot.x + Math.sin(heading) * lookDist;
     const aheadZ = bot.z + Math.cos(heading) * lookDist;
 
@@ -98,32 +141,57 @@ export class BotAI {
     const wideRightZ = bot.z + Math.cos(heading + 1.1) * (lookDist * 0.65);
 
     const mapId = room.mapId;
-    const hitAhead = this.isHazard(aheadX, aheadZ, 22, mapId);
-    const hitLeft = this.isHazard(leftX, leftZ, 20, mapId);
-    const hitRight = this.isHazard(rightX, rightZ, 20, mapId);
-    const hitWideLeft = this.isHazard(wideLeftX, wideLeftZ, 18, mapId);
-    const hitWideRight = this.isHazard(wideRightX, wideRightZ, 18, mapId);
+    const hitAhead = this.isHazard(aheadX, aheadZ, 22, mapId) || this.isShipHazard(aheadX, aheadZ, 20, bot.id, room);
+    const hitLeft = this.isHazard(leftX, leftZ, 20, mapId) || this.isShipHazard(leftX, leftZ, 18, bot.id, room);
+    const hitRight = this.isHazard(rightX, rightZ, 20, mapId) || this.isShipHazard(rightX, rightZ, 18, bot.id, room);
+    const hitWideLeft = this.isHazard(wideLeftX, wideLeftZ, 18, mapId) || this.isShipHazard(wideLeftX, wideLeftZ, 16, bot.id, room);
+    const hitWideRight = this.isHazard(wideRightX, wideRightZ, 18, mapId) || this.isShipHazard(wideRightX, wideRightZ, 16, bot.id, room);
 
     const hasObstacleAhead = hitAhead || hitLeft || hitRight || hitWideLeft || hitWideRight;
 
-    if (hasObstacleAhead) {
-      // Emergency Avoidance: Steer sharply toward whichever side is clearer
-      let leftClearanceScore = 0;
-      let rightClearanceScore = 0;
+    // If an obstacle or nearby ship is detected:
+    if (hasCloseShip || hasObstacleAhead) {
+      // If the bot already committed to an evasion direction, keep holding it to prevent jitter!
+      if (existingMemory && existingMemory.timer > 0) {
+        existingMemory.timer -= 0.033;
+        room.handleInput(bot.id, existingMemory.rudder, speedKnots > 10 ? 'HALF_SAIL' : 'FULL_SAIL');
+        return;
+      }
 
-      if (!hitLeft) leftClearanceScore += 2;
-      if (!hitWideLeft) leftClearanceScore += 1;
-      if (!hitRight) rightClearanceScore += 2;
-      if (!hitWideRight) rightClearanceScore += 1;
+      // Otherwise, decide the best evasion direction with hysteresis
+      let chosenRudder: number;
+      if (hasCloseShip) {
+        chosenRudder = closestShipBearing >= 0 ? -1.0 : 1.0;
+      } else {
+        let leftClearance = 0;
+        let rightClearance = 0;
+        if (!hitLeft) leftClearance += 2;
+        if (!hitWideLeft) leftClearance += 1;
+        if (!hitRight) rightClearance += 2;
+        if (!hitWideRight) rightClearance += 1;
 
-      // Steer hard away from obstacles
-      const targetRudder = leftClearanceScore >= rightClearanceScore ? -1.0 : 1.0;
+        if (leftClearance > rightClearance) {
+          chosenRudder = -1.0;
+        } else if (rightClearance > leftClearance) {
+          chosenRudder = 1.0;
+        } else {
+          // Break symmetry cleanly: preserve current rudder bias or steer starboard
+          chosenRudder = bot.rudder < 0 ? -1.0 : 1.0;
+        }
+      }
 
-      // Drop to Battle Sail for tighter turning radius when evading reefs
-      const targetSail: SailState = speedKnots > 10 ? 'HALF_SAIL' : 'FULL_SAIL';
-
-      room.handleInput(bot.id, targetRudder, targetSail);
+      // Lock this evasion direction for 1.8 seconds to guarantee smooth, jitter-free navigation
+      botMemory.set(bot.id, { rudder: chosenRudder, timer: 1.8 });
+      room.handleInput(bot.id, chosenRudder, speedKnots > 10 ? 'HALF_SAIL' : 'FULL_SAIL');
       return;
+    } else {
+      // Path is clear: decay evasion timer smoothly
+      if (existingMemory) {
+        existingMemory.timer -= 0.033;
+        if (existingMemory.timer <= 0) {
+          botMemory.delete(bot.id);
+        }
+      }
     }
 
     // --- 2. Target Acquisition & Tactical Combat ---

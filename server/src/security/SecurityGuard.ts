@@ -117,11 +117,11 @@ export class SecurityGuard {
         const roomName = this.sanitizeString(String(raw.roomName || 'Fleet Arena'), 30);
         const playerName = this.sanitizeString(String(raw.playerName || 'Captain'), 20);
         const shipClass = this.validateShipClass(raw.shipClass);
-        let maxPlayers = typeof raw.maxPlayers === 'number' ? Math.floor(raw.maxPlayers) : 4;
+        let maxPlayers = typeof raw.maxPlayers === 'number' ? Math.floor(raw.maxPlayers) : 16;
         maxPlayers = Math.max(2, Math.min(16, maxPlayers));
 
-        let targetKills = typeof raw.targetKills === 'number' ? Math.floor(raw.targetKills) : 5;
-        targetKills = Math.max(1, Math.min(50, targetKills));
+        let targetKills = typeof raw.targetKills === 'number' ? Math.floor(raw.targetKills) : 20;
+        targetKills = Math.max(1, Math.min(100, targetKills));
 
         let timeOfDay: 'DAY' | 'NIGHT' | 'RANDOM' = 'DAY';
         if (raw.timeOfDay === 'NIGHT' || raw.timeOfDay === 'DAY' || raw.timeOfDay === 'RANDOM') {

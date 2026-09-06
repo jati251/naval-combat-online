@@ -24,10 +24,10 @@ import { MobileNavalControls } from './MobileNavalControls';
  * Prevent 30Hz server snapshot thrashing from re-rendering the entire HUD tree.
  */
 
-const DeathmatchObjectiveBar: React.FC<{ onOpenScoreboard: () => void }> = React.memo(({ onOpenScoreboard }) => {
+const DeathmatchObjectiveBar: React.FC<{ onOpenScoreboard: () => void; isTouch?: boolean }> = React.memo(({ onOpenScoreboard, isTouch = false }) => {
   const currentRoom = useGameStore((s) => s.currentRoom);
   const selfId = useGameStore((s) => s.selfId);
-  const targetKills = currentRoom?.targetKills || 5;
+  const targetKills = currentRoom?.targetKills || 20;
 
   const players = currentRoom?.players || [];
   const leader = [...players].sort((a, b) => (b.kills || 0) - (a.kills || 0))[0];
@@ -46,74 +46,81 @@ const DeathmatchObjectiveBar: React.FC<{ onOpenScoreboard: () => void }> = React
   return (
     <div
       onClick={onOpenScoreboard}
-      className="pointer-events-auto flex items-center gap-1.5 sm:gap-2 game-hud-glass px-2 sm:px-3 py-1 shadow-lg rounded-lg border border-amber-500/40 cursor-pointer hover:border-amber-400 transition group active:scale-95 text-[9.5px] sm:text-xs"
-      title="Click or press [TAB] to inspect Fleet Scoreboard"
+      className="pointer-events-auto flex items-center gap-1 sm:gap-2 bg-gradient-to-b from-stone-950/95 via-stone-900/90 to-stone-950/95 backdrop-blur-md px-2 sm:px-3.5 py-1 sm:py-1.5 shadow-2xl rounded-b-lg sm:rounded-b-xl border-b-2 border-x border-amber-500/40 cursor-pointer hover:border-amber-400 transition group active:scale-95 text-[8.5px] sm:text-xs select-none"
+      title="Click or tap to inspect Fleet Scoreboard"
     >
       {/* Objective Target */}
-      <div className="flex items-center gap-1 text-amber-300 font-cinzel font-bold">
-        <Swords className="w-3 h-3 text-amber-400 group-hover:rotate-12 transition-transform shrink-0" />
-        <span className="font-mono font-bold">{targetKills}</span>
-        <span className="hidden xs:inline text-[8.5px] tracking-wider uppercase text-amber-200/90">Sinks</span>
+      <div className="flex items-center gap-0.5 sm:gap-1 text-amber-300 font-cinzel font-bold">
+        <Swords className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400 group-hover:rotate-12 transition-transform shrink-0" />
+        <span className="font-mono font-bold text-amber-100">{targetKills}</span>
+        <span className="hidden xs:inline text-[7.5px] sm:text-[8px] tracking-wider uppercase text-amber-200/80">Sinks</span>
       </div>
 
-      <div className="w-[1px] h-2.5 bg-amber-500/30 shrink-0" />
+      <div className="w-[1px] h-2.5 sm:h-3 bg-amber-500/30 shrink-0" />
 
       {isTeamMode ? (
         /* Team Mode Standing */
-        <div className="flex items-center gap-1.5 font-cinzel text-[9.5px] sm:text-xs">
-          <div className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.6)]" />
-            <span className="text-rose-300 font-bold hidden sm:inline">Red:</span>
-            <span className="font-mono font-bold text-rose-200">{redKills}</span>
+        <div className="flex items-center gap-1 sm:gap-2 font-cinzel text-[8.5px] sm:text-xs">
+          <div className="flex items-center gap-1 px-1 sm:px-1.5 py-0.5 rounded bg-rose-950/70 border border-rose-500/40">
+            <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.8)] animate-pulse" />
+            <span className="text-rose-300 font-bold hidden sm:inline text-[9px]">RED</span>
+            <span className="font-mono font-bold text-rose-100">{redKills}</span>
           </div>
-          <span className="text-amber-500/50 text-[9px]">vs</span>
-          <div className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_rgba(6,182,212,0.6)]" />
-            <span className="text-cyan-300 font-bold hidden sm:inline">Blue:</span>
-            <span className="font-mono font-bold text-cyan-200">{blueKills}</span>
+          <span className="text-amber-500/60 font-bold text-[7.5px] sm:text-[8.5px]">VS</span>
+          <div className="flex items-center gap-1 px-1 sm:px-1.5 py-0.5 rounded bg-cyan-950/70 border border-cyan-500/40">
+            <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_rgba(6,182,212,0.8)] animate-pulse" />
+            <span className="text-cyan-300 font-bold hidden sm:inline text-[9px]">BLUE</span>
+            <span className="font-mono font-bold text-cyan-100">{blueKills}</span>
           </div>
-          <div className="w-[1px] h-2.5 bg-amber-500/30 shrink-0" />
-          <span className="text-[8.5px] uppercase tracking-wider text-amber-300/80 hidden xs:inline">
-            <strong className={selfPlayer?.team === 'red' ? 'text-rose-400' : 'text-cyan-400'}>
+          <div className="w-[1px] h-2.5 sm:h-3 bg-amber-500/30 shrink-0 hidden sm:block" />
+          <span className="text-[8px] uppercase tracking-wider hidden md:inline font-bold">
+            <span className={selfPlayer?.team === 'red' ? 'text-rose-400' : 'text-cyan-400'}>
               {selfPlayer?.team === 'red' ? 'Red Fleet' : 'Blue Fleet'}
-            </strong>
+            </span>
           </span>
         </div>
       ) : (
         /* Free For All Standing */
         <>
           <div className="flex items-center gap-1 text-amber-100 font-cinzel">
-            <span className="text-[8.5px] text-amber-300/80 uppercase hidden md:inline">Leader:</span>
-            <span className="font-bold text-amber-200 truncate max-w-[50px] sm:max-w-[85px]">
+            <span className="text-[7.5px] sm:text-[8px] text-amber-300/80 uppercase hidden sm:inline">Leader:</span>
+            <span className="font-bold text-amber-200 truncate max-w-[45px] sm:max-w-[90px]">
               {leader ? leader.name : 'None'}
             </span>
-            <span className="font-mono font-bold text-emerald-300 text-[9.5px] sm:text-xs">
+            <span className="font-mono font-bold text-emerald-300 text-[8.5px] sm:text-xs">
               ({leader?.kills || 0}/{targetKills})
             </span>
           </div>
 
-          <div className="w-[1px] h-2.5 bg-amber-500/30 shrink-0" />
+          <div className="w-[1px] h-2.5 sm:h-3 bg-amber-500/30 shrink-0" />
 
           {/* Self Progress */}
           <div className="flex items-center gap-1 font-cinzel">
-            <span className="text-[8.5px] text-amber-300/80 uppercase">You:</span>
-            <span className="font-mono font-black text-amber-300 text-[9.5px] sm:text-xs">
+            <span className="text-[7.5px] sm:text-[8px] text-amber-300/80 uppercase">You:</span>
+            <span className="font-mono font-black text-amber-300 text-[8.5px] sm:text-xs">
               {selfPlayer?.kills || 0}/{targetKills}
             </span>
           </div>
         </>
       )}
 
-      {/* Scoreboard Hint */}
-      <div className="hidden lg:flex items-center gap-1 text-[8.5px] font-mono px-1 py-0.2 rounded bg-black/50 border border-amber-500/30 text-amber-300 shadow-sm">
-        <Trophy className="w-2.5 h-2.5" />
-        <span>TAB</span>
-      </div>
+      {/* Scoreboard Hint: TAB for keyboard, Trophy icon for touch */}
+      {!isTouch ? (
+        <div className="hidden lg:flex items-center gap-1 text-[8px] font-mono px-1.5 py-0.5 rounded bg-black/60 border border-amber-500/30 text-amber-300">
+          <Trophy className="w-2.5 h-2.5 text-amber-400" />
+          <span>TAB</span>
+        </div>
+      ) : (
+        <div className="flex items-center gap-1 text-[8px] font-cinzel px-1.5 py-0.5 rounded bg-black/60 border border-amber-500/30 text-amber-300">
+          <Trophy className="w-2.5 h-2.5 text-amber-400" />
+          <span className="font-bold hidden xs:inline">SCORE</span>
+        </div>
+      )}
     </div>
   );
 });
 
-const ShipStatusContainer: React.FC = React.memo(() => {
+const ShipStatusContainer: React.FC<{ hasMinimap?: boolean }> = React.memo(({ hasMinimap = false }) => {
   const roomName = useGameStore((s) => s.currentRoom?.name);
   const shipClass = useGameStore((s) => s.ships.find((ship) => ship.id === s.selfId)?.shipClass ?? 'brig');
   const shipName = useGameStore((s) => s.ships.find((ship) => ship.id === s.selfId)?.name ?? roomName ?? 'Flagship Vessel');
@@ -133,6 +140,7 @@ const ShipStatusContainer: React.FC = React.memo(() => {
       config={config}
       currentHp={currentHp}
       hpPercent={hpPercent}
+      hasMinimap={hasMinimap}
     />
   );
 });
@@ -187,9 +195,9 @@ const AimCrosshairContainer: React.FC = React.memo(() => {
   return <AimCrosshair isAiming={isAiming} aimDirection={aimDirection} />;
 });
 
-const CombatLogContainer: React.FC = React.memo(() => {
+const CombatLogContainer: React.FC<{ maxItems?: number }> = React.memo(({ maxItems = 3 }) => {
   const combatLogs = useGameStore((s) => s.combatLogs);
-  return <CombatLogFeed logs={combatLogs} />;
+  return <CombatLogFeed logs={combatLogs} maxItems={maxItems} />;
 });
 
 const PingBadge: React.FC = React.memo(() => {
@@ -327,7 +335,7 @@ export const BattleHUD: React.FC = () => {
   }, [setMuted, isMuted]);
 
   return (
-    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-1.5 sm:p-3 select-none z-20 font-cinzel">
+    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-0 sm:p-3 select-none z-20 font-cinzel">
       {/* Real multi-phase deployment loader */}
       <BattleDeploymentLoader />
 
@@ -343,85 +351,68 @@ export const BattleHUD: React.FC = () => {
       {/* Debrief Modal upon match victory / conclusion */}
       <DebriefModal />
 
-      {/* --- TOP SECTION: VINTAGE MARITIME COMMAND PERIMETER --- */}
-      <div className="flex items-center justify-between w-full pointer-events-none gap-1 sm:gap-2">
-        {/* Top-Left: Captain's Crest & Ship Vitality */}
-        <div className="shrink-0 pointer-events-auto">
-          <ShipStatusContainer />
+      {/* --- TOP SECTION: VINTAGE MARITIME COMMAND PERIMETER (FLUSH TO TOP ON MOBILE) --- */}
+      <div className="flex items-start justify-between w-full pointer-events-none gap-1 sm:gap-2 px-1 sm:px-2 pt-0.5 sm:pt-0">
+        {/* Top-Left: Minimap (Mobile) + Captain's Vitality Crest */}
+        <div className="shrink-0 pointer-events-auto flex items-center pt-0.5 sm:pt-0">
+          {showTouchControls && <CompassMinimap hideWind compact />}
+          <ShipStatusContainer hasMinimap={showTouchControls} />
         </div>
 
-        {/* Top-Center: Fleet Deathmatch Objective Banner */}
+        {/* Top-Center: Fleet Deathmatch Objective Banner (Flush to ceiling) */}
         <div className="shrink min-w-0">
-          <DeathmatchObjectiveBar onOpenScoreboard={() => setShowScoreboard(true)} />
+          <DeathmatchObjectiveBar onOpenScoreboard={() => setShowScoreboard(true)} isTouch={showTouchControls} />
         </div>
 
         {/* Top-Right: Captain's Utility Controls */}
-        <div className="pointer-events-auto flex items-center gap-1 sm:gap-1.5 shrink-0 game-hud-glass p-0.5 sm:p-1 rounded-lg border border-amber-500/40 shadow-lg">
+        <div className="pointer-events-auto flex items-center gap-0.5 sm:gap-1.5 shrink-0 mt-1 sm:mt-0 bg-stone-950/85 backdrop-blur-md px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full border border-amber-500/35 shadow-2xl">
           {/* Latency Compass Pip */}
           <PingBadge />
-
-          {/* Tactical Scoreboard Trigger Button */}
-          <button
-            onClick={() => setShowScoreboard(true)}
-            className="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded bg-black/40 hover:bg-black/60 border border-amber-500/50 text-amber-300 hover:text-white hover:border-amber-400 transition cursor-pointer flex items-center gap-1 text-[8.5px] sm:text-[9px] font-cinzel font-bold uppercase tracking-wider active:scale-95"
-            title="Inspect Fleet Deathmatch Scoreboard (TAB)"
-            aria-label="Inspect Scoreboard"
-          >
-            <Trophy className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400" />
-            <span className="hidden md:inline">Scoreboard</span>
-          </button>
 
           {/* Mobile Gamepad Touch Toggle */}
           <button
             onClick={() => setShowTouchControls(!showTouchControls)}
-            className={`p-1 rounded border transition cursor-pointer ${
+            className={`p-1 sm:p-1.5 rounded-full border transition cursor-pointer ${
               showTouchControls
-                ? 'border-amber-400 text-amber-200 bg-amber-950/60 shadow-[0_0_6px_rgba(212,175,55,0.4)]'
-                : 'border-stone-800 bg-black/40 text-stone-400 hover:text-amber-200'
+                ? 'border-amber-400 text-amber-200 bg-amber-950/80 shadow-[0_0_8px_rgba(212,175,55,0.4)]'
+                : 'border-stone-800 bg-stone-900/80 text-stone-400 hover:text-amber-200'
             }`}
             title={showTouchControls ? 'Hide Mobile Controls' : 'Show Mobile Controls'}
             aria-label="Toggle Mobile Controls"
           >
-            <Smartphone className="w-3 h-3" />
+            <Smartphone className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
           </button>
 
           {/* Ship's Bell Audio Toggle */}
           <button
             onClick={handleToggleMute}
-            className="p-1 rounded bg-black/40 border border-amber-600/40 text-amber-300 hover:text-amber-100 hover:border-amber-400 transition cursor-pointer"
+            className="p-1 sm:p-1.5 rounded-full bg-stone-900/80 hover:bg-stone-800 border border-amber-600/30 text-amber-300 hover:text-amber-100 hover:border-amber-400 transition cursor-pointer"
             title={isMuted ? 'Ring Ship Bell (Unmute)' : 'Silence Ship Bell (Mute)'}
             aria-label={isMuted ? 'Ring Ship Bell (Unmute)' : 'Silence Ship Bell (Mute)'}
           >
             {isMuted ? (
-              <VolumeX className="w-3 h-3 text-rose-400" />
+              <VolumeX className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-rose-400" />
             ) : (
-              <Volume2 className="w-3 h-3 text-amber-300" />
+              <Volume2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-300" />
             )}
           </button>
 
           {/* Surrender / Return to Harbor Seal */}
           <button
             onClick={handleLeave}
-            className="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded bg-rose-950/60 hover:bg-rose-900/80 border border-rose-700/60 text-rose-300 hover:text-white transition cursor-pointer flex items-center gap-1 text-[8.5px] sm:text-[9px] font-cinzel font-bold uppercase tracking-wider"
+            className="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-rose-950/70 hover:bg-rose-900/90 border border-rose-600/60 text-rose-200 hover:text-white transition cursor-pointer flex items-center gap-1 text-[8.5px] sm:text-[10px] font-cinzel font-bold uppercase tracking-wider active:scale-95"
             title="Strike Colors and Return to Port"
           >
-            <LogOut className="w-3 h-3" />
+            <LogOut className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
             <span className="hidden xs:inline">Retreat</span>
           </button>
         </div>
       </div>
 
-      {/* Floating Tactical Modules for Mobile Landscape Touch Mode */}
-      {showTouchControls && (
-        <>
-          <div className="pointer-events-none absolute top-[42px] left-1.5 sm:left-3 z-20 scale-[0.56] sm:scale-[0.66] origin-top-left opacity-80 hover:opacity-100 transition-opacity">
-            <CompassMinimap />
-          </div>
-          <div className="pointer-events-none absolute top-[42px] right-1.5 sm:right-3 z-20 scale-[0.68] sm:scale-[0.78] origin-top-right max-w-[180px] opacity-80">
-            <CombatLogContainer />
-          </div>
-        </>
-      )}
+      {/* Centered Tactical Combat Announcements (Placed cleanly below Deathmatch score banner) */}
+      <div className="pointer-events-none absolute top-12 sm:top-14 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center max-w-sm sm:max-w-md w-full px-2">
+        <CombatLogContainer maxItems={showTouchControls ? 1 : 2} />
+      </div>
 
       {/* --- CENTER SECTION: SEXTANT RETICLE & SHOAL WARNING --- */}
       <AimCrosshairContainer />
@@ -440,9 +431,8 @@ export const BattleHUD: React.FC = () => {
             <SpeedRudderContainer />
           </div>
 
-          {/* Right: Master Gunner's Battery & Fleet Dispatches */}
+          {/* Right: Master Gunner's Battery & Broadside Fire Control */}
           <div className="flex flex-col items-end gap-2 pointer-events-auto">
-            <CombatLogContainer />
             <BroadsideGaugesContainer />
           </div>
         </div>

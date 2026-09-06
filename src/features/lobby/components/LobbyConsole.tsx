@@ -60,8 +60,8 @@ export const LobbyConsole: React.FC<LobbyConsoleProps> = ({
 }) => {
   // Commission Form State
   const [roomName, setRoomName] = useState(() => PIRATE_NAMES[Math.floor(Math.random() * PIRATE_NAMES.length)]);
-  const [maxPlayers, setMaxPlayers] = useState(4);
-  const [targetKills, setTargetKills] = useState(5);
+  const maxPlayers = 16;
+  const [targetKills, setTargetKills] = useState(20);
   const [timeOfDay, setTimeOfDay] = useState<'DAY' | 'NIGHT' | 'RANDOM'>('DAY');
   const [gameMode, setGameMode] = useState<'FFA' | 'TEAM'>('FFA');
   const [selectedMapId, setSelectedMapId] = useState<MapId>('caribbean');
@@ -301,50 +301,26 @@ export const LobbyConsole: React.FC<LobbyConsoleProps> = ({
               </div>
             </div>
 
-            {/* Fleet Capacity & Kill Target */}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-[8.5px] font-cinzel font-bold text-amber-300 uppercase tracking-wider mb-0.5">
-                  Armada Limit
-                </label>
-                <div className="grid grid-cols-4 gap-1">
-                  {[2, 4, 6, 8].map((num) => (
-                    <button
-                      type="button"
-                      key={num}
-                      onClick={() => setMaxPlayers(num)}
-                      className={`py-1 rounded font-mono font-bold text-[9px] border transition-all cursor-pointer ${
-                        maxPlayers === num
-                          ? 'bg-amber-500/30 border-amber-400 text-white'
-                          : 'bg-black/30 border-amber-600/30 text-stone-400 hover:text-white'
-                      }`}
-                    >
-                      {num}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[8.5px] font-cinzel font-bold text-amber-300 uppercase tracking-wider mb-0.5">
-                  Target Sinks
-                </label>
-                <div className="grid grid-cols-4 gap-1">
-                  {[5, 10, 15, 20].map((num) => (
-                    <button
-                      type="button"
-                      key={num}
-                      onClick={() => setTargetKills(num)}
-                      className={`py-1 rounded font-mono font-bold text-[9px] border transition-all cursor-pointer ${
-                        targetKills === num
-                          ? 'bg-amber-500/30 border-amber-400 text-white'
-                          : 'bg-black/30 border-amber-600/30 text-stone-400 hover:text-white'
-                      }`}
-                    >
-                      {num}
-                    </button>
-                  ))}
-                </div>
+            {/* Kill Target */}
+            <div>
+              <label className="block text-[8.5px] font-cinzel font-bold text-amber-300 uppercase tracking-wider mb-0.5">
+                Target Sinks
+              </label>
+              <div className="grid grid-cols-3 gap-1">
+                {[20, 50, 100].map((num) => (
+                  <button
+                    type="button"
+                    key={num}
+                    onClick={() => setTargetKills(num)}
+                    className={`py-1 rounded font-mono font-bold text-[9px] border transition-all cursor-pointer ${
+                      targetKills === num
+                        ? 'bg-amber-500/30 border-amber-400 text-white'
+                        : 'bg-black/30 border-amber-600/30 text-stone-400 hover:text-white'
+                    }`}
+                  >
+                    {num} Sinks
+                  </button>
+                ))}
               </div>
             </div>
 

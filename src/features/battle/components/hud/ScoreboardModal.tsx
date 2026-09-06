@@ -24,7 +24,7 @@ const ScoreboardModalContent: React.FC<{ onClose: () => void }> = ({ onClose }) 
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  const targetKills = currentRoom?.targetKills || 5;
+  const targetKills = currentRoom?.targetKills || 20;
   const players = currentRoom?.players || [];
 
   // Sort players by kills (desc), then score (desc), then deaths (asc)

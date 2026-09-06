@@ -35,8 +35,8 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
   onCreate,
 }) => {
   const [roomName, setRoomName] = useState('');
-  const [maxPlayers, setMaxPlayers] = useState(4);
-  const [targetKills, setTargetKills] = useState(5);
+  const maxPlayers = 16;
+  const [targetKills, setTargetKills] = useState(20);
   const [timeOfDay, setTimeOfDay] = useState<'DAY' | 'NIGHT' | 'RANDOM'>('DAY');
   const [gameMode, setGameMode] = useState<'FFA' | 'TEAM'>('FFA');
   const [selectedMapId, setSelectedMapId] = useState<MapId>('caribbean');
@@ -236,8 +236,8 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
             </span>
             <span className="text-amber-300 font-mono font-bold text-xs">First to {targetKills} Sinks</span>
           </label>
-          <div className="grid grid-cols-4 gap-1.5">
-            {[3, 5, 8, 10].map((num) => (
+          <div className="grid grid-cols-3 gap-2">
+            {[20, 50, 100].map((num) => (
               <button
                 type="button"
                 key={num}
@@ -297,29 +297,6 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
               <Dices className="w-3.5 h-3.5 text-amber-300 shrink-0" />
               <span>Fortune</span>
             </button>
-          </div>
-        </div>
-
-        {/* Warship Capacity */}
-        <div>
-          <label className="block text-[10px] sm:text-[11px] font-cinzel font-bold text-amber-300 uppercase tracking-widest mb-1">
-            Armada Warship Capacity
-          </label>
-          <div className="grid grid-cols-6 gap-1.5">
-            {[2, 4, 6, 8, 12, 16].map((num) => (
-              <button
-                type="button"
-                key={num}
-                onClick={() => setMaxPlayers(num)}
-                className={`py-1.5 rounded-lg text-xs font-mono font-bold border transition cursor-pointer ${
-                  maxPlayers === num
-                    ? 'bg-amber-600/35 border-2 border-amber-400 text-white shadow-[0_0_8px_rgba(245,158,11,0.3)]'
-                    : 'bg-[#142338]/85 border border-amber-500/30 text-amber-100 hover:text-white'
-                }`}
-              >
-                {num}
-              </button>
-            ))}
           </div>
         </div>
 

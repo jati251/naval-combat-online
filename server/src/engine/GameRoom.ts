@@ -35,7 +35,7 @@ export class GameRoom {
   public maxPlayers: number;
   public status: 'LOBBY' | 'IN_GAME' | 'FINISHED' = 'LOBBY';
   public timeOfDay: 'DAY' | 'NIGHT';
-  public targetKills: number = 5;
+  public targetKills: number = 20;
   public gameMode: GameMode = 'FFA';
   public mapId: MapId = 'caribbean';
 
@@ -66,7 +66,7 @@ export class GameRoom {
     id: string,
     name: string,
     maxPlayers: number,
-    targetKills: number = 5,
+    targetKills: number = 20,
     timeOfDay: 'DAY' | 'NIGHT' = 'DAY',
     gameMode: GameMode = 'FFA',
     mapId: MapId = 'caribbean',
@@ -460,18 +460,18 @@ export class GameRoom {
         if (!this.ships.has(id) || ship.isSunk || this.status !== 'IN_GAME') return;
 
         const serverTime = (Date.now() - this.startTime) / 1000;
-        const muzzleSpeed = 38 + Math.random() * 4;
+        const muzzleSpeed = 68 + Math.random() * 6;
 
         for (let i = startIndex; i <= endIndex; i++) {
           const offsetAlongLength = -span * 0.5 + i * step;
           const transform = getBroadsideTransform(ship.x, ship.z, ship.rotationY, side, config.width, offsetAlongLength);
 
           // Slight random spread
-          const spreadX = (Math.random() - 0.5) * 0.06;
-          const spreadY = (Math.random() - 0.5) * 0.04;
+          const spreadX = (Math.random() - 0.5) * 0.05;
+          const spreadY = (Math.random() - 0.5) * 0.03;
 
           const vx = Math.sin(transform.fireAngle + spreadX) * muzzleSpeed;
-          const vy = 5.5 + spreadY * 10;
+          const vy = 8.8 + spreadY * 4;
           const vz = Math.cos(transform.fireAngle + spreadX) * muzzleSpeed;
 
           this.cannonballs.push({
@@ -485,7 +485,7 @@ export class GameRoom {
             vz,
             damage: config.cannonDamage,
             createdAt: serverTime,
-            maxLife: 3.2,
+            maxLife: 3.5,
           });
         }
 
@@ -609,6 +609,9 @@ export class GameRoom {
       for (const ship of this.ships.values()) {
         PhysicsEngine.updateShip(ship, this.FIXED_DT, serverTime, this.windAngle, this.windSpeed, this.mapId);
       }
+
+      // Resolve mutual physical ship-to-ship collisions
+      PhysicsEngine.resolveShipCollisions(this.ships, this.FIXED_DT);
 
       // Update cannonballs & check impacts
       this.cannonballs = PhysicsEngine.updateCannonballs(

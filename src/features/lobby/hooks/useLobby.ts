@@ -62,9 +62,9 @@ export const useLobby = () => {
   const handleCreateRoom = useCallback(
     (
       roomName: string,
-      maxPlayers: number,
+      maxPlayers: number = 16,
       timeOfDay: 'DAY' | 'NIGHT' | 'RANDOM' = 'DAY',
-      targetKills: number = 5,
+      targetKills: number = 20,
       gameMode: 'FFA' | 'TEAM' = 'FFA',
       mapId: MapId = 'caribbean'
     ) => {

@@ -242,6 +242,18 @@ class NetworkClient {
         break;
       }
       case 'HIT_EVENT': {
+        const targetId = msg.targetId as string;
+        const remainingHp = typeof msg.remainingHp === 'number' ? msg.remainingHp : undefined;
+        if (remainingHp !== undefined) {
+          // Immediately update store snapshot so HUD, scoreboard, and overhead health bar re-render in real-time
+          const freshStore = useGameStore.getState();
+          freshStore.updateWorldSnapshot(
+            freshStore.serverTime,
+            freshStore.ships.map((s) => (s.id === targetId ? { ...s, health: remainingHp } : s)),
+            freshStore.cannonballs
+          );
+        }
+
         const isSelfTarget = msg.targetId === store.selfId;
         const targetShip = store.ships.find((s) => s.id === msg.targetId);
         navalAudio.playHullImpact({
@@ -254,13 +266,21 @@ class NetworkClient {
         break;
       }
       case 'SHIP_SUNK': {
-        const sunkShip = store.ships.find((s) => s.id === msg.shipId);
+        const shipId = msg.shipId as string;
+        const sunkShip = store.ships.find((s) => s.id === shipId);
         const name = sunkShip?.name || 'Vessel';
         navalAudio.playShipSunk({
-          isSelf: msg.shipId === store.selfId,
+          isSelf: shipId === store.selfId,
           worldPos: sunkShip ? { x: sunkShip.x, z: sunkShip.z } : undefined,
         });
         store.addCombatLog(`💥 ${name} was shattered and sent to Davy Jones' locker!`, 'sink');
+
+        // Immediately mark the ship as sunk and zero health in store snapshot
+        const { ships, serverTime, cannonballs } = store;
+        const updatedShips = ships.map((s) =>
+          s.id === shipId ? { ...s, health: 0, isSunk: true } : s
+        );
+        store.updateWorldSnapshot(serverTime, updatedShips, cannonballs);
         break;
       }
       case 'SHIP_RESPAWNED': {
@@ -268,6 +288,24 @@ class NetworkClient {
         const shipId = msg.shipId as string;
         const player = store.currentRoom?.players.find((p) => p.id === shipId);
         const name = player?.name || 'Vessel';
+        const shipClass = (player?.shipClass as ShipClass) || 'brig';
+        const maxHp = (msg.health as number) || SHIP_PRESETS[shipClass]?.maxHealth || 180;
+
+        // Immediately revive the ship in store snapshot with full health
+        const { ships, serverTime, cannonballs } = store;
+        const updatedShips = ships.map((s) =>
+          s.id === shipId
+            ? {
+                ...s,
+                health: maxHp,
+                isSunk: false,
+                x: typeof msg.x === 'number' ? msg.x : s.x,
+                z: typeof msg.z === 'number' ? msg.z : s.z,
+                rotationY: typeof msg.rotationY === 'number' ? msg.rotationY : s.rotationY,
+              }
+            : s
+        );
+        store.updateWorldSnapshot(serverTime, updatedShips, cannonballs);
 
         if (shipId === store.selfId) {
           store.setLocalSail('HALF_SAIL');
@@ -313,9 +351,9 @@ class NetworkClient {
 
   public createRoom(
     roomName: string,
-    maxPlayers: number = 4,
+    maxPlayers: number = 16,
     timeOfDay: 'DAY' | 'NIGHT' | 'RANDOM' = 'DAY',
-    targetKills: number = 5,
+    targetKills: number = 20,
     gameMode: GameMode = 'FFA',
     mapId: MapId = 'caribbean'
   ): void {
