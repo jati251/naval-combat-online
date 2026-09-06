@@ -8,7 +8,10 @@ import {
 } from './islands';
 import {
   createCliffRockTexture,
+  createCliffRockBumpTexture,
+  createCliffRockRoughnessTexture,
   createBeachSandTexture,
+  createBeachSandBumpTexture,
   createVegetationTexture,
   createDarkRockTexture,
 } from './textures/proceduralTextures';
@@ -25,8 +28,8 @@ interface Islands3DProps {
 
 /**
  * Islands3D Root Component
- * Sets up shared standard materials with procedural textures and renders
- * all islands for the currently active battle map.
+ * Sets up shared high-detail standard materials with procedural textures,
+ * micro-relief bump maps, roughness maps, and renders all islands for the active battle map.
  */
 export const Islands3D: React.FC<Islands3DProps> = React.memo(({ isMobile = false }) => {
   const currentMapId = useGameStore((s) => s.currentMapId || s.currentRoom?.mapId || 'caribbean');
@@ -34,7 +37,12 @@ export const Islands3D: React.FC<Islands3DProps> = React.memo(({ isMobile = fals
   const islands = activeMap.islands;
 
   const rockTexture = useMemo(() => createCliffRockTexture(), []);
+  const rockBumpTexture = useMemo(() => createCliffRockBumpTexture(), []);
+  const rockRoughnessTexture = useMemo(() => createCliffRockRoughnessTexture(), []);
+
   const sandTexture = useMemo(() => createBeachSandTexture(), []);
+  const sandBumpTexture = useMemo(() => createBeachSandBumpTexture(), []);
+
   const vegTexture = useMemo(() => createVegetationTexture(), []);
   const darkRockTexture = useMemo(() => createDarkRockTexture(), []);
 
@@ -42,29 +50,36 @@ export const Islands3D: React.FC<Islands3DProps> = React.memo(({ isMobile = fals
     return {
       sand: new THREE.MeshStandardMaterial({
         map: sandTexture,
-        color: '#d4af72',
-        roughness: 0.88,
+        bumpMap: sandBumpTexture,
+        bumpScale: 0.22,
+        color: '#d8b47a',
+        roughness: 0.9,
         metalness: 0.02,
       }),
       rock: new THREE.MeshStandardMaterial({
         map: rockTexture,
-        vertexColors: true, // height-based green→brown→rock gradient
-        roughness: 0.88,
-        metalness: 0.02,
+        bumpMap: rockBumpTexture,
+        bumpScale: 0.65,
+        roughnessMap: rockRoughnessTexture,
+        vertexColors: true, // height & slope-aware procedural splatting
+        roughness: 0.86,
+        metalness: 0.03,
       }),
       darkRock: new THREE.MeshStandardMaterial({
         map: darkRockTexture,
-        roughness: 0.9,
-        metalness: 0.06,
+        bumpMap: rockBumpTexture,
+        bumpScale: 0.45,
+        roughness: 0.92,
+        metalness: 0.05,
       }),
       vegetation: new THREE.MeshStandardMaterial({
         map: vegTexture,
-        roughness: 0.72,
+        roughness: 0.74,
       }),
       lushVeg: new THREE.MeshStandardMaterial({
         map: vegTexture,
         color: '#1a5c28',
-        roughness: 0.7,
+        roughness: 0.72,
       }),
       shallows: new THREE.MeshStandardMaterial({
         color: '#06b6d4',
@@ -73,7 +88,7 @@ export const Islands3D: React.FC<Islands3DProps> = React.memo(({ isMobile = fals
         roughness: 0.2,
       }),
     };
-  }, [rockTexture, sandTexture, vegTexture, darkRockTexture]);
+  }, [rockTexture, rockBumpTexture, rockRoughnessTexture, sandTexture, sandBumpTexture, vegTexture, darkRockTexture]);
 
   return (
     <group>

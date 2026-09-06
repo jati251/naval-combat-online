@@ -10,7 +10,11 @@ export {
 
 export {
   createCliffRockTexture,
+  createCliffRockBumpTexture,
+  createCliffRockRoughnessTexture,
   createBeachSandTexture,
+  createBeachSandBumpTexture,
   createVegetationTexture,
+  createHillGrassTexture,
   createDarkRockTexture,
 } from './terrainTextures';

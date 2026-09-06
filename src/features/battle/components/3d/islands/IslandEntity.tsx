@@ -239,24 +239,48 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
           {island.palms.map(([px, pz, pScale], pIdx) => {
             const y = getTerrainSurfaceY(island, px, pz);
             return (
-              <PalmTree
-                key={`palm-${pIdx}`}
-                position={[px, y, pz]}
-                scale={pScale}
-                seed={pIdx + island.seed}
-              />
+              <group key={`palm-group-${pIdx}`} position={[px, y, pz]}>
+                <PalmTree
+                  position={[0, 0, 0]}
+                  scale={pScale}
+                  seed={pIdx + island.seed}
+                />
+                {/* Low fern/bush sprout at palm base */}
+                <TropicalBush
+                  position={[0.8 * pScale, -0.2, 0.6 * pScale]}
+                  scale={pScale * 0.75}
+                  seed={pIdx * 7 + 3}
+                />
+              </group>
             );
           })}
 
           {island.jungleTrees?.map(([jx, jz, jScale], jIdx) => {
             const y = getTerrainSurfaceY(island, jx, jz);
             return (
-              <JungleTree
-                key={`jtree-${jIdx}`}
-                position={[jx, y, jz]}
-                scale={jScale}
-                seed={jIdx + island.seed * 3}
-              />
+              <group key={`jtree-group-${jIdx}`} position={[jx, y, jz]}>
+                <JungleTree
+                  position={[0, 0, 0]}
+                  scale={jScale}
+                  seed={jIdx + island.seed * 3}
+                />
+                {/* Dense contiguous undergrowth skirt around tree base - Eliminates bald floor */}
+                <TropicalBush
+                  position={[1.5 * jScale, -0.2, 0.9 * jScale]}
+                  scale={jScale * 0.9}
+                  seed={jIdx * 11 + 1}
+                />
+                <TropicalBush
+                  position={[-1.3 * jScale, -0.2, -1.1 * jScale]}
+                  scale={jScale * 0.85}
+                  seed={jIdx * 13 + 5}
+                />
+                <TropicalBush
+                  position={[0.2 * jScale, -0.2, 1.8 * jScale]}
+                  scale={jScale * 0.8}
+                  seed={jIdx * 17 + 7}
+                />
+              </group>
             );
           })}
         </group>
