@@ -90,14 +90,14 @@ export const ManOWarModel: React.FC<SubModelProps> = React.memo(({
 
   return (
     <group>
-      <HullDetails hull={hullGeo} trimColor={trimColor} />
+      <HullDetails hull={hullGeo} trimColor={trimColor} isEnemy={isEnemy} />
       {/* Colossal 28-Meter Naval Oak Curved Hull */}
-      <mesh geometry={hullGeo} castShadow receiveShadow>
+      <mesh geometry={hullGeo} castShadow={!isEnemy} receiveShadow>
         <ShipWoodMaterial map={hullTexture} />
       </mesh>
 
       {/* Iconic Nelson Chequer Golden Sheer Rail */}
-      <mesh geometry={railGeo} castShadow>
+      <mesh geometry={railGeo} castShadow={!isEnemy}>
         <meshStandardMaterial color={trimColor} roughness={0.35} metalness={0.45} side={THREE.DoubleSide} />
       </mesh>
 

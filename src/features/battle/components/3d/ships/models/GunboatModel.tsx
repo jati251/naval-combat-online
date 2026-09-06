@@ -98,14 +98,14 @@ export const GunboatModel: React.FC<SubModelProps> = React.memo(({
 
   return (
     <group>
-      <HullDetails hull={hullGeo} trimColor={trimColor} />
+      <HullDetails hull={hullGeo} trimColor={trimColor} isEnemy={isEnemy} />
       {/* Hydrodynamic Curved Skiff Hull */}
-      <mesh geometry={hullGeo} castShadow receiveShadow>
+      <mesh geometry={hullGeo} castShadow={!isEnemy} receiveShadow>
         <ShipWoodMaterial map={hullTexture} />
       </mesh>
 
       {/* Vibrant Cyan Gunwale Sheer Trim Rail */}
-      <mesh geometry={railGeo} castShadow>
+      <mesh geometry={railGeo} castShadow={!isEnemy}>
         <meshStandardMaterial color={trimColor || '#0ea5e9'} metalness={0.45} roughness={0.35} side={THREE.DoubleSide} />
       </mesh>
 

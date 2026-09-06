@@ -1,6 +1,8 @@
 import { PhysicsEngine } from './PhysicsEngine.js';
 import { BotAI } from './BotAI.js';
 import { getBroadsideTransform } from './NavalCombatMath.js';
+import { CombatSystem } from './CombatSystem.js';
+import { GameLoop } from './GameLoop.js';
 import {
   type ShipClass,
   type SailState,
@@ -46,16 +48,16 @@ export class GameRoom {
   public windAngle: number = Math.random() * Math.PI * 2;
   public windSpeed: number = 10 + Math.random() * 6; // knots
 
-  private autoResetTimer: NodeJS.Timeout | null = null;
+  public autoResetTimer: NodeJS.Timeout | null = null;
   private respawnTimers: Map<string, NodeJS.Timeout> = new Map();
   private playerSessions: Map<string, string> = new Map();
   private pendingDisconnectTimers: Map<string, NodeJS.Timeout> = new Map();
-  private tickSeq: number = 0;
+  public tickSeq: number = 0;
   private startTime: number = 0;
-  private lastTickTime: number = 0;
-  private tickAccumulator: number = 0;
-  private readonly FIXED_DT: number = 1 / 30; // 33.333ms deterministic timestep
-  private wasMultiplayer: boolean = false;
+  public lastTickTime: number = 0;
+  public tickAccumulator: number = 0;
+  public readonly FIXED_DT: number = 1 / 30; // 33.333ms deterministic timestep
+  public wasMultiplayer: boolean = false;
 
   // Broadcast and direct send callbacks
   private broadcast: (roomId: string, message: ServerMessage) => void;
@@ -427,88 +429,10 @@ export class GameRoom {
     ship.sail = sail;
   }
 
-  private activeVolleyTimers: Set<NodeJS.Timeout> = new Set();
+  public activeVolleyTimers: Set<NodeJS.Timeout> = new Set();
 
   public handleFire(id: string, side: 'left' | 'right'): void {
-    const ship = this.ships.get(id);
-    if (!ship || ship.isSunk || this.status !== 'IN_GAME') return;
-
-    const config = SERVER_SHIP_CONFIGS[ship.shipClass];
-    const reloadTimer = side === 'left' ? ship.reloadTimerLeft : ship.reloadTimerRight;
-
-    if (reloadTimer > 0) {
-      return; // Still reloading
-    }
-
-    // Reset reload timer
-    if (side === 'left') ship.reloadTimerLeft = config.reloadTime;
-    else ship.reloadTimerRight = config.reloadTime;
-
-    const count = config.cannonsPerSide;
-    const span = config.length * 0.65;
-    const step = span / (count + 1);
-
-    // Number of rolling cascade waves (AC Black Flag style: guns fire in rapid succession down the hull)
-    const numWaves = count <= 3 ? 1 : count <= 6 ? 2 : count <= 10 ? 3 : 4;
-    const waveDelayMs = 60; // 60ms ripple between battery discharges
-
-    for (let wave = 0; wave < numWaves; wave++) {
-      const startIndex = Math.floor((wave * count) / numWaves) + 1;
-      const endIndex = Math.floor(((wave + 1) * count) / numWaves);
-
-      const fireSubVolley = () => {
-        if (!this.ships.has(id) || ship.isSunk || this.status !== 'IN_GAME') return;
-
-        const serverTime = (Date.now() - this.startTime) / 1000;
-        const muzzleSpeed = 68 + Math.random() * 6;
-
-        for (let i = startIndex; i <= endIndex; i++) {
-          const offsetAlongLength = -span * 0.5 + i * step;
-          const transform = getBroadsideTransform(ship.x, ship.z, ship.rotationY, side, config.width, offsetAlongLength);
-
-          // Slight random spread
-          const spreadX = (Math.random() - 0.5) * 0.05;
-          const spreadY = (Math.random() - 0.5) * 0.03;
-
-          const vx = Math.sin(transform.fireAngle + spreadX) * muzzleSpeed;
-          const vy = 8.8 + spreadY * 4;
-          const vz = Math.cos(transform.fireAngle + spreadX) * muzzleSpeed;
-
-          this.cannonballs.push({
-            id: `${ship.id}-${Date.now()}-${wave}-${i}`,
-            ownerId: ship.id,
-            x: transform.spawnX,
-            y: ship.y + 1.8,
-            z: transform.spawnZ,
-            vx,
-            vy,
-            vz,
-            damage: config.cannonDamage,
-            createdAt: serverTime,
-            maxLife: 3.5,
-          });
-        }
-
-        // Broadcast muzzle flash and audio event for each rolling discharge
-        this.broadcast(this.id, {
-          type: 'CANNON_FIRED',
-          ownerId: ship.id,
-          side,
-          origin: [ship.x, ship.y + 1.8, ship.z],
-          count: endIndex - startIndex + 1,
-        });
-      };
-
-      if (wave === 0) {
-        fireSubVolley();
-      } else {
-        const timer = setTimeout(() => {
-          this.activeVolleyTimers.delete(timer);
-          fireSubVolley();
-        }, wave * waveDelayMs);
-        this.activeVolleyTimers.add(timer);
-      }
-    }
+    CombatSystem.handleFire(this, id, side);
   }
 
   public startGame(): boolean {
@@ -580,146 +504,14 @@ export class GameRoom {
   }
 
   public step(now: number): void {
-    if (this.status !== 'IN_GAME') return;
-
-    const elapsed = Math.min(0.15, (now - this.lastTickTime) / 1000);
-    this.lastTickTime = now;
-    this.tickAccumulator += elapsed;
-
-    let simulatedSteps = 0;
-    // Step deterministic physics at exactly FIXED_DT (30Hz)
-    while (this.tickAccumulator >= this.FIXED_DT && simulatedSteps < 4) {
-      this.tickAccumulator -= this.FIXED_DT;
-      simulatedSteps++;
-      this.tickSeq++;
-      const serverTime = (now - this.startTime) / 1000;
-
-      // Update Bot AI decisions (smart obstacle avoidance, targeting, broadside salvo)
-      // Only execute on the first sub-step of a tick to prevent duplicate obstacle raycasts during accumulator catch-up
-      if (simulatedSteps === 1) {
-        for (const ship of this.ships.values()) {
-          const player = this.players.get(ship.id);
-          if (player?.isBot && !ship.isSunk) {
-            BotAI.update(ship, this);
-          }
-        }
-      }
-
-      // Update each ship's physics with deterministic FIXED_DT
-      for (const ship of this.ships.values()) {
-        PhysicsEngine.updateShip(ship, this.FIXED_DT, serverTime, this.windAngle, this.windSpeed, this.mapId);
-      }
-
-      // Resolve mutual physical ship-to-ship collisions
-      PhysicsEngine.resolveShipCollisions(this.ships, this.FIXED_DT);
-
-      // Update cannonballs & check impacts
-      this.cannonballs = PhysicsEngine.updateCannonballs(
-        this.cannonballs,
-        this.ships,
-        this.FIXED_DT,
-        serverTime,
-        (ball, hitShip) => {
-          hitShip.health = Math.max(0, hitShip.health - ball.damage);
-
-          this.broadcast(this.id, {
-            type: 'HIT_EVENT',
-            targetId: hitShip.id,
-            attackerId: ball.ownerId,
-            damage: ball.damage,
-            hitPos: [Math.round(ball.x * 100) / 100, Math.round(ball.y * 100) / 100, Math.round(ball.z * 100) / 100],
-            remainingHp: Math.round(hitShip.health * 10) / 10,
-          });
-
-          if (hitShip.health <= 0 && !hitShip.isSunk) {
-            hitShip.isSunk = true;
-            const killer = this.players.get(ball.ownerId);
-            if (killer) {
-              killer.kills = (killer.kills || 0) + 1;
-              killer.score += 100;
-            }
-            const victim = this.players.get(hitShip.id);
-            if (victim) {
-              victim.deaths = (victim.deaths || 0) + 1;
-              victim.respawnCountdown = 5;
-            }
-
-            this.broadcast(this.id, {
-              type: 'SHIP_SUNK',
-              shipId: hitShip.id,
-              killerId: ball.ownerId,
-            });
-
-            // Check victory condition
-            if (this.gameMode === 'TEAM' && killer?.team) {
-              const killerTeam = killer.team;
-              let totalTeamKills = 0;
-              for (const p of this.players.values()) {
-                if (p.team === killerTeam) {
-                  totalTeamKills += p.kills || 0;
-                }
-              }
-
-              if (totalTeamKills >= this.targetKills) {
-                this.status = 'FINISHED';
-                const winnerName = killerTeam === 'red' ? 'Red Armada' : 'Blue Armada';
-                this.broadcast(this.id, {
-                  type: 'GAME_OVER',
-                  winnerId: killerTeam,
-                  winnerName,
-                });
-
-                this.broadcastRoomState();
-
-                if (this.autoResetTimer) clearTimeout(this.autoResetTimer);
-                this.autoResetTimer = setTimeout(() => {
-                  if (this.status === 'FINISHED' && this.players.size > 0) {
-                    this.resetToLobby();
-                  }
-                }, 12000);
-                return;
-              }
-            } else if (killer && killer.kills >= this.targetKills) {
-              this.status = 'FINISHED';
-              this.broadcast(this.id, {
-                type: 'GAME_OVER',
-                winnerId: killer.id,
-                winnerName: killer.name,
-              });
-
-              this.broadcastRoomState();
-
-              if (this.autoResetTimer) clearTimeout(this.autoResetTimer);
-              this.autoResetTimer = setTimeout(() => {
-                if (this.status === 'FINISHED' && this.players.size > 0) {
-                  this.resetToLobby();
-                }
-              }, 12000);
-              return;
-            }
-
-            // Deathmatch respawn flow: Sunk ship respawns after 5 seconds at a safe perimeter
-            this.broadcastRoomState();
-            this.scheduleShipRespawn(hitShip.id);
-          }
-        },
-        (ownerId, targetId) => {
-          if (this.gameMode !== 'TEAM') return false;
-          const p1 = this.players.get(ownerId);
-          const p2 = this.players.get(targetId);
-          return Boolean(p1?.team && p2?.team && p1.team === p2.team);
-        },
-        this.mapId
-      );
-    }
-
-    // Broadcast snapshot whenever simulation stepped forward
-    if (simulatedSteps > 0) {
-      this.broadcastSnapshot();
-    }
+    GameLoop.step(this, now);
   }
 
-  private scheduleShipRespawn(shipId: string): void {
+  public broadcastToRoom(message: ServerMessage): void {
+    this.broadcast(this.id, message);
+  }
+
+  public scheduleShipRespawn(shipId: string): void {
     const existing = this.respawnTimers.get(shipId);
     if (existing) clearTimeout(existing);
 
@@ -829,35 +621,7 @@ export class GameRoom {
   }
 
   private checkVictoryCondition(): void {
-    if (this.status !== 'IN_GAME') return;
-
-    const totalPlayers = this.players.size;
-
-    // In Fleet Deathmatch, match only ends prematurely if opponents disconnect mid-game
-    const shouldEnd = this.wasMultiplayer && totalPlayers <= 1;
-
-    if (shouldEnd) {
-      this.status = 'FINISHED';
-
-      const aliveShips = Array.from(this.ships.values()).filter((s) => !s.isSunk);
-      const winner = aliveShips[0] || Array.from(this.ships.values())[0];
-      const winnerName = winner?.name || (totalPlayers === 1 ? 'Sole Survivor' : 'No one');
-      this.broadcast(this.id, {
-        type: 'GAME_OVER',
-        winnerId: winner?.id ?? '',
-        winnerName,
-      });
-
-      this.broadcastRoomState();
-
-      // Automatically reset room to LOBBY after 12s so remaining captains can fight again
-      if (this.autoResetTimer) clearTimeout(this.autoResetTimer);
-      this.autoResetTimer = setTimeout(() => {
-        if (this.status === 'FINISHED' && this.players.size > 0) {
-          this.resetToLobby();
-        }
-      }, 12000);
-    }
+    CombatSystem.checkVictoryCondition(this);
   }
 
   public resetToLobby(): void {

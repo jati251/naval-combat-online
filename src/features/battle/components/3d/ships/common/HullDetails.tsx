@@ -9,9 +9,11 @@ function merge(parts: THREE.BufferGeometry[]) {
 }
 
 /** Bands follow the actual hull mesh, so each class keeps its beam and sheer. */
-export const HullDetails = memo(function HullDetails({ hull, trimColor }: {
-  hull: THREE.BufferGeometry; trimColor: string;
+export const HullDetails = memo(function HullDetails({ hull, trimColor, isEnemy = false }: {
+  hull: THREE.BufferGeometry; trimColor: string; isEnemy?: boolean;
 }) {
+  if (isEnemy) return null;
+
   const details = useMemo(() => {
     const p = hull.getAttribute('position');
     // The first row is the complete stern cross-section, before the next Z station.

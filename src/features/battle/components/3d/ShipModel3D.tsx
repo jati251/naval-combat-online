@@ -1,4 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
+import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
 import { type ShipClass, SHIP_PRESETS } from '@/types/game';
 import { createWoodPlankTexture, createSailClothTexture } from './textures/proceduralTextures';
 import type { ShipModelProps } from './ships';
@@ -14,6 +16,8 @@ export type { ShipModelProps };
  * Dispatches to bespoke 3D architectures for all 8 distinct naval classes.
  * Memoized to prevent heavy mesh re-renders during high-frequency steering.
  */
+const _tempShipPos = new THREE.Vector3();
+
 export const ShipModel3D: React.FC<ShipModelProps> = React.memo(({
   config: propConfig,
   shipClass = 'brig',
@@ -47,12 +51,36 @@ export const ShipModel3D: React.FC<ShipModelProps> = React.memo(({
   };
 
   const Model = shipModels[id] ?? shipModels.brig;
+  const lodDetailsRef = useRef<THREE.Group>(null);
+  const mainGroupRef = useRef<THREE.Group>(null);
+
+  // LOD (Level of Detail): Hide small high-draw-call details when ship is far away (Zero GC allocation)
+  useFrame(({ camera }) => {
+    if (!mainGroupRef.current) return;
+    if (isSelf) {
+      if (lodDetailsRef.current && !lodDetailsRef.current.visible) lodDetailsRef.current.visible = true;
+      return;
+    }
+    
+    // Calculate distance reusing module-level vector
+    mainGroupRef.current.getWorldPosition(_tempShipPos);
+    const distSq = camera.position.distanceToSquared(_tempShipPos);
+    
+    // Details visible if closer than ~100 units
+    const detailsVisible = distSq < 10000;
+    
+    if (lodDetailsRef.current && lodDetailsRef.current.visible !== detailsVisible) {
+      lodDetailsRef.current.visible = detailsVisible;
+    }
+  });
 
   return (
-    <group>
+    <group ref={mainGroupRef}>
       <Model {...subProps} />
-      <ShipCargo config={config} />
-      <ShipLanterns shipClass={id} isEnemy={isEnemy} />
+      <group ref={lodDetailsRef}>
+        <ShipCargo config={config} />
+        <ShipLanterns shipClass={id} isEnemy={isEnemy} />
+      </group>
     </group>
   );
 }, (prev, next) => {

@@ -106,7 +106,7 @@ export const ShipFlag: React.FC<ShipFlagProps> = React.memo(({
   });
 
   return (
-    <mesh ref={flagRef} geometry={flagGeometry} position={position} castShadow>
+    <mesh ref={flagRef} geometry={flagGeometry} position={position} castShadow={!isEnemy}>
       <meshStandardMaterial
         color={flagMaterialProps.color}
         emissive={flagMaterialProps.emissive}

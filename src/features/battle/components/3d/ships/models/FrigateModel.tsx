@@ -90,14 +90,14 @@ export const FrigateModel: React.FC<SubModelProps> = React.memo(({
 
   return (
     <group>
-      <HullDetails hull={hullGeo} trimColor={trimColor} />
+      <HullDetails hull={hullGeo} trimColor={trimColor} isEnemy={isEnemy} />
       {/* Heavy Tumblehome Curved Naval Hull */}
-      <mesh geometry={hullGeo} castShadow receiveShadow>
+      <mesh geometry={hullGeo} castShadow={!isEnemy} receiveShadow>
         <ShipWoodMaterial map={hullTexture} />
       </mesh>
 
       {/* Gold Naval Gunport Sheer Strake Rails */}
-      <mesh geometry={railGeo} castShadow>
+      <mesh geometry={railGeo} castShadow={!isEnemy}>
         <meshStandardMaterial color={trimColor} roughness={0.35} metalness={0.45} side={THREE.DoubleSide} />
       </mesh>
 

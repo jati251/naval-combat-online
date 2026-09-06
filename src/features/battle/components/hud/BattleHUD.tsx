@@ -213,27 +213,15 @@ const PingBadge: React.FC = React.memo(() => {
   );
 });
 
-const SunkNoticeOverlay: React.FC<{ onOpenScoreboard: () => void }> = React.memo(({ onOpenScoreboard }) => {
-  const isSunk = useGameStore((s) => {
-    const selfShip = s.ships.find((ship) => ship.id === s.selfId);
-    return selfShip?.isSunk ?? false;
-  });
-
+const SunkCountdownContent: React.FC<{ onOpenScoreboard: () => void }> = React.memo(({ onOpenScoreboard }) => {
   const [countdown, setCountdown] = useState(5);
 
   useEffect(() => {
-    if (!isSunk) {
-      setCountdown(5);
-      return;
-    }
-    setCountdown(5);
     const interval = setInterval(() => {
       setCountdown((c) => (c > 1 ? c - 1 : 1));
     }, 1000);
     return () => clearInterval(interval);
-  }, [isSunk]);
-
-  if (!isSunk) return null;
+  }, []);
 
   return (
     <div className="self-center pirate-parchment px-6 py-4 border-2 border-rose-600/90 shadow-2xl rounded-lg flex flex-col items-center gap-2 pointer-events-auto max-w-md text-center animate-in fade-in zoom-in-95 duration-200">
@@ -261,6 +249,17 @@ const SunkNoticeOverlay: React.FC<{ onOpenScoreboard: () => void }> = React.memo
       </button>
     </div>
   );
+});
+
+const SunkNoticeOverlay: React.FC<{ onOpenScoreboard: () => void }> = React.memo(({ onOpenScoreboard }) => {
+  const isSunk = useGameStore((s) => {
+    const selfShip = s.ships.find((ship) => ship.id === s.selfId);
+    return selfShip?.isSunk ?? false;
+  });
+
+  if (!isSunk) return null;
+
+  return <SunkCountdownContent onOpenScoreboard={onOpenScoreboard} />;
 });
 
 const DamageHitVignette: React.FC = React.memo(() => {

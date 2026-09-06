@@ -19,6 +19,7 @@ export interface ShipSailProps {
   anchorScale?: number;
   /** Custom half sail scale limit if needed (defaults to 0.65) */
   halfSailScale?: number;
+  isEnemy?: boolean;
 }
 
 /**
@@ -42,6 +43,7 @@ export const ShipSail: React.FC<ShipSailProps> = React.memo(({
   rotation: baseRotation,
   anchorScale = 0.15,
   halfSailScale = 0.65,
+  isEnemy = false,
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
 
@@ -141,7 +143,7 @@ export const ShipSail: React.FC<ShipSailProps> = React.memo(({
     <mesh
       ref={meshRef}
       geometry={geometry}
-      castShadow
+      castShadow={!isEnemy}
       receiveShadow
     >
       <meshStandardMaterial

@@ -82,14 +82,14 @@ export const CorvetteModel: React.FC<SubModelProps> = React.memo(({
 
   return (
     <group>
-      <HullDetails hull={hullGeo} trimColor={trimColor} />
+      <HullDetails hull={hullGeo} trimColor={trimColor} isEnemy={isEnemy} />
       {/* Rich Polished Mahogany Curved Naval Hull */}
-      <mesh geometry={hullGeo} castShadow receiveShadow>
+      <mesh geometry={hullGeo} castShadow={!isEnemy} receiveShadow>
         <ShipWoodMaterial map={hullTexture} />
       </mesh>
 
       {/* Royal Blue & Gold Sheer Strake Rails */}
-      <mesh geometry={railGeo} castShadow>
+      <mesh geometry={railGeo} castShadow={!isEnemy}>
         <meshStandardMaterial color={trimColor} roughness={0.3} metalness={0.5} side={THREE.DoubleSide} />
       </mesh>
 

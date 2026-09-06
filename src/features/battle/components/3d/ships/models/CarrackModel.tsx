@@ -83,14 +83,14 @@ export const CarrackModel: React.FC<SubModelProps> = React.memo(({
 
   return (
     <group>
-      <HullDetails hull={hullGeo} trimColor={config.trimColor} />
+      <HullDetails hull={hullGeo} trimColor={config.trimColor} isEnemy={isEnemy} />
       {/* Charred Dark Timber Curved Hull */}
-      <mesh geometry={hullGeo} castShadow receiveShadow>
+      <mesh geometry={hullGeo} castShadow={!isEnemy} receiveShadow>
         <ShipWoodMaterial map={hullTexture} color="#6b6460" />
       </mesh>
 
       {/* Spectral Jade Sheer Molding */}
-      <mesh geometry={railGeo} castShadow>
+      <mesh geometry={railGeo} castShadow={!isEnemy}>
         <meshStandardMaterial color="#10b981" emissive="#059669" emissiveIntensity={0.6} roughness={0.4} side={THREE.DoubleSide} />
       </mesh>
 
@@ -111,7 +111,7 @@ export const CarrackModel: React.FC<SubModelProps> = React.memo(({
 
       {/* Elevated Forecastle Fortification Timber Bracing */}
       <group position={[0, hullDepth + sheerBow * 0.75, length * 0.38]}>
-        <mesh castShadow receiveShadow>
+        <mesh castShadow={!isEnemy} receiveShadow>
           <boxGeometry args={[width * 0.82, 1.4, length * 0.18]} />
           <meshStandardMaterial color="#1e293b" roughness={0.8} />
         </mesh>

@@ -73,6 +73,7 @@ export const SquareRiggedMast: React.FC<SquareRiggedMastProps> = React.memo(({
           depthOffset={lowerDepthOffset}
           type="square"
           mastIndex={mastIndex * 2}
+          isEnemy={isEnemy}
         />
       </group>
 
@@ -90,6 +91,7 @@ export const SquareRiggedMast: React.FC<SquareRiggedMastProps> = React.memo(({
           depthOffset={upperDepthOffset}
           type="square"
           mastIndex={mastIndex * 2 + 1}
+          isEnemy={isEnemy}
         />
       </group>
 

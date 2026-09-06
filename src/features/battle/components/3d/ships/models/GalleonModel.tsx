@@ -89,14 +89,14 @@ export const GalleonModel: React.FC<SubModelProps> = React.memo(({
 
   return (
     <group>
-      <HullDetails hull={hullGeo} trimColor={trimColor} />
+      <HullDetails hull={hullGeo} trimColor={trimColor} isEnemy={isEnemy} />
       {/* High-Sided Crimson & Mahogany Curved Hull */}
-      <mesh geometry={hullGeo} castShadow receiveShadow>
+      <mesh geometry={hullGeo} castShadow={!isEnemy} receiveShadow>
         <ShipWoodMaterial map={hullTexture} />
       </mesh>
 
       {/* Gilded Spanish Gunwale Sheer Molding */}
-      <mesh geometry={railGeo} castShadow>
+      <mesh geometry={railGeo} castShadow={!isEnemy}>
         <meshStandardMaterial color={trimColor} roughness={0.3} metalness={0.6} side={THREE.DoubleSide} />
       </mesh>
 
@@ -107,13 +107,13 @@ export const GalleonModel: React.FC<SubModelProps> = React.memo(({
 
       {/* Swept Up Forecastle Deck with Wooden Belfry */}
       <group position={[0, hullDepth + sheerBow * 0.7, length * 0.36]}>
-        <mesh castShadow receiveShadow>
+        <mesh castShadow={!isEnemy} receiveShadow>
           <boxGeometry args={[width * 0.8, 1.3, length * 0.24]} />
           <meshStandardMaterial color="#501e14" map={hullTexture} />
         </mesh>
         {/* Belfry with Bronze Ship's Bell */}
         <group position={[0, 1.1, 0]}>
-          <mesh castShadow>
+          <mesh castShadow={!isEnemy}>
             <cylinderGeometry args={[0.25, 0.32, 0.65, 6]} />
             <meshStandardMaterial color="#451a03" />
           </mesh>

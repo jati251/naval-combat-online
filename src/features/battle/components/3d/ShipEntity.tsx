@@ -73,6 +73,7 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
   const sinkingProgressRef = useRef<number>(0);
   const lastHpPctRef = useRef<number>(-1);
   const lastScaleRef = useRef<number>(1);
+  const lastSailChangeTime = useRef<number>(0);
 
   // Static high-definition Name Badge texture (Generated ONCE at mount, 0 CPU/GPU overhead during battle)
   const nameTexture = useMemo(() => {
@@ -189,10 +190,14 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
       }
     }
 
-    // Infrequent sail state transition (only updates local state when sail changes)
+    // Infrequent sail state transition (throttled for bots to prevent React reconciliation storms)
     if (curShip.sail && curShip.sail !== curSailRef.current) {
       curSailRef.current = curShip.sail;
-      setCurrentSail(curShip.sail);
+      const nowMs = performance.now();
+      if (isSelf || nowMs - lastSailChangeTime.current > 2500) {
+        lastSailChangeTime.current = nowMs;
+        setCurrentSail(curShip.sail);
+      }
     }
 
     // Respawn snap detection: if ship was sunk and is now alive, or large position teleport
@@ -258,23 +263,25 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
         const dz = camera.position.z - curShip.z;
         const distSq = dx * dx + dz * dz;
 
-        // 1. Distance Culling: Skip rendering ships beyond view distance (fully veiled by fog)
+        // 1 & 2. Distance and Frustum Culling: Skip rendering ships completely beyond view distance or outside camera frustum
         const maxViewDist = isMobile ? MAX_VIEW_DISTANCE_MOBILE : MAX_VIEW_DISTANCE_DESKTOP;
         const withinDistance = distSq <= maxViewDist * maxViewDist;
-        if (groupRef.current.visible !== withinDistance) {
-          groupRef.current.visible = withinDistance;
+        
+        const inFrustum = withinDistance && isSeaEntityInFrustum(
+          camera,
+          curShip.x,
+          curShip.z,
+          shipLen * 0.75,
+          mastHeight + 4,
+          24
+        );
+
+        if (groupRef.current.visible !== inFrustum) {
+          groupRef.current.visible = inFrustum;
         }
 
-        // 2. Frustum Culling: Only evaluate and render nameplates when ship is in camera view
+        // 3. Nameplate toggling (hide if sunk)
         if (nameplateRef.current) {
-          const inFrustum = withinDistance && isSeaEntityInFrustum(
-            camera,
-            curShip.x,
-            curShip.z,
-            shipLen * 0.75,
-            mastHeight + 4,
-            24
-          );
           const shouldShow = inFrustum && !curShip.isSunk;
           if (nameplateRef.current.visible !== shouldShow) {
             nameplateRef.current.visible = shouldShow;

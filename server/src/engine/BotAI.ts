@@ -167,10 +167,11 @@ export class BotAI {
 
     // If an obstacle or nearby ship is detected:
     if (hasCloseShip || hasObstacleAhead) {
+      const evasionSail: SailState = speedKnots > 11.5 ? 'HALF_SAIL' : (speedKnots < 8.5 ? 'FULL_SAIL' : bot.sail);
       // If the bot already committed to an evasion direction, keep holding it to prevent jitter!
       if (existingMemory && existingMemory.timer > 0) {
         existingMemory.timer -= 0.033;
-        room.handleInput(bot.id, existingMemory.rudder, speedKnots > 10 ? 'HALF_SAIL' : 'FULL_SAIL');
+        room.handleInput(bot.id, existingMemory.rudder, evasionSail);
         return;
       }
 
@@ -198,7 +199,7 @@ export class BotAI {
 
       // Lock this evasion direction for 1.8 seconds to guarantee smooth, jitter-free navigation
       botMemory.set(bot.id, { rudder: chosenRudder, timer: 1.8 });
-      room.handleInput(bot.id, chosenRudder, speedKnots > 10 ? 'HALF_SAIL' : 'FULL_SAIL');
+      room.handleInput(bot.id, chosenRudder, evasionSail);
       return;
     } else {
       // Path is clear: decay evasion timer smoothly
@@ -269,7 +270,7 @@ export class BotAI {
       const headingDiff = this.normalizeAngle(desiredHeading - heading);
 
       targetRudder = Math.max(-1.0, Math.min(1.0, headingDiff * 1.8));
-      targetSail = dist < 85 ? 'HALF_SAIL' : 'FULL_SAIL';
+      targetSail = dist < 75 ? 'HALF_SAIL' : (dist > 95 ? 'FULL_SAIL' : bot.sail);
 
       // Broadside Gunnery: Check if enemy is in the firing arc
       // (+-30 degrees from the 90-degree broadside perpendicular)

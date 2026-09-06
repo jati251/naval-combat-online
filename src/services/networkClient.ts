@@ -229,13 +229,25 @@ class NetworkClient {
       }
       case 'CANNON_FIRED': {
         // Only trigger audio & muzzle burst if fired by ANOTHER ship!
-        // The local ship ALREADY triggered instant sound & particles on local fire input.
         if (msg.ownerId !== store.selfId) {
           const firingShip = store.ships.find((s) => s.id === msg.ownerId);
-          navalAudio.playCannonFire({
-            worldPos: firingShip ? { x: firingShip.x, z: firingShip.z } : undefined,
-          });
-          if (msg.ownerId) {
+          const selfShip = store.ships.find((s) => s.id === store.selfId);
+          let distSq = 0;
+          if (selfShip && firingShip) {
+            const dx = selfShip.x - firingShip.x;
+            const dz = selfShip.z - firingShip.z;
+            distSq = dx * dx + dz * dz;
+          }
+
+          // Audio culling: distant bot firefights (> 180m) are inaudible and skip WebAudio graph creation
+          if (!selfShip || distSq <= 32400) {
+            navalAudio.playCannonFire({
+              worldPos: firingShip ? { x: firingShip.x, z: firingShip.z } : undefined,
+            });
+          }
+
+          // Particle burst culling: skip particle simulation for far off-screen bots (> 280m)
+          if (msg.ownerId && (!selfShip || distSq <= 78400)) {
             store.triggerFireEvent(msg.ownerId as string, (msg.side as 'left' | 'right') || 'left');
           }
         }
@@ -244,22 +256,43 @@ class NetworkClient {
       case 'HIT_EVENT': {
         const targetId = msg.targetId as string;
         const remainingHp = typeof msg.remainingHp === 'number' ? msg.remainingHp : undefined;
+        const isSelfTarget = targetId === store.selfId;
+
         if (remainingHp !== undefined) {
-          // Immediately update store snapshot so HUD, scoreboard, and overhead health bar re-render in real-time
           const freshStore = useGameStore.getState();
-          freshStore.updateWorldSnapshot(
-            freshStore.serverTime,
-            freshStore.ships.map((s) => (s.id === targetId ? { ...s, health: remainingHp } : s)),
-            freshStore.cannonballs
-          );
+          if (isSelfTarget) {
+            // For local player: immediately update store snapshot so HUD re-renders in real-time
+            freshStore.updateWorldSnapshot(
+              freshStore.serverTime,
+              freshStore.ships.map((s) => (s.id === targetId ? { ...s, health: remainingHp } : s)),
+              freshStore.cannonballs
+            );
+          } else {
+            // For bot-on-bot hits: update health directly in-place without thrashing Zustand subscribers
+            const hitShip = freshStore.ships.find((s) => s.id === targetId);
+            if (hitShip) {
+              hitShip.health = remainingHp;
+            }
+          }
         }
 
-        const isSelfTarget = msg.targetId === store.selfId;
         const targetShip = store.ships.find((s) => s.id === msg.targetId);
-        navalAudio.playHullImpact({
-          isSelf: isSelfTarget,
-          worldPos: targetShip ? { x: targetShip.x, z: targetShip.z } : undefined,
-        });
+        const selfShip = store.ships.find((s) => s.id === store.selfId);
+        let distSq = 0;
+        if (selfShip && targetShip) {
+          const dx = selfShip.x - targetShip.x;
+          const dz = selfShip.z - targetShip.z;
+          distSq = dx * dx + dz * dz;
+        }
+
+        // Distance cull impact audio if distant bot-on-bot hit (> 160m)
+        if (isSelfTarget || !selfShip || distSq <= 25600) {
+          navalAudio.playHullImpact({
+            isSelf: isSelfTarget,
+            worldPos: targetShip ? { x: targetShip.x, z: targetShip.z } : undefined,
+          });
+        }
+
         if (isSelfTarget) {
           store.triggerCameraShake(0.85, 'hit');
         }
