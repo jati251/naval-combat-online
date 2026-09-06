@@ -40,7 +40,8 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
   const shipConfig = SHIP_PRESETS[shipClass] || SHIP_PRESETS.brig;
   const shipLen = shipConfig.length || 18;
   const shipWid = shipConfig.width || 6;
-  const nameplateY = shipLen * 0.76 + 3.6;
+  const mastHeight = shipLen * 0.85;
+  const nameplateY = mastHeight + 3.2;
 
   const [currentSail, setCurrentSail] = useState<SailState>(initialShip?.sail || 'HALF_SAIL');
   const curSailRef = useRef<SailState>(initialShip?.sail || 'HALF_SAIL');
@@ -52,6 +53,7 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
   const selfTeam = useGameStore((s) => s.currentRoom?.players.find((p) => p.id === s.selfId)?.team);
   const playerTeam = useGameStore((s) => s.currentRoom?.players.find((p) => p.id === targetId)?.team);
   const isFriendly = isTeamMode && Boolean(selfTeam && playerTeam && selfTeam === playerTeam);
+  const isAllyOrSelf = isSelf || (isTeamMode ? isFriendly : false);
 
   // High-precision dead reckoning extrapolation buffer
   const drBuffer = useRef(
@@ -74,7 +76,6 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
 
   // Lightweight 2D canvas texture for ship name badge (rendered once into WebGL texture, 0 DOM overhead)
   const nameTexture = useMemo(() => {
-    if (isSelf) return null;
     const canvas = document.createElement('canvas');
     canvas.width = 256;
     canvas.height = 48;
@@ -82,53 +83,45 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
     if (!ctx) return null;
     ctx.clearRect(0, 0, 256, 48);
 
-    // Dark pill background
-    ctx.fillStyle = isTeamMode
-      ? playerTeam === 'red'
-        ? 'rgba(76, 5, 25, 0.88)'
-        : 'rgba(8, 51, 68, 0.88)'
-      : 'rgba(2, 6, 23, 0.88)';
+    // Dark pill background (emerald tone for allies/self, crimson tone for enemies)
+    ctx.fillStyle = isAllyOrSelf
+      ? 'rgba(4, 30, 18, 0.92)'
+      : 'rgba(38, 7, 12, 0.92)';
 
     if ('roundRect' in ctx && typeof ctx.roundRect === 'function') {
       ctx.beginPath();
-      ctx.roundRect(8, 4, 240, 40, 8);
+      ctx.roundRect(6, 4, 244, 40, 8);
       ctx.fill();
     } else {
-      ctx.fillRect(8, 4, 240, 40);
+      ctx.fillRect(6, 4, 244, 40);
     }
 
-    // Border outline
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = isTeamMode
-      ? playerTeam === 'red'
-        ? 'rgba(244, 63, 94, 0.7)'
-        : 'rgba(6, 182, 212, 0.7)'
-      : 'rgba(71, 85, 105, 0.6)';
+    // Border outline: Hijau untuk kawan, Merah untuk musuh
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = isAllyOrSelf
+      ? 'rgba(34, 197, 94, 0.85)'
+      : 'rgba(239, 68, 68, 0.85)';
 
     if ('roundRect' in ctx && typeof ctx.roundRect === 'function') {
       ctx.beginPath();
-      ctx.roundRect(8, 4, 240, 40, 8);
+      ctx.roundRect(6, 4, 244, 40, 8);
       ctx.stroke();
     } else {
-      ctx.strokeRect(8, 4, 240, 40);
+      ctx.strokeRect(6, 4, 244, 40);
     }
 
-    // Text label
+    // Text label: Ship name with optional squad tag
     ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = isTeamMode
-      ? isFriendly
-        ? '#67e8f9'
-        : '#fda4af'
-      : '#fde68a';
-    const tag = isTeamMode ? (isFriendly ? '[ALLY] ' : '[FOE] ') : '';
+    ctx.fillStyle = isAllyOrSelf ? '#86efac' : '#fca5a5';
+    const tag = isSelf ? '[YOU] ' : (isTeamMode ? (isFriendly ? '[ALLY] ' : '[FOE] ') : '');
     ctx.fillText(`${tag}${shipName}`, 128, 24);
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.minFilter = THREE.LinearFilter;
     return tex;
-  }, [shipName, isSelf, isTeamMode, playerTeam, isFriendly]);
+  }, [shipName, isSelf, isTeamMode, isFriendly, isAllyOrSelf]);
 
   useEffect(() => {
     return () => {
@@ -147,7 +140,7 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
     if (!curShip) return;
 
     // Real-time GPU update for Floating Health Bar (Zero React re-render overhead during damage)
-    if (!isSelf && healthBarMeshRef.current) {
+    if (healthBarMeshRef.current) {
       const maxHp = curShip.maxHealth || 180;
       const curHp = Math.max(0, curShip.health ?? maxHp);
       const hpPct = Math.max(0, Math.min(100, (curHp / maxHp) * 100));
@@ -206,12 +199,16 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
         groupRef.current.visible = inView;
       }
 
-      // 2. Nameplate Culling (Tighter culling radius)
-      if (!isSelf && nameplateRef.current) {
-        const maxNameplateDist = isMobile ? NAMEPLATE_CULL_DISTANCE_MOBILE : NAMEPLATE_CULL_DISTANCE;
-        const shouldShow = inView && distSq <= maxNameplateDist * maxNameplateDist;
-        if (nameplateRef.current.visible !== shouldShow) {
-          nameplateRef.current.visible = shouldShow;
+      // 2. Nameplate Culling (Tighter culling radius for non-self ships)
+      if (nameplateRef.current) {
+        if (isSelf) {
+          nameplateRef.current.visible = inView;
+        } else {
+          const maxNameplateDist = isMobile ? NAMEPLATE_CULL_DISTANCE_MOBILE : NAMEPLATE_CULL_DISTANCE;
+          const shouldShow = inView && distSq <= maxNameplateDist * maxNameplateDist;
+          if (nameplateRef.current.visible !== shouldShow) {
+            nameplateRef.current.visible = shouldShow;
+          }
         }
       }
     }
@@ -220,7 +217,7 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
 
     // Billboard orientation & dynamic distance scaling: orient health bar mesh to face camera
     // and scale with distance so ship name & health remain crisp and legible across the sea
-    if (!isSelf && nameplateRef.current && nameplateRef.current.visible) {
+    if (nameplateRef.current && nameplateRef.current.visible) {
       // Counteract parent ship pitch/yaw/roll so billboard strictly faces camera screen
       groupRef.current.getWorldQuaternion(_tempParentQuat);
       nameplateRef.current.quaternion.copy(_tempParentQuat).invert().multiply(camera.quaternion);
@@ -313,58 +310,69 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
         isMobile={isMobile}
       />
 
-      {/* Floating Health Bar and Nameplate (Culled for enemy vessels, hidden for player ship) */}
-      {!isSelf && (
-        <group
-          ref={nameplateRef}
-          position={[0, nameplateY, 0]}
-          scale={isMobile ? [1.15, 1.15, 1.15] : [1.35, 1.35, 1.35]}
-          visible={false}
-        >
-          <group>
-            {/* 3D WebGL Ship Name Badge (Zero DOM elements, zero reflow) */}
-            {nameTexture && (
-              <mesh position={[0, 0.52, 0]}>
-                <planeGeometry args={[3.2, 0.6]} />
-                <meshBasicMaterial map={nameTexture} transparent depthWrite={false} />
-              </mesh>
-            )}
-
-            {/* Dark Backing Bar */}
-            <mesh position={[0, 0, 0]}>
-              <planeGeometry args={[3.2, 0.38]} />
-              <meshBasicMaterial color="#020617" opacity={0.88} transparent depthWrite={false} />
-            </mesh>
-            {/* Border Outline */}
-            <mesh position={[0, 0, 0.01]}>
-              <planeGeometry args={[3.04, 0.24]} />
-              <meshBasicMaterial color="#1e293b" depthWrite={false} />
-            </mesh>
-            {/* Real-time GPU Health Fill Bar (Direct ref scaling in useFrame, 0 React re-renders) */}
-            <mesh
-              ref={healthBarMeshRef}
-              position={[-1.45 + (1.45 * initialHpPercent) / 100, 0, 0.02]}
-              scale={[Math.max(0.001, initialHpPercent / 100), 1, 1]}
-            >
-              <planeGeometry args={[2.9, 0.18]} />
+      {/* Floating Health Bar and Nameplate (Always visible, billboarding to camera, no depth clipping) */}
+      <group
+        ref={nameplateRef}
+        position={[0, nameplateY, 0]}
+        scale={isMobile ? [1.15, 1.15, 1.15] : [1.35, 1.35, 1.35]}
+        renderOrder={9999}
+      >
+        <group>
+          {/* 3D WebGL Ship Name Badge */}
+          {nameTexture && (
+            <mesh position={[0, 0.46, 0]} renderOrder={10000}>
+              <planeGeometry args={[3.2, 0.54]} />
               <meshBasicMaterial
-                color={
-                  isTeamMode
-                    ? playerTeam === 'red'
-                      ? '#f43f5e'
-                      : '#38bdf8'
-                    : initialHpPercent > 50
-                    ? '#34d399'
-                    : initialHpPercent > 25
-                    ? '#fbbf24'
-                    : '#f43f5e'
-                }
+                map={nameTexture}
+                transparent
+                depthTest={false}
                 depthWrite={false}
+                side={THREE.DoubleSide}
               />
             </mesh>
-          </group>
+          )}
+
+          {/* Dark Backing Bar */}
+          <mesh position={[0, 0, 0]} renderOrder={9998}>
+            <planeGeometry args={[3.2, 0.36]} />
+            <meshBasicMaterial
+              color="#030712"
+              opacity={0.92}
+              transparent
+              depthTest={false}
+              depthWrite={false}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+
+          {/* Border Outline */}
+          <mesh position={[0, 0, 0]} renderOrder={9999}>
+            <planeGeometry args={[3.04, 0.22]} />
+            <meshBasicMaterial
+              color="#1e293b"
+              depthTest={false}
+              depthWrite={false}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+
+          {/* Real-time GPU Health Fill Bar (Hijau untuk kawan/self, Merah untuk musuh) */}
+          <mesh
+            ref={healthBarMeshRef}
+            position={[-1.45 + (1.45 * initialHpPercent) / 100, 0, 0]}
+            scale={[Math.max(0.001, initialHpPercent / 100), 1, 1]}
+            renderOrder={10001}
+          >
+            <planeGeometry args={[2.9, 0.18]} />
+            <meshBasicMaterial
+              color={isAllyOrSelf ? '#22c55e' : '#ef4444'}
+              depthTest={false}
+              depthWrite={false}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
         </group>
-      )}
+      </group>
     </group>
   );
 }, (prev, next) => {

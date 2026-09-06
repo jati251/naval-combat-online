@@ -1,15 +1,12 @@
 import React, { useState, lazy, Suspense } from 'react';
 import { useGameStore } from '@/stores/useGameStore';
-import { useModalStore } from '@/stores/useModalStore';
 import { networkClient } from '@/services/networkClient';
 import { useLobby } from '../hooks/useLobby';
 import { LobbyHeader } from './LobbyHeader';
-import { RoomList } from './RoomList';
-import { ShipSelector } from './ShipSelector';
+import { ShipSpecsCard, ShipCarousel } from './ShipSelector';
+import { LobbyConsole, type LobbyConsoleTab } from './LobbyConsole';
 import { RoomLobby } from './RoomLobby';
-import { CreateRoomModal } from './CreateRoomModal';
-import { ServerConfigModal } from './ServerConfigModal';
-import { Swords, Anchor } from 'lucide-react';
+import { Swords, Eye } from 'lucide-react';
 
 const ShipTurntable3D = lazy(() =>
   import('./ShipTurntable3D').then((m) => ({ default: m.ShipTurntable3D }))
@@ -25,15 +22,13 @@ export const LobbyView: React.FC = () => {
   const selfId = useGameStore((s) => s.selfId);
   const isConnected = useGameStore((s) => s.isConnected);
 
-  const [showRoomDrawer, setShowRoomDrawer] = useState(false);
+  // Integrated War Room Console state (Zero Modals)
+  const [consoleTab, setConsoleTab] = useState<LobbyConsoleTab>('anchorages');
+  const [showConsoleOnMobile, setShowConsoleOnMobile] = useState(true);
 
   const {
     isRefreshing,
     isDeploying,
-    showCreateModal,
-    showServerModal,
-    setShowCreateModal,
-    setShowServerModal,
     selfPlayer,
     isHost,
     allCaptainsReady,
@@ -44,8 +39,13 @@ export const LobbyView: React.FC = () => {
     handleCreateRoom,
   } = useLobby();
 
+  const handleOpenGateway = () => {
+    setConsoleTab('gateway');
+    setShowConsoleOnMobile(true);
+  };
+
   return (
-    <div className="fixed inset-0 w-full h-full h-[100dvh] bg-[#070e17] text-[#f7f0e4] flex flex-col justify-between p-2 sm:p-3 relative overflow-hidden select-none">
+    <div className="fixed inset-0 w-full h-full h-[100dvh] bg-[#070e17] text-[#f7f0e4] flex flex-col justify-between p-1.5 sm:p-2.5 relative overflow-hidden select-none">
       {/* Background Ambience: Deep Ocean Map Table with Golden Sun & Fog */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,#12253d_0%,#0a1626_60%,#040a12_100%)] pointer-events-none" />
       <div className="absolute inset-0 cartography-grid opacity-30 pointer-events-none" />
@@ -68,17 +68,17 @@ export const LobbyView: React.FC = () => {
       )}
 
       {/* Top Header Bar */}
-      <div className="w-full max-w-5xl mx-auto shrink-0 z-20">
+      <div className="w-full max-w-6xl mx-auto shrink-0 z-20">
         <LobbyHeader
           playerName={playerName}
           isConnected={isConnected}
           onPlayerNameChange={setPlayerName}
-          onOpenServerModal={() => setShowServerModal(true)}
+          onOpenGateway={handleOpenGateway}
         />
       </div>
 
       {/* Main Content Area */}
-      <main className="w-full max-w-6xl mx-auto flex-1 min-h-0 flex items-center justify-center my-1 z-20 relative pointer-events-none">
+      <main className="w-full max-w-7xl mx-auto flex-1 min-h-0 flex items-center justify-center my-1 z-20 relative pointer-events-none">
         {currentRoom ? (
           /* Pre-Battle Briefing Wardroom */
           <div className="w-full h-full flex items-center justify-center pointer-events-auto">
@@ -92,104 +92,85 @@ export const LobbyView: React.FC = () => {
               totalCount={totalCount}
               isDeploying={isDeploying}
               onStartGame={handleStartGame}
-              onLeaveRoom={async () => {
-                const confirmed = await useModalStore.getState().confirm({
-                  title: 'ABANDON SQUADRON',
-                  message: 'Depart this armada chamber and return to the fleet registry?',
-                  confirmLabel: 'Abandon Fleet',
-                  cancelLabel: 'Remain',
-                  variant: 'danger',
-                  icon: 'retreat',
-                });
-                if (confirmed) {
-                  networkClient.leaveRoom();
-                }
+              onLeaveRoom={() => {
+                networkClient.leaveRoom();
               }}
             />
           </div>
         ) : (
-          /* Dockyard HUD Overlay */
+          /* Dockyard HUD: Split Cockpit Layout (No Modals) */
           <div className="w-full h-full flex flex-col justify-between pointer-events-none">
-            {/* Top-Left Floating Tactical Specs Card */}
-            <div className="self-start pointer-events-auto max-w-[280px] sm:max-w-[340px] pt-1">
-              <ShipSelector
-                selectedShip={selectedShip}
-                onSelectShip={setSelectedShip}
-              />
-            </div>
+            {/* Top Stage: Left Tactical Specs & Right War Room Console */}
+            <div className="w-full flex-1 min-h-0 flex items-start justify-between gap-2 sm:gap-4 pointer-events-none pt-0.5">
+              {/* Left: Vessel Tactical Specs & Attributes */}
+              <div className="pointer-events-auto w-[210px] sm:w-[260px] md:w-[290px] shrink-0">
+                <ShipSpecsCard selectedShip={selectedShip} />
+              </div>
 
-            {/* Bottom Floating Action Bar & Fleet Carousel */}
-            <div className="w-full flex flex-col sm:flex-row items-end sm:items-center justify-between gap-2 pointer-events-none pb-1">
-              {/* Primary Launch / Commission CTAs */}
-              <div className="pointer-events-auto flex items-center gap-2 self-end sm:self-auto order-1 sm:order-2">
+              {/* Mobile Console Toggle Trigger */}
+              <div className="pointer-events-auto block md:hidden self-start">
                 <button
-                  onClick={() => setShowRoomDrawer(true)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg game-dock border border-amber-500/60 hover:border-amber-400 text-amber-200 font-cinzel font-bold text-xs uppercase tracking-wider transition-all duration-150 cursor-pointer shadow-lg active:scale-95"
+                  onClick={() => setShowConsoleOnMobile((prev) => !prev)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg game-dock border border-amber-500/60 text-amber-200 font-cinzel font-bold text-[10px] uppercase tracking-wider shadow-lg active:scale-95 cursor-pointer"
                 >
-                  <Anchor className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Anchorages ({availableRooms.length})</span>
-                </button>
-
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="flex items-center gap-1.5 px-4 sm:px-6 py-2.5 rounded-lg bg-gradient-to-b from-amber-400 via-amber-500 to-amber-700 hover:from-amber-300 hover:to-amber-600 text-stone-950 font-cinzel font-black text-xs sm:text-sm uppercase tracking-wider transition-all duration-150 game-action-glow cursor-pointer border border-amber-200/90 active:scale-95"
-                >
-                  <Swords className="w-4 h-4 stroke-[2.5]" />
-                  <span>Commission Fleet</span>
+                  {showConsoleOnMobile ? (
+                    <>
+                      <Eye className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Inspect Ship</span>
+                    </>
+                  ) : (
+                    <>
+                      <Swords className="w-3.5 h-3.5 text-amber-400" />
+                      <span>War Room</span>
+                    </>
+                  )}
                 </button>
               </div>
-            </div>
-          </div>
-        )}
 
-        {/* Floating Fleet Anchorages Ledger (Drawer / Overlay) */}
-        {!currentRoom && showRoomDrawer && (
-          <div className="fixed inset-0 z-40 bg-black/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 pointer-events-auto animate-in fade-in duration-150">
-            <div className="w-full max-w-xl h-[85dvh] max-h-[440px] flex">
-              <RoomList
-                rooms={availableRooms}
-                isRefreshing={isRefreshing}
-                onRefresh={handleRefresh}
-                onOpenCreateModal={() => {
-                  setShowRoomDrawer(false);
-                  setShowCreateModal(true);
-                }}
-                onJoinRoom={(roomId) => {
-                  networkClient.joinRoom(roomId);
-                  setShowRoomDrawer(false);
-                }}
-                onClose={() => setShowRoomDrawer(false)}
+              {/* Right: Integrated War Room Tactical Console (NO MODALS) */}
+              <div
+                className={`pointer-events-auto shrink-0 transition-all duration-200 ${
+                  showConsoleOnMobile ? 'flex' : 'hidden md:flex'
+                }`}
+              >
+                <LobbyConsole
+                  rooms={availableRooms}
+                  isRefreshing={isRefreshing}
+                  activeTab={consoleTab}
+                  onTabChange={setConsoleTab}
+                  onRefresh={handleRefresh}
+                  onJoinRoom={(roomId) => networkClient.joinRoom(roomId)}
+                  onCreateRoom={(name, maxP, tod, kills, mode, map) => {
+                    return handleCreateRoom(name, maxP, tod, kills, mode, map);
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Bottom Stage: Horizontal Fleet Carousel Strip */}
+            <div className="w-full pointer-events-auto pb-0.5 shrink-0">
+              <ShipCarousel
+                selectedShip={selectedShip}
+                onSelectShip={setSelectedShip}
               />
             </div>
           </div>
         )}
       </main>
 
-      {/* Footer: Compact Standing Orders */}
-      <footer className="w-full max-w-5xl mx-auto shrink-0 flex items-center justify-between text-amber-300/60 text-[9px] sm:text-[10px] font-fell italic z-20 pt-1 border-t border-amber-600/20">
+      {/* Footer: Compact Standing Orders & High Seas Legend */}
+      <footer className="w-full max-w-6xl mx-auto shrink-0 flex items-center justify-between text-amber-300/60 text-[8.5px] sm:text-[9.5px] font-fell italic z-20 pt-0.5 border-t border-amber-600/20">
         <span className="flex items-center gap-1">
-          <span className="font-cinzel font-bold not-italic text-amber-400 text-[8px] sm:text-[9px] uppercase">
+          <span className="font-cinzel font-bold not-italic text-amber-400 text-[8px] sm:text-[8.5px] uppercase">
             Orders:
           </span>
-          <span className="hidden sm:inline">[W/S] Sails • [A/D] Rudder • [Q/E] Aim Battery • [Space] Fire</span>
+          <span className="hidden sm:inline">[W/S] Sails • [A/D] Helm • [Q/E] Guns • [Space] Fire</span>
           <span className="sm:hidden">[W/S] Sails • [A/D] Helm • [Space] Fire</span>
         </span>
-        <span className="font-cinzel text-[8px] sm:text-[9px] tracking-widest text-amber-400/50 uppercase hidden xs:inline">
+        <span className="font-cinzel text-[7.5px] sm:text-[8.5px] tracking-widest text-amber-400/50 uppercase hidden xs:inline">
           High Seas Fleet Warfare
         </span>
       </footer>
-
-      {/* Modals */}
-      <CreateRoomModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onCreate={handleCreateRoom}
-      />
-
-      <ServerConfigModal
-        isOpen={showServerModal}
-        onClose={() => setShowServerModal(false)}
-      />
     </div>
   );
 };

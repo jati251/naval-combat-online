@@ -5,15 +5,18 @@ interface LobbyHeaderProps {
   playerName: string;
   isConnected: boolean;
   onPlayerNameChange: (name: string) => void;
-  onOpenServerModal: () => void;
+  onOpenGateway?: () => void;
+  onOpenServerModal?: () => void;
 }
 
 export const LobbyHeader: React.FC<LobbyHeaderProps> = ({
   playerName,
   isConnected,
   onPlayerNameChange,
+  onOpenGateway,
   onOpenServerModal,
 }) => {
+  const handleGatewayClick = onOpenGateway || onOpenServerModal;
   return (
     <header className="w-full flex items-center justify-between z-20 py-1 sm:py-1.5 px-2 sm:px-4 game-dock rounded-lg border border-amber-500/40 shadow-lg">
       {/* Left: Captain Profile Badge & Inscription */}
@@ -51,7 +54,7 @@ export const LobbyHeader: React.FC<LobbyHeaderProps> = ({
       {/* Right: Signal Jewel & Gateway Trigger */}
       <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
         <button
-          onClick={onOpenServerModal}
+          onClick={handleGatewayClick}
           className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded bg-black/40 hover:bg-black/60 border border-amber-600/40 text-amber-200/90 hover:text-amber-100 hover:border-amber-400 transition cursor-pointer text-xs group"
           title="Admiralty Signal Gateway"
         >
