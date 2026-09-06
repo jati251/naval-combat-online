@@ -44,9 +44,9 @@ export function useShipControls() {
         dt * 8.0,
       );
 
-      // Quantized update to local store (~60 levels of precision) prevents 144Hz React state thrashing
-      const quantizedRudder = Math.round(currentRudder.current * 60) / 60;
-      if (quantizedRudder !== lastStoreRudder.current) {
+      // Quantized update to local store prevents high-frequency React state thrashing during steering
+      const quantizedRudder = Math.round(currentRudder.current * 18) / 18;
+      if (Math.abs(quantizedRudder - lastStoreRudder.current) >= 0.05 || (quantizedRudder === 0 && lastStoreRudder.current !== 0)) {
         lastStoreRudder.current = quantizedRudder;
         setLocalRudder(quantizedRudder);
       }

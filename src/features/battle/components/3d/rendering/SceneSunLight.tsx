@@ -1,5 +1,5 @@
 import { useMemo, useRef } from 'react';
-import { DirectionalLight, Object3D } from 'three';
+import { DirectionalLight, Object3D, MathUtils } from 'three';
 import { useFrame } from '@react-three/fiber';
 
 export function SceneSunLight({ color, intensity, shadows }: {
@@ -7,15 +7,14 @@ export function SceneSunLight({ color, intensity, shadows }: {
 }) {
   const light = useRef<DirectionalLight>(null);
   const target = useMemo(() => new Object3D(), []);
-  useFrame(({ camera }) => {
+  useFrame(({ camera }, delta) => {
     if (!light.current) return;
-    // Keep the shadow budget around the battle camera instead of the map origin.
-    const x = Math.round(camera.position.x / 4) * 4;
-    const z = Math.round(camera.position.z / 4) * 4;
-    if (target.position.x === x && target.position.z === z) return;
-    target.position.set(x, 0, z);
+    // Smoothly track camera position without discrete 4m jumping hitches
+    const targetX = MathUtils.damp(target.position.x, camera.position.x, 12, delta);
+    const targetZ = MathUtils.damp(target.position.z, camera.position.z, 12, delta);
+    target.position.set(targetX, 0, targetZ);
     target.updateMatrixWorld();
-    light.current.position.set(x + 70, 140, z - 50);
+    light.current.position.set(targetX + 70, 140, targetZ - 50);
   });
   return <>
     <primitive object={target} />

@@ -80,17 +80,13 @@ export function updateChaseCamera(params: CameraUpdateParams): void {
   const currentSpeed = Math.max(0, shipSpeed);
   const speedRatio = Math.min(1.2, currentSpeed / 9.5);
 
-  // Speed FOV expansion (smoothly expands from 55 to ~62.5 FOV at full sail, plus trauma kick)
+  // Camera trauma impulse (recoil / damage kick only; FOV remains stable during speed transitions)
   const perspCamera = camera as THREE.PerspectiveCamera;
   if (perspCamera.isPerspectiveCamera) {
-    const targetFov = 55 + speedRatio * 7.5 + (cameraState.lastRecoilDir === 'hit' ? traumaSq * 4.5 : traumaSq * 2.0);
-    const newFov = damp(perspCamera.fov, targetFov, 9, delta);
-
-    // Only update projection matrix when delta is meaningful (prevents per-frame GPU cache invalidation)
-    if (Math.abs(newFov - perspCamera.fov) > 0.03 || Math.abs(newFov - cameraState.lastTargetFov) > 0.5) {
-      perspCamera.fov = newFov;
+    const targetFov = 55 + (cameraState.lastRecoilDir === 'hit' ? traumaSq * 4.5 : traumaSq * 2.0);
+    if (Math.abs(targetFov - perspCamera.fov) > 0.08) {
+      perspCamera.fov = damp(perspCamera.fov, targetFov, 9, delta);
       perspCamera.updateProjectionMatrix();
-      cameraState.lastTargetFov = newFov;
     }
   }
 

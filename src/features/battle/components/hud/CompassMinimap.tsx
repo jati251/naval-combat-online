@@ -46,8 +46,9 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(() => {
     const render = () => {
       frameCount++;
 
-      // Mobile: throttle canvas rendering to ~15fps (skip 3 of 4 frames) to save CPU
-      if (isMobileDevice && frameCount % 4 !== 0) {
+      // Throttle canvas rendering: ~30fps on desktop (skip alternate frames), ~15fps on mobile (skip 3 of 4)
+      const skipInterval = isMobileDevice ? 4 : 2;
+      if (frameCount % skipInterval !== 0) {
         animId = requestAnimationFrame(render);
         return;
       }

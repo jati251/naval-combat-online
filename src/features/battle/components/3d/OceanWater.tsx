@@ -20,8 +20,8 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
   const islands = activeMap.islands;
 
   // Responsive vertex grid density: 120x120 on mobile (14,400 quads) for crisp wave crests,
-  // 220x220 on desktop (48,400 quads) for rich geometric Gerstner swell curves.
-  const segments = isMobile ? 120 : 220;
+  // 160x160 on desktop (25,600 quads) for rich geometric Gerstner swell curves with low GPU overhead.
+  const segments = isMobile ? 120 : 160;
   const geometry = useMemo(() => {
     const geo = new THREE.PlaneGeometry(size, size, segments, segments);
     geo.rotateX(-Math.PI / 2);
