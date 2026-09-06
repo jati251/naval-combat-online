@@ -164,17 +164,14 @@ export const SpeedMotionBlurOverlay: React.FC = React.memo(() => {
 
   return (
     <>
-      {/* 1. Fast GPU Peripheral Vignette Blur (Static 3px blur with GPU opacity blending) */}
+      {/* 1. Fast GPU Peripheral Vignette (High-performance gradient without compositor-stalling backdropFilter) */}
       <div
         ref={blurRef}
         className="pointer-events-none absolute inset-0 z-10"
         style={{
           display: 'none',
           opacity: 0,
-          backdropFilter: 'blur(3px)',
-          WebkitBackdropFilter: 'blur(3px)',
-          maskImage: 'radial-gradient(ellipse 65% 58% at 50% 46%, transparent 35%, black 85%)',
-          WebkitMaskImage: 'radial-gradient(ellipse 65% 58% at 50% 46%, transparent 35%, black 85%)',
+          background: 'radial-gradient(ellipse 70% 60% at 50% 46%, transparent 45%, rgba(3, 7, 18, 0.55) 100%)',
         }}
       />
 

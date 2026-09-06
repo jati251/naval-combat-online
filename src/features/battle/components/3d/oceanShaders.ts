@@ -338,23 +338,26 @@ export const getOceanFragmentShader = () => `
 
             float behind = -lz;
             float maxWakeReach = uQualityTier > 1.5 ? 110.0 : 88.0;
-            if (behind > -1.0 && behind < maxWakeReach) {
-              float latDist = abs(lx);
+            float latDist = abs(lx);
 
+            // Fast corridor bounding: skip expensive pow/exp if outside lateral wake reach
+            if (behind > -1.0 && behind < maxWakeReach && latDist < 26.0) {
               // Soft expanding Kelvin V-wake arms
               float wakeSpread = 1.2 + pow(max(0.0, behind), 0.62) * 1.35;
-              float vArm = (1.0 - smoothstep(0.0, 1.6, abs(latDist - wakeSpread))) * 0.55;
+              if (latDist < wakeSpread + 3.0) {
+                float vArm = (1.0 - smoothstep(0.0, 1.6, abs(latDist - wakeSpread))) * 0.55;
 
-              // Smooth center churn field
-              float centerSpread = 1.8 + behind * 0.12;
-              float centerFroth = exp(-(latDist * latDist) / (centerSpread * centerSpread)) * 0.65;
+                // Smooth center churn field
+                float centerSpread = 1.8 + behind * 0.12;
+                float centerFroth = exp(-(latDist * latDist) / (centerSpread * centerSpread)) * 0.65;
 
-              float ripple = sin(behind * 0.4 - uTime * 1.8) * 0.1 + 0.9;
-              float leadIn = smoothstep(-0.5, 2.0, behind);
-              float trailFade = exp(-max(0.0, behind) * 0.038) * (1.0 - smoothstep(55.0, maxWakeReach, behind));
+                float ripple = sin(behind * 0.4 - uTime * 1.8) * 0.1 + 0.9;
+                float leadIn = smoothstep(-0.5, 2.0, behind);
+                float trailFade = exp(-max(0.0, behind) * 0.038) * (1.0 - smoothstep(55.0, maxWakeReach, behind));
 
-              shipWakeFoam = (vArm + centerFroth) * ripple * leadIn * trailFade * min(1.0, uShipSpeed / 2.0);
-              shipWakeFoam = clamp(shipWakeFoam, 0.0, 0.70);
+                shipWakeFoam = (vArm + centerFroth) * ripple * leadIn * trailFade * min(1.0, uShipSpeed / 2.0);
+                shipWakeFoam = clamp(shipWakeFoam, 0.0, 0.70);
+              }
             }
           }
 
