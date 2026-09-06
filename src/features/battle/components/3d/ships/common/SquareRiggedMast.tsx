@@ -18,6 +18,9 @@ interface SquareRiggedMastProps {
   yardColor?: string;
   includeFlag?: boolean;
   isEnemy?: boolean;
+  team?: 'red' | 'blue';
+  isFriendly?: boolean;
+  shipId?: string;
   lowerDepthOffset?: number;
   upperDepthOffset?: number;
 }
@@ -36,6 +39,9 @@ export const SquareRiggedMast: React.FC<SquareRiggedMastProps> = React.memo(({
   yardColor = '#2d1c12',
   includeFlag = false,
   isEnemy = false,
+  team,
+  isFriendly,
+  shipId,
   lowerDepthOffset = 0.22,
   upperDepthOffset = 0.16,
 }) => {
@@ -89,7 +95,13 @@ export const SquareRiggedMast: React.FC<SquareRiggedMastProps> = React.memo(({
 
       {/* National Flag / Battle Ensign at Topmost Mast Truck */}
       {includeFlag && (
-        <ShipFlag position={[0, mastHeight + 0.48, -0.65]} isEnemy={isEnemy} />
+        <ShipFlag
+          position={[0, mastHeight + 0.48, -0.65]}
+          isEnemy={isEnemy}
+          team={team}
+          isFriendly={isFriendly}
+          shipId={shipId}
+        />
       )}
     </group>
   );

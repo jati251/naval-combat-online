@@ -28,6 +28,8 @@ export const GunboatModel: React.FC<SubModelProps> = React.memo(({
   sailTexture,
   shipId,
   isSelf,
+  team,
+  isFriendly,
 }) => {
   const { length, width, trimColor } = config;
   const tillerRef = useRef<THREE.Mesh>(null);
@@ -184,7 +186,13 @@ export const GunboatModel: React.FC<SubModelProps> = React.memo(({
             rotation={[0, Math.PI / 2, 0]}
           />
         </group>
-        <ShipFlag position={[0, mastH * 0.88, -0.4]} isEnemy={isEnemy} />
+        <ShipFlag
+          position={[0, mastH * 0.88, -0.4]}
+          isEnemy={isEnemy}
+          team={team}
+          isFriendly={isFriendly}
+          shipId={shipId}
+        />
       </group>
 
       {/* Wooden Tiller Bar on Open Aft Cockpit */}

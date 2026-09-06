@@ -20,7 +20,7 @@ export const BroadsideGauges: React.FC<BroadsideGaugesProps> = React.memo(
       (isAimingLeft && isLeftReady) || (isAimingRight && isRightReady);
 
     return (
-      <div className="pointer-events-auto flex items-center gap-3.5 naval-plaque px-4 py-2 select-none rounded-md border border-amber-600/40 shadow-xl relative">
+      <div className="pointer-events-auto flex items-center gap-3 game-hud-glass px-3 py-1.5 select-none rounded-lg border border-amber-500/40 shadow-xl relative">
         {/* Corner Filigree Screws */}
         <div className="absolute top-1 left-1 w-1 h-1 rounded-full bg-amber-400/80 shadow-[0_0_2px_rgba(0,0,0,0.8)]" />
         <div className="absolute top-1 right-1 w-1 h-1 rounded-full bg-amber-400/80 shadow-[0_0_2px_rgba(0,0,0,0.8)]" />

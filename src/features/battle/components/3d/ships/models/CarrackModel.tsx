@@ -32,6 +32,8 @@ export const CarrackModel: React.FC<SubModelProps> = React.memo(({
   sailTexture,
   shipId,
   isSelf,
+  team,
+  isFriendly,
 }) => {
   const { length, width } = config;
   const cannonPositions = useMemo(() => [-length * 0.24, -length * 0.08, length * 0.08, length * 0.24], [length]);
@@ -202,6 +204,9 @@ export const CarrackModel: React.FC<SubModelProps> = React.memo(({
         yardColor="#18181b"
         includeFlag={true}
         isEnemy={isEnemy}
+        team={team}
+        isFriendly={isFriendly}
+        shipId={shipId}
       />
 
       {/* 3. Authentic Lateen Mizzenmast (Age of Discovery Nao / Carrack rig) */}

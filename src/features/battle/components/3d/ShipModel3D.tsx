@@ -22,6 +22,8 @@ export const ShipModel3D: React.FC<ShipModelProps> = React.memo(({
   isEnemy = false,
   shipId,
   isSelf = false,
+  team,
+  isFriendly,
 }) => {
   const config = propConfig || SHIP_PRESETS[shipClass as ShipClass] || SHIP_PRESETS.brig;
   const { id, hullColor, sailColor } = config;
@@ -40,6 +42,8 @@ export const ShipModel3D: React.FC<ShipModelProps> = React.memo(({
     sailTexture,
     shipId,
     isSelf,
+    team,
+    isFriendly,
   };
 
   const Model = shipModels[id] ?? shipModels.brig;
@@ -59,6 +63,8 @@ export const ShipModel3D: React.FC<ShipModelProps> = React.memo(({
     (Boolean(next.shipId) || prev.rudderAngle === next.rudderAngle) &&
     prev.sailState === next.sailState &&
     prev.isEnemy === next.isEnemy &&
+    prev.team === next.team &&
+    prev.isFriendly === next.isFriendly &&
     prev.shipId === next.shipId &&
     prev.isSelf === next.isSelf
   );

@@ -32,40 +32,32 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
   const canAddBot = isHost && room.players.length < room.maxPlayers;
 
   return (
-    <div className="w-full max-w-4xl max-h-[92dvh] sm:max-h-[calc(100dvh-120px)] flex flex-col pirate-parchment rounded-xl p-3 sm:p-5 md:p-6 shadow-2xl relative border border-amber-600/40 z-10 overflow-y-auto">
+    <div className="w-full max-w-4xl max-h-[96dvh] h-full flex flex-col game-dock rounded-xl p-2 sm:p-3.5 shadow-2xl relative border border-amber-500/50 z-10 overflow-hidden">
       {/* Corner Filigree Brackets */}
-      <div className="absolute top-1.5 left-1.5 w-3 h-3 border-t-2 border-l-2 border-amber-400/80 pointer-events-none" />
-      <div className="absolute top-1.5 right-1.5 w-3 h-3 border-t-2 border-r-2 border-amber-400/80 pointer-events-none" />
-      <div className="absolute bottom-1.5 left-1.5 w-3 h-3 border-b-2 border-l-2 border-amber-400/80 pointer-events-none" />
-      <div className="absolute bottom-1.5 right-1.5 w-3 h-3 border-b-2 border-r-2 border-amber-400/80 pointer-events-none" />
+      <div className="absolute top-1 left-1 w-2.5 h-2.5 border-t-2 border-l-2 border-amber-400/80 pointer-events-none" />
+      <div className="absolute top-1 right-1 w-2.5 h-2.5 border-t-2 border-r-2 border-amber-400/80 pointer-events-none" />
+      <div className="absolute bottom-1 left-1 w-2.5 h-2.5 border-b-2 border-l-2 border-amber-400/80 pointer-events-none" />
+      <div className="absolute bottom-1 right-1 w-2.5 h-2.5 border-b-2 border-r-2 border-amber-400/80 pointer-events-none" />
 
       {/* Wardroom Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2.5 sm:pb-4 border-b border-amber-600/30 gap-2 shrink-0">
-        <div>
-          <div className="flex items-center gap-1.5 sm:gap-2.5 flex-wrap">
-            <h2 className="text-base sm:text-2xl font-cinzel font-black text-amber-100 tracking-wider gold-emboss">
+      <div className="flex items-center justify-between pb-1.5 sm:pb-2.5 border-b border-amber-500/30 gap-2 shrink-0">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <h2 className="text-sm sm:text-lg md:text-xl font-cinzel font-black text-amber-100 tracking-wider gold-emboss truncate max-w-[200px] sm:max-w-none">
               {room.name}
             </h2>
-            <span className="text-[8px] sm:text-[9px] font-cinzel font-bold px-2 py-0.5 rounded-full bg-amber-950/80 text-amber-300 border border-amber-500/50 shadow-sm">
-              COUNCIL OF WAR
-            </span>
             <span
-              className={`text-[8px] sm:text-[9px] font-cinzel font-bold px-2 py-0.5 rounded-full border shadow-sm ${
+              className={`text-[8px] font-cinzel font-bold px-1.5 py-0.2 rounded border shadow-sm ${
                 room.gameMode === 'TEAM'
                   ? 'bg-cyan-950/80 text-cyan-300 border-cyan-500/60'
                   : 'bg-amber-950/80 text-amber-300 border-amber-500/50'
               }`}
             >
-              {room.gameMode === 'TEAM' ? '🛡 ARMADA CLASH' : '⚔ FREE FOR ALL'}
-            </span>
-            <span className="text-[8px] sm:text-[9px] font-cinzel font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-400/50 shadow-sm">
-              {room.gameMode === 'TEAM' ? `🚩 GOAL: ${room.targetKills || 5} SINKS` : `⚔ GOAL: ${room.targetKills || 5} SINKS`}
+              {room.gameMode === 'TEAM' ? 'ARMADA' : 'FFA'} • {room.targetKills || 5} SINKS
             </span>
           </div>
-          <p className="text-[10px] sm:text-xs font-fell italic text-amber-200/80 mt-0.5">
-            Captains Assembled in Wardroom:{' '}
-            <strong className="text-amber-100 font-mono not-italic">{room.players.length}</strong> of{' '}
-            <strong className="text-amber-100 font-mono not-italic">{room.maxPlayers}</strong> vessels
+          <p className="text-[9px] sm:text-[10px] font-fell italic text-amber-200/80 mt-0.5">
+            Captains: <strong className="text-amber-100 font-mono not-italic">{room.players.length}/{room.maxPlayers}</strong>
           </p>
         </div>
 

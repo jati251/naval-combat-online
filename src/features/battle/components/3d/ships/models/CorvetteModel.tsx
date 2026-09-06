@@ -32,6 +32,8 @@ export const CorvetteModel: React.FC<SubModelProps> = React.memo(({
   sailTexture,
   shipId,
   isSelf,
+  team,
+  isFriendly,
 }) => {
   const { length, width, trimColor } = config;
   const mastPositions = useMemo(() => [-length * 0.22, length * 0.20], [length]);
@@ -189,6 +191,9 @@ export const CorvetteModel: React.FC<SubModelProps> = React.memo(({
               mastIndex={mIdx}
               includeFlag={mIdx === 1}
               isEnemy={isEnemy}
+              team={team}
+              isFriendly={isFriendly}
+              shipId={shipId}
             />
           </React.Fragment>
         );

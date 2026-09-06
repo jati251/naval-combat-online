@@ -33,6 +33,8 @@ export const BrigModel: React.FC<SubModelProps> = React.memo(({
   sailTexture,
   shipId,
   isSelf,
+  team,
+  isFriendly,
 }) => {
   const { length, width, cannonsPerSide, trimColor } = config;
   const mastPositions = useMemo(() => [-length * 0.24, length * 0.18], [length]);
@@ -181,6 +183,9 @@ export const BrigModel: React.FC<SubModelProps> = React.memo(({
               mastIndex={mIdx}
               includeFlag={mIdx === 1}
               isEnemy={isEnemy}
+              team={team}
+              isFriendly={isFriendly}
+              shipId={shipId}
             />
           </React.Fragment>
         );

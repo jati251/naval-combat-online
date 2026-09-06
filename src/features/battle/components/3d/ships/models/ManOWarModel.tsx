@@ -33,6 +33,8 @@ export const ManOWarModel: React.FC<SubModelProps> = React.memo(({
   sailTexture,
   shipId,
   isSelf,
+  team,
+  isFriendly,
 }) => {
   const { length, width, cannonsPerSide, trimColor } = config;
   const mastPositions = useMemo(() => [-length * 0.32, 0, length * 0.28], [length]);
@@ -186,6 +188,9 @@ export const ManOWarModel: React.FC<SubModelProps> = React.memo(({
               mastIndex={mIdx}
               includeFlag={mIdx === 2}
               isEnemy={isEnemy}
+              team={team}
+              isFriendly={isFriendly}
+              shipId={shipId}
             />
           </React.Fragment>
         );

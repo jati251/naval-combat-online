@@ -9,6 +9,8 @@ export interface ShipModelProps {
   isEnemy?: boolean;
   shipId?: string;
   isSelf?: boolean;
+  team?: 'red' | 'blue';
+  isFriendly?: boolean;
 }
 
 export interface SubModelProps {
@@ -21,4 +23,6 @@ export interface SubModelProps {
   sailTexture: THREE.CanvasTexture;
   shipId?: string;
   isSelf?: boolean;
+  team?: 'red' | 'blue';
+  isFriendly?: boolean;
 }

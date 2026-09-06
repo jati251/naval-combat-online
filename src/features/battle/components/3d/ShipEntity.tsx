@@ -22,6 +22,8 @@ import { useGameStore } from '@/stores/useGameStore';
 import { findShip } from '@/stores/selectors/shipLookup';
 import { navalAudio } from '../../services/navalAudio';
 
+const _tempParentQuat = new THREE.Quaternion();
+
 export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
   ship,
   shipId: propShipId,
@@ -216,9 +218,24 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
 
     if (!groupRef.current.visible) return;
 
-    // Billboard orientation: orient health bar mesh to face camera without Drei DOM overhead
+    // Billboard orientation & dynamic distance scaling: orient health bar mesh to face camera
+    // and scale with distance so ship name & health remain crisp and legible across the sea
     if (!isSelf && nameplateRef.current && nameplateRef.current.visible) {
-      nameplateRef.current.quaternion.copy(camera.quaternion);
+      // Counteract parent ship pitch/yaw/roll so billboard strictly faces camera screen
+      groupRef.current.getWorldQuaternion(_tempParentQuat);
+      nameplateRef.current.quaternion.copy(_tempParentQuat).invert().multiply(camera.quaternion);
+
+      // Distance from camera to ship
+      const dx = camera.position.x - groupRef.current.position.x;
+      const dy = camera.position.y - (groupRef.current.position.y + nameplateY);
+      const dz = camera.position.z - groupRef.current.position.z;
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+      // Dynamic scaling: at 20m scale is ~1.0x, smoothly expanding up to 2.8x at long combat range
+      const distScale = Math.max(1.0, Math.min(2.8, 0.75 + dist * 0.014));
+      const baseScale = isMobile ? 1.15 : 1.35;
+      const finalScale = baseScale * distScale;
+      nameplateRef.current.scale.set(finalScale, finalScale, finalScale);
     }
 
     // First frame initialization (snap immediately without initial sweeping lerp)
@@ -283,6 +300,8 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
         isEnemy={!isSelf}
         shipId={targetId}
         isSelf={isSelf}
+        team={isSelf ? selfTeam : playerTeam}
+        isFriendly={isFriendly}
       />
 
       {/* Dynamic Stern Wake Spray & 2D Bubbles (Reads live state directly) */}
@@ -296,8 +315,13 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
 
       {/* Floating Health Bar and Nameplate (Culled for enemy vessels, hidden for player ship) */}
       {!isSelf && (
-        <group ref={nameplateRef} position={[0, nameplateY, 0]} visible={false}>
-          <group scale={isMobile ? [1.1, 1.1, 1.1] : [1.35, 1.35, 1.35]}>
+        <group
+          ref={nameplateRef}
+          position={[0, nameplateY, 0]}
+          scale={isMobile ? [1.15, 1.15, 1.15] : [1.35, 1.35, 1.35]}
+          visible={false}
+        >
+          <group>
             {/* 3D WebGL Ship Name Badge (Zero DOM elements, zero reflow) */}
             {nameTexture && (
               <mesh position={[0, 0.52, 0]}>
@@ -325,8 +349,10 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
               <planeGeometry args={[2.9, 0.18]} />
               <meshBasicMaterial
                 color={
-                  isTeamMode && isFriendly
-                    ? '#22d3ee'
+                  isTeamMode
+                    ? playerTeam === 'red'
+                      ? '#f43f5e'
+                      : '#38bdf8'
                     : initialHpPercent > 50
                     ? '#34d399'
                     : initialHpPercent > 25

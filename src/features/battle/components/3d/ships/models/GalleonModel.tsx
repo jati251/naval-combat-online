@@ -33,6 +33,8 @@ export const GalleonModel: React.FC<SubModelProps> = React.memo(({
   sailTexture,
   shipId,
   isSelf,
+  team,
+  isFriendly,
 }) => {
   const { length, width, cannonsPerSide, trimColor } = config;
 
@@ -211,6 +213,9 @@ export const GalleonModel: React.FC<SubModelProps> = React.memo(({
         mastIndex={1}
         includeFlag={true}
         isEnemy={isEnemy}
+        team={team}
+        isFriendly={isFriendly}
+        shipId={shipId}
       />
 
       {/* 3. Mizzenmast with Lateen Sail & Standing Rigging */}

@@ -189,3 +189,27 @@
   transform: scale(0.92);
 }
 
+/* ==========================================================================
+   GAME HUD TRANSLUCENCY & DOCK STYLES
+   ========================================================================== */
+
+.game-hud-glass {
+  background: rgba(11, 20, 32, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(245, 180, 50, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 235, 165, 0.2);
+}
+
+.game-dock {
+  background: linear-gradient(180deg, rgba(14, 24, 38, 0.88) 0%, rgba(8, 14, 23, 0.94) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(245, 180, 50, 0.45);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 235, 165, 0.25);
+}
+
+.game-action-glow {
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.45), 0 4px 12px rgba(0, 0, 0, 0.6);
+}
+

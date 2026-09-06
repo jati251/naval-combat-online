@@ -32,6 +32,8 @@ export const SloopModel: React.FC<SubModelProps> = React.memo(({
   sailTexture,
   shipId,
   isSelf,
+  team,
+  isFriendly,
 }) => {
   const { length, width, trimColor } = config;
   const mastHeight = length * 0.92;
@@ -211,7 +213,13 @@ export const SloopModel: React.FC<SubModelProps> = React.memo(({
           <cylinderGeometry args={[0.45, 0.36, 0.38, 8]} />
           <meshStandardMaterial color="#1a110a" />
         </mesh>
-        <ShipFlag position={[0, mastHeight + 0.45, -0.6]} isEnemy={isEnemy} />
+        <ShipFlag
+          position={[0, mastHeight + 0.45, -0.6]}
+          isEnemy={isEnemy}
+          team={team}
+          isFriendly={isFriendly}
+          shipId={shipId}
+        />
       </group>
 
       <RudderBlade
