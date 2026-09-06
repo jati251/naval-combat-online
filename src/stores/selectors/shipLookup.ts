@@ -7,7 +7,12 @@ export function findShip(ships: readonly ShipSnapshot[], id: string | null | und
   if (!id) return undefined;
   let index = indexes.get(ships);
   if (!index) {
-    index = new Map(ships.map((ship) => [ship.id, ship]));
+    const map = new Map<string, ShipSnapshot>();
+    for (let i = 0; i < ships.length; i++) {
+      const s = ships[i];
+      map.set(s.id, s);
+    }
+    index = map;
     indexes.set(ships, index);
   }
   return index.get(id);

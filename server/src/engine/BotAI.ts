@@ -25,7 +25,8 @@ export class BotAI {
    */
   public static isHazard(x: number, z: number, margin: number = 28, mapId: MapId = 'caribbean'): boolean {
     // 1. Arena Boundary check (radius ~420m)
-    if (Math.hypot(x, z) > 420 - margin) {
+    const boundLimit = 420 - margin;
+    if (x * x + z * z > boundLimit * boundLimit) {
       return true;
     }
 
@@ -33,23 +34,32 @@ export class BotAI {
 
     // 2. Island collision check
     for (const isl of islands) {
+      const dx = x - isl.x;
+      const dz = z - isl.z;
+
+      // Fast broad-phase rejection before trigonometry
+      if (Math.abs(dx) > 110 || Math.abs(dz) > 110) {
+        continue;
+      }
+
       if (isl.elongation) {
-        const rx = x - isl.x;
-        const rz = z - isl.z;
         const cosA = Math.cos(isl.elongation.angle);
         const sinA = Math.sin(isl.elongation.angle);
-        const lx = rx * cosA - rz * sinA;
-        const lz = rx * sinA + rz * cosA;
+        const lx = dx * cosA - dz * sinA;
+        const lz = dx * sinA + dz * cosA;
         const uX = lx / isl.elongation.scaleX;
         const uZ = lz / isl.elongation.scaleZ;
         const a = Math.atan2(uZ, uX);
-        const scaleFactor = Math.hypot(Math.cos(a) * isl.elongation.scaleX, Math.sin(a) * isl.elongation.scaleZ);
+        const scaleXCos = Math.cos(a) * isl.elongation.scaleX;
+        const scaleZSin = Math.sin(a) * isl.elongation.scaleZ;
+        const scaleFactor = Math.sqrt(scaleXCos * scaleXCos + scaleZSin * scaleZSin);
         const minClearance = isl.sandRadius * 0.9 * scaleFactor + margin;
-        if (Math.hypot(lx, lz) < minClearance) {
+        if (lx * lx + lz * lz < minClearance * minClearance) {
           return true;
         }
       } else {
-        if (Math.hypot(x - isl.x, z - isl.z) < isl.sandRadius * 0.9 + margin) {
+        const minClearance = isl.sandRadius * 0.9 + margin;
+        if (dx * dx + dz * dz < minClearance * minClearance) {
           return true;
         }
       }
@@ -57,7 +67,10 @@ export class BotAI {
 
     // 3. Wreck collision check
     for (const wreck of wrecks) {
-      if (Math.hypot(x - wreck.x, z - wreck.z) < wreck.radius + margin) {
+      const dx = x - wreck.x;
+      const dz = z - wreck.z;
+      const minClearance = wreck.radius + margin;
+      if (dx * dx + dz * dz < minClearance * minClearance) {
         return true;
       }
     }
@@ -75,9 +88,12 @@ export class BotAI {
     selfId: string,
     room: GameRoom
   ): boolean {
+    const marginSq = margin * margin;
     for (const ship of room.ships.values()) {
       if (ship.id === selfId || ship.isSunk) continue;
-      if (Math.hypot(x - ship.x, z - ship.z) < margin) {
+      const dx = x - ship.x;
+      const dz = z - ship.z;
+      if (dx * dx + dz * dz < marginSq) {
         return true;
       }
     }
@@ -106,20 +122,20 @@ export class BotAI {
     // --- 0. Persistent Evasion Memory & Close-Quarters Collision Avoidance ---
     const existingMemory = botMemory.get(bot.id);
 
-    let closestShipDist = 999;
+    let closestShipDistSq = 999 * 999;
     let closestShipBearing = 0;
     for (const other of room.ships.values()) {
       if (other.id === bot.id || other.isSunk) continue;
       const dx = other.x - bot.x;
       const dz = other.z - bot.z;
-      const d = Math.hypot(dx, dz);
-      if (d < closestShipDist) {
-        closestShipDist = d;
+      const dSq = dx * dx + dz * dz;
+      if (dSq < closestShipDistSq) {
+        closestShipDistSq = dSq;
         closestShipBearing = this.normalizeAngle(Math.atan2(dx, dz) - heading);
       }
     }
 
-    const hasCloseShip = closestShipDist < 36 && Math.abs(closestShipBearing) < 1.25;
+    const hasCloseShip = closestShipDistSq < 36 * 36 && Math.abs(closestShipBearing) < 1.25;
 
     // Dynamic lookahead distance scales with ship speed
     const lookDist = Math.max(42, speedKnots * 2.6 + 28);
@@ -196,7 +212,7 @@ export class BotAI {
 
     // --- 2. Target Acquisition & Tactical Combat ---
     let nearestEnemy: ShipSimulationState | null = null;
-    let minEnemyDist = 99999;
+    let minEnemyDistSq = 99999 * 99999;
 
     const botPlayer = room.players.get(bot.id);
     for (const ship of room.ships.values()) {
@@ -210,9 +226,11 @@ export class BotAI {
         }
       }
 
-      const d = Math.hypot(ship.x - bot.x, ship.z - bot.z);
-      if (d < minEnemyDist) {
-        minEnemyDist = d;
+      const dx = ship.x - bot.x;
+      const dz = ship.z - bot.z;
+      const dSq = dx * dx + dz * dz;
+      if (dSq < minEnemyDistSq) {
+        minEnemyDistSq = dSq;
         nearestEnemy = ship;
       }
     }
@@ -228,7 +246,7 @@ export class BotAI {
 
     const dx = nearestEnemy.x - bot.x;
     const dz = nearestEnemy.z - bot.z;
-    const dist = minEnemyDist;
+    const dist = Math.sqrt(minEnemyDistSq);
     const angleToTarget = Math.atan2(dx, dz);
     const relBearing = this.normalizeAngle(angleToTarget - heading);
 

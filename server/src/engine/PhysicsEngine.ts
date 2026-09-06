@@ -478,14 +478,17 @@ export class PhysicsEngine {
           const localZ = relX * sinA + relZ * cosA;
           const halfRidge = isl.sandRadius * (isl.elongation.scaleZ - isl.elongation.scaleX);
           const clampedZ = Math.max(-halfRidge, Math.min(halfRidge, localZ));
-          const dist = Math.hypot(localX, localZ - clampedZ);
-          if (dist <= isl.sandRadius * isl.elongation.scaleX && ball.y <= 22) {
+          const dz = localZ - clampedZ;
+          const distSq = localX * localX + dz * dz;
+          const threshold = isl.sandRadius * isl.elongation.scaleX;
+          if (distSq <= threshold * threshold && ball.y <= 22) {
             hitObstacle = true;
             break;
           }
         } else {
-          const distToIsl = Math.hypot(ball.x - isl.x, ball.z - isl.z);
-          if (distToIsl <= isl.sandRadius && ball.y <= 24) {
+          const dx = ball.x - isl.x;
+          const dz = ball.z - isl.z;
+          if (dx * dx + dz * dz <= isl.sandRadius * isl.sandRadius && ball.y <= 24) {
             hitObstacle = true;
             break;
           }
@@ -502,8 +505,9 @@ export class PhysicsEngine {
           continue;
         }
 
-        const distToWreck = Math.hypot(ball.x - wreck.x, ball.z - wreck.z);
-        if (distToWreck <= wreck.radius && ball.y <= wreck.height) {
+        const dx = ball.x - wreck.x;
+        const dz = ball.z - wreck.z;
+        if (dx * dx + dz * dz <= wreck.radius * wreck.radius && ball.y <= wreck.height) {
           hitObstacle = true;
           break;
         }
@@ -514,9 +518,9 @@ export class PhysicsEngine {
 
       // Check collision against other ships (excluding shooter and friendly ships)
       let hit = false;
-      for (const [shipId, ship] of ships.entries()) {
-        if (shipId === ball.ownerId || ship.isSunk) continue;
-        if (isFriendly && isFriendly(ball.ownerId, shipId)) continue;
+      for (const ship of ships.values()) {
+        if (ship.id === ball.ownerId || ship.isSunk) continue;
+        if (isFriendly && isFriendly(ball.ownerId, ship.id)) continue;
 
         // Fast distance early rejection: skip if further than maximum ship radius (25m)
         const dx = ball.x - ship.x;
@@ -622,31 +626,57 @@ export class PhysicsEngine {
         let pushNx = 0;
         let pushNz = 0;
 
-        // Check 4 sphere pairs without allocating temporary arrays/objects
-        const pairs = [
-          bowAx - bowBx, bowAz - bowBz,
-          bowAx - sternBx, bowAz - sternBz,
-          sternAx - bowBx, sternAz - bowBz,
-          sternAx - sternBx, sternAz - sternBz,
-        ];
+        // Inline check of 4 sphere pairs without array or closure allocations
+        // Pair 1: bowA - bowB
+        let dx = bowAx - bowBx;
+        let dz = bowAz - bowBz;
+        let distSq = dx * dx + dz * dz;
+        if (distSq < minSphereDistSq) {
+          const dist = Math.sqrt(distSq);
+          maxOverlap = minSphereDist - dist;
+          if (dist > 0.001) { pushNx = dx / dist; pushNz = dz / dist; }
+          else { pushNx = Math.sin(shipA.rotationY + Math.PI * 0.5); pushNz = Math.cos(shipA.rotationY + Math.PI * 0.5); }
+        }
 
-        for (let p = 0; p < 8; p += 2) {
-          const dx = pairs[p];
-          const dz = pairs[p + 1];
-          const distSq = dx * dx + dz * dz;
-          if (distSq < minSphereDistSq) {
-            const dist = Math.sqrt(distSq);
-            const overlap = minSphereDist - dist;
-            if (overlap > maxOverlap) {
-              maxOverlap = overlap;
-              if (dist > 0.001) {
-                pushNx = dx / dist;
-                pushNz = dz / dist;
-              } else {
-                pushNx = Math.sin(shipA.rotationY + Math.PI * 0.5);
-                pushNz = Math.cos(shipA.rotationY + Math.PI * 0.5);
-              }
-            }
+        // Pair 2: bowA - sternB
+        dx = bowAx - sternBx;
+        dz = bowAz - sternBz;
+        distSq = dx * dx + dz * dz;
+        if (distSq < minSphereDistSq) {
+          const dist = Math.sqrt(distSq);
+          const overlap = minSphereDist - dist;
+          if (overlap > maxOverlap) {
+            maxOverlap = overlap;
+            if (dist > 0.001) { pushNx = dx / dist; pushNz = dz / dist; }
+            else { pushNx = Math.sin(shipA.rotationY + Math.PI * 0.5); pushNz = Math.cos(shipA.rotationY + Math.PI * 0.5); }
+          }
+        }
+
+        // Pair 3: sternA - bowB
+        dx = sternAx - bowBx;
+        dz = sternAz - bowBz;
+        distSq = dx * dx + dz * dz;
+        if (distSq < minSphereDistSq) {
+          const dist = Math.sqrt(distSq);
+          const overlap = minSphereDist - dist;
+          if (overlap > maxOverlap) {
+            maxOverlap = overlap;
+            if (dist > 0.001) { pushNx = dx / dist; pushNz = dz / dist; }
+            else { pushNx = Math.sin(shipA.rotationY + Math.PI * 0.5); pushNz = Math.cos(shipA.rotationY + Math.PI * 0.5); }
+          }
+        }
+
+        // Pair 4: sternA - sternB
+        dx = sternAx - sternBx;
+        dz = sternAz - sternBz;
+        distSq = dx * dx + dz * dz;
+        if (distSq < minSphereDistSq) {
+          const dist = Math.sqrt(distSq);
+          const overlap = minSphereDist - dist;
+          if (overlap > maxOverlap) {
+            maxOverlap = overlap;
+            if (dist > 0.001) { pushNx = dx / dist; pushNz = dz / dist; }
+            else { pushNx = Math.sin(shipA.rotationY + Math.PI * 0.5); pushNz = Math.cos(shipA.rotationY + Math.PI * 0.5); }
           }
         }
 

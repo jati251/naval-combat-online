@@ -774,35 +774,45 @@ export class GameRoom {
 
   public broadcastSnapshot(): void {
     const serverTime = Math.round(((Date.now() - this.startTime) / 1000) * 100) / 100;
-    const r2 = (n: number) => Math.round(n * 100) / 100;
-    const r3 = (n: number) => Math.round(n * 1000) / 1000;
+    const shipsPayload: Array<Omit<ShipSimulationState, 'reloadTimerLeft' | 'reloadTimerRight'>> = [];
 
-    const shipsPayload = Array.from(this.ships.values()).map(
-      ({ reloadTimerLeft: _l, reloadTimerRight: _r, ...s }) => ({
-        ...s,
-        x: r2(s.x),
-        y: r2(s.y),
-        z: r2(s.z),
-        vx: r2(s.vx),
-        vz: r2(s.vz),
-        speed: r2(s.speed),
-        rotationY: r3(s.rotationY),
-        pitch: r3(s.pitch),
-        roll: r3(s.roll),
-        rudder: r2(s.rudder),
-      })
-    );
+    for (const s of this.ships.values()) {
+      shipsPayload.push({
+        id: s.id,
+        name: s.name,
+        shipClass: s.shipClass,
+        x: Math.round(s.x * 100) / 100,
+        y: Math.round(s.y * 100) / 100,
+        z: Math.round(s.z * 100) / 100,
+        vx: Math.round(s.vx * 100) / 100,
+        vz: Math.round(s.vz * 100) / 100,
+        speed: Math.round(s.speed * 100) / 100,
+        rotationY: Math.round(s.rotationY * 1000) / 1000,
+        pitch: Math.round(s.pitch * 1000) / 1000,
+        roll: Math.round(s.roll * 1000) / 1000,
+        rudder: Math.round(s.rudder * 100) / 100,
+        sail: s.sail,
+        health: s.health,
+        maxHealth: s.maxHealth,
+        isSunk: s.isSunk,
+        score: s.score,
+      });
+    }
 
-    const cannonballsPayload = this.cannonballs.map((b) => ({
-      id: b.id,
-      ownerId: b.ownerId,
-      x: r2(b.x),
-      y: r2(b.y),
-      z: r2(b.z),
-      vx: r2(b.vx),
-      vy: r2(b.vy),
-      vz: r2(b.vz),
-    }));
+    const cannonballsPayload: Array<{ id: string; ownerId: string; x: number; y: number; z: number; vx: number; vy: number; vz: number }> = [];
+    for (let i = 0; i < this.cannonballs.length; i++) {
+      const b = this.cannonballs[i];
+      cannonballsPayload.push({
+        id: b.id,
+        ownerId: b.ownerId,
+        x: Math.round(b.x * 100) / 100,
+        y: Math.round(b.y * 100) / 100,
+        z: Math.round(b.z * 100) / 100,
+        vx: Math.round(b.vx * 100) / 100,
+        vy: Math.round(b.vy * 100) / 100,
+        vz: Math.round(b.vz * 100) / 100,
+      });
+    }
 
     this.broadcast(this.id, {
       type: 'WORLD_SNAPSHOT',
@@ -812,6 +822,7 @@ export class GameRoom {
       cannonballs: cannonballsPayload,
     });
   }
+
 
   public getStartTime(): number {
     return this.startTime;

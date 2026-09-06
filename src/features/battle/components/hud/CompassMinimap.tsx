@@ -45,6 +45,10 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({ hideW
 
     let animId: number;
     let frameCount = 0;
+    let cachedBgGrad: CanvasGradient | null = null;
+    let cachedMapId: string | null = null;
+    let cachedMapConfig: ReturnType<typeof getMapConfig> | null = null;
+
     const render = () => {
       frameCount++;
 
@@ -92,11 +96,13 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({ hideW
       ctx.arc(cx, cy, RADAR_RADIUS, 0, Math.PI * 2);
       ctx.clip();
 
-      const bgGrad = ctx.createRadialGradient(cx, cy, 2, cx, cy, RADAR_RADIUS);
-      bgGrad.addColorStop(0, '#091c2b');
-      bgGrad.addColorStop(0.65, '#05111d');
-      bgGrad.addColorStop(1, '#02070c');
-      ctx.fillStyle = bgGrad;
+      if (!cachedBgGrad) {
+        cachedBgGrad = ctx.createRadialGradient(cx, cy, 2, cx, cy, RADAR_RADIUS);
+        cachedBgGrad.addColorStop(0, '#091c2b');
+        cachedBgGrad.addColorStop(0.65, '#05111d');
+        cachedBgGrad.addColorStop(1, '#02070c');
+      }
+      ctx.fillStyle = cachedBgGrad;
       ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
       // Antique Cartography Lat/Long fine gridlines
@@ -136,9 +142,13 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({ hideW
       ctx.setLineDash([]);
 
       const { currentMapId, currentRoom } = useGameStore.getState();
-      const activeMap = getMapConfig(currentMapId || currentRoom?.mapId || 'caribbean');
-      const activeIslands = activeMap.islands;
-      const activeWrecks = activeMap.shipwrecks;
+      const mapIdKey = currentMapId || currentRoom?.mapId || 'caribbean';
+      if (cachedMapId !== mapIdKey || !cachedMapConfig) {
+        cachedMapId = mapIdKey;
+        cachedMapConfig = getMapConfig(mapIdKey);
+      }
+      const activeIslands = cachedMapConfig.islands;
+      const activeWrecks = cachedMapConfig.shipwrecks;
 
       // 3. Islands (Vintage Cartography styling with golden sand and green interior)
       for (let i = 0; i < activeIslands.length; i++) {
@@ -208,16 +218,26 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({ hideW
       }
 
       // 5. Warships (Teammates vs Enemies)
-      const curRoom = useGameStore.getState().currentRoom;
-      const selfPlayer = curRoom?.players.find((p) => p.id === curId);
+      const curRoom = currentRoom;
       const isTeamMode = curRoom?.gameMode === 'TEAM';
+      const selfPlayer = curRoom?.players.find((p) => p.id === curId);
+      const selfTeam = selfPlayer?.team;
+
+      // O(1) team lookup Map instead of O(N) array search on every ship
+      const teamMap = new Map<string, string | undefined>();
+      if (isTeamMode && curRoom?.players) {
+        for (let pIdx = 0; pIdx < curRoom.players.length; pIdx++) {
+          const p = curRoom.players[pIdx];
+          teamMap.set(p.id, p.team);
+        }
+      }
 
       for (let i = 0; i < curShips.length; i++) {
         const s = curShips[i];
         if (s.id === curId || s.isSunk) continue;
 
-        const otherPlayer = curRoom?.players.find((p) => p.id === s.id);
-        const isTeammate = isTeamMode && Boolean(selfPlayer?.team && otherPlayer?.team && selfPlayer.team === otherPlayer.team);
+        const isTeammate = isTeamMode && Boolean(selfTeam && teamMap.get(s.id) === selfTeam);
+
 
         const dx = s.x - curSelf.x;
         const dz = s.z - curSelf.z;

@@ -70,6 +70,8 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
   const prevWasSunk = useRef(initialShip?.isSunk ?? false);
   const shipName = initialShip?.name || 'Vessel';
   const sinkingProgressRef = useRef<number>(0);
+  const lastHpPctRef = useRef<number>(-1);
+  const lastScaleRef = useRef<number>(1);
 
   // Static high-definition Name Badge texture (Generated ONCE at mount, 0 CPU/GPU overhead during battle)
   const nameTexture = useMemo(() => {
@@ -178,8 +180,12 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
       const curHp = Math.max(0, rawHp);
       const hpPct = maxHp > 0 ? Math.max(0.001, Math.min(1.0, curHp / maxHp)) : 1.0;
 
-      healthBarMeshRef.current.scale.x = hpPct;
-      healthBarMeshRef.current.position.x = -1.68 + 1.68 * hpPct;
+      // Only touch Three.js transform if health percentage changed (prevents flagging matrixWorld dirty every frame)
+      if (Math.abs(lastHpPctRef.current - hpPct) > 0.002) {
+        lastHpPctRef.current = hpPct;
+        healthBarMeshRef.current.scale.x = hpPct;
+        healthBarMeshRef.current.position.x = -1.68 + 1.68 * hpPct;
+      }
     }
 
     // Infrequent sail state transition (only updates local state when sail changes)
@@ -257,12 +263,16 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
       const dz = camera.position.z - groupRef.current.position.z;
       const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-      // Dynamic scaling: scales smoothly with distance so captain badge & health bar remain bold and legible during combat
+      // Dynamic scaling: only update when scale changes meaningfully to avoid dirtying Three.js matrixWorld
       const distScale = Math.max(1.0, Math.min(3.0, 0.85 + dist * 0.015));
       const baseScale = isMobile ? 1.05 : 1.25;
       const finalScale = baseScale * distScale;
-      nameplateRef.current.scale.set(finalScale, finalScale, finalScale);
+      if (Math.abs(lastScaleRef.current - finalScale) > 0.02) {
+        lastScaleRef.current = finalScale;
+        nameplateRef.current.scale.set(finalScale, finalScale, finalScale);
+      }
     }
+
 
     // First frame initialization (snap immediately without initial sweeping lerp)
     if (!isInitialized.current) {

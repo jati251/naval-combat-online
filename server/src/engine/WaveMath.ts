@@ -16,6 +16,28 @@ export const GERSTNER_WAVES: GerstnerWaveParams[] = [
   { direction: [-0.75, -0.65], steepness: 0.04, wavelength: 11.0, speed: 1.3 },
 ];
 
+interface PrecomputedWave {
+  kx: number;
+  kz: number;
+  omega: number;
+  a: number;
+  dxA: number;
+  dzA: number;
+}
+
+const PRECOMPUTED_DEFAULT_WAVES: PrecomputedWave[] = GERSTNER_WAVES.map((w) => {
+  const k = (2 * Math.PI) / w.wavelength;
+  const a = w.steepness / k;
+  return {
+    kx: w.direction[0] * k,
+    kz: w.direction[1] * k,
+    omega: k * w.speed,
+    a,
+    dxA: w.direction[0] * a,
+    dzA: w.direction[1] * a,
+  };
+});
+
 /**
  * Calculates wave displacement at world coordinate (x, z) at a specific time in seconds.
  * Pure math without DOM or Three.js dependencies, fully deterministic.
@@ -29,6 +51,19 @@ export function getWaveDisplacement(
   let dispX = 0;
   let dispY = 0;
   let dispZ = 0;
+
+  if (waves === GERSTNER_WAVES) {
+    for (let i = 0; i < PRECOMPUTED_DEFAULT_WAVES.length; i++) {
+      const pw = PRECOMPUTED_DEFAULT_WAVES[i];
+      const phase = pw.kx * x + pw.kz * z - pw.omega * time;
+      const cosP = Math.cos(phase);
+      const sinP = Math.sin(phase);
+      dispX += pw.dxA * cosP;
+      dispY += pw.a * sinP;
+      dispZ += pw.dzA * cosP;
+    }
+    return { x: dispX, y: dispY, z: dispZ };
+  }
 
   for (let i = 0; i < waves.length; i++) {
     const wave = waves[i];
@@ -54,7 +89,14 @@ export function getWaveDisplacement(
 
 /**
  * Calculates water surface height Y at world coordinate (x, z) at time t.
+ * Fast zero-allocation scalar evaluation (skips cos, dispX, dispZ, and object allocations).
  */
 export function getWaveHeight(x: number, z: number, time: number): number {
-  return getWaveDisplacement(x, z, time).y;
+  let dispY = 0;
+  for (let i = 0; i < PRECOMPUTED_DEFAULT_WAVES.length; i++) {
+    const pw = PRECOMPUTED_DEFAULT_WAVES[i];
+    dispY += pw.a * Math.sin(pw.kx * x + pw.kz * z - pw.omega * time);
+  }
+  return dispY;
 }
+
