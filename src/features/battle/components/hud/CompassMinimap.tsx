@@ -2,10 +2,8 @@ import React, { useEffect, useRef } from 'react';
 import { Wind } from 'lucide-react';
 import type { ShipSnapshot } from '@/types';
 import { getMapConfig } from '../../maps';
-import { CONTROL_CONFIG } from '../../utils/controls';
 import { useGameStore } from '@/stores/useGameStore';
-import { isMobileDevice } from '@/hooks/useMobileViewport';
-
+import { mapTextureService, type MapTextureSource } from '../../services/mapTextureService';
 
 interface CompassMinimapProps {
   selfShip?: ShipSnapshot | undefined;
@@ -17,20 +15,392 @@ interface CompassMinimapProps {
   compact?: boolean;
 }
 
-const CANVAS_SIZE = 148; // CSS display size (148x148px)
-const RADAR_RADIUS = 64; // inner radar active clipping radius
-const SCALE = CONTROL_CONFIG.RADAR_SCALE; // 0.14
+interface MinimapPoint {
+  x: number;
+  y: number;
+}
+
+const CANVAS_SIZE = 168; // Square display size (168x168px)
+const SCALE = 0.28; // Close combat scale (~300m visible radius around ship)
+const NEEDLE_OFFSET = 18;
+
+// Module-scoped scratch point to eliminate object allocations in 60fps render loop
+const scratchPoint: MinimapPoint = { x: 0, y: 0 };
 
 /**
- * Master Navigator's 18th-Century Antique Brass Binnacle (60-144 FPS)
- * - Heading-Up Navigation: Player's vessel is locked at center pointing forward.
- * - Antique Nautical Chart rendering with vintage cartography styling.
- * - Rotating Fleur-de-lis Compass Rose with true magnetic bearing.
- * - Pure native HTML5 canvas: zero React state thrashing during 30Hz snapshots.
+ * Projects a 3D world coordinate (worldX, worldZ) into Heading-Up 2D canvas minimap space.
+ * Zero-allocation: modifies and returns the shared module-level scratchPoint.
+ */
+function projectToMinimap(
+  worldX: number,
+  worldZ: number,
+  selfX: number,
+  selfZ: number,
+  sinH: number,
+  cosH: number,
+  scale: number,
+  cx: number,
+  cy: number
+): MinimapPoint {
+  const dx = worldX - selfX;
+  const dz = worldZ - selfZ;
+  scratchPoint.x = cx + (-dx * cosH + dz * sinH) * scale;
+  scratchPoint.y = cy - (dx * sinH + dz * cosH) * scale;
+  return scratchPoint;
+}
+
+/**
+ * Draws the high-definition baked ocean & island texture along with the arena boundary ring.
+ */
+function drawMapTexture(
+  ctx: CanvasRenderingContext2D,
+  texture: MapTextureSource,
+  mapCenterX: number,
+  mapCenterY: number,
+  heading: number,
+  pixelSize: number,
+  mapRadius: number,
+  scale: number
+): void {
+  ctx.save();
+  ctx.translate(mapCenterX, mapCenterY);
+  ctx.rotate(heading);
+  ctx.drawImage(texture, -pixelSize * 0.5, -pixelSize * 0.5, pixelSize, pixelSize);
+
+  // Tactical combat arena boundary ring
+  ctx.strokeStyle = 'rgba(245, 158, 11, 0.45)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.arc(0, 0, mapRadius * scale, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+/**
+ * Draws antique cartographic lat/long coordinate gridlines over the ocean.
+ */
+function drawCartographicGrid(
+  ctx: CanvasRenderingContext2D,
+  mapCenterX: number,
+  mapCenterY: number,
+  heading: number,
+  mapRadius: number,
+  scale: number
+): void {
+  ctx.save();
+  ctx.translate(mapCenterX, mapCenterY);
+  ctx.rotate(heading);
+  ctx.strokeStyle = 'rgba(212, 175, 55, 0.12)';
+  ctx.lineWidth = 0.75;
+  const gridStep = 80 * scale;
+  const maxGrid = mapRadius * scale;
+  for (let g = -maxGrid; g <= maxGrid; g += gridStep) {
+    ctx.beginPath();
+    ctx.moveTo(g, -maxGrid);
+    ctx.lineTo(g, maxGrid);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-maxGrid, g);
+    ctx.lineTo(maxGrid, g);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/**
+ * Draws tactical overlays: 100m/200m broadside range rings and forward gunner sightline.
+ */
+function drawTacticalOverlays(ctx: CanvasRenderingContext2D, cx: number, cy: number, scale: number): void {
+  ctx.strokeStyle = 'rgba(212, 175, 55, 0.25)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 100 * scale, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(212, 175, 55, 0.15)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, 200 * scale, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Forward Gunner Sightline (Straight UP from player ship)
+  ctx.strokeStyle = 'rgba(251, 191, 36, 0.6)';
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([2, 3]);
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - 8);
+  ctx.lineTo(cx, 16);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+/**
+ * Fallback procedural island rendering when baked texture is still loading.
+ */
+function drawProceduralFallbackIslands(
+  ctx: CanvasRenderingContext2D,
+  islands: ReturnType<typeof getMapConfig>['islands'],
+  selfX: number,
+  selfZ: number,
+  sinH: number,
+  cosH: number,
+  scale: number,
+  cx: number,
+  cy: number
+): void {
+  for (let i = 0; i < islands.length; i++) {
+    const isl = islands[i];
+    const pt = projectToMinimap(isl.x, isl.z, selfX, selfZ, sinH, cosH, scale, cx, cy);
+    const r = Math.max(3, isl.sandRadius * scale);
+
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = '#92400e';
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, r * 0.7, 0, Math.PI * 2);
+    ctx.fillStyle = '#065f46';
+    ctx.fill();
+  }
+}
+
+/**
+ * Draws crisp, legible names for archipelago islands.
+ */
+function drawIslandLabels(
+  ctx: CanvasRenderingContext2D,
+  islands: ReturnType<typeof getMapConfig>['islands'],
+  selfX: number,
+  selfZ: number,
+  sinH: number,
+  cosH: number,
+  scale: number,
+  cx: number,
+  cy: number,
+  canvasSize: number
+): void {
+  ctx.fillStyle = '#fef3c7';
+  ctx.font = 'bold 7.5px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  for (let i = 0; i < islands.length; i++) {
+    const isl = islands[i];
+    const pt = projectToMinimap(isl.x, isl.z, selfX, selfZ, sinH, cosH, scale, cx, cy);
+    if (pt.x >= 10 && pt.x <= canvasSize - 10 && pt.y >= 10 && pt.y <= canvasSize - 10) {
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
+      ctx.shadowBlur = 4;
+      ctx.fillText(isl.name.slice(0, 4).toUpperCase(), pt.x, pt.y);
+      ctx.shadowBlur = 0;
+    }
+  }
+}
+
+/**
+ * Draws sunken prize crossed bones markers.
+ */
+function drawShipwrecks(
+  ctx: CanvasRenderingContext2D,
+  wrecks: ReturnType<typeof getMapConfig>['shipwrecks'],
+  selfX: number,
+  selfZ: number,
+  sinH: number,
+  cosH: number,
+  scale: number,
+  cx: number,
+  cy: number,
+  canvasSize: number
+): void {
+  ctx.strokeStyle = '#f59e0b';
+  ctx.lineWidth = 1.5;
+
+  for (let i = 0; i < wrecks.length; i++) {
+    const wreck = wrecks[i];
+    const pt = projectToMinimap(wreck.x, wreck.z, selfX, selfZ, sinH, cosH, scale, cx, cy);
+    if (pt.x >= 6 && pt.x <= canvasSize - 6 && pt.y >= 6 && pt.y <= canvasSize - 6) {
+      ctx.beginPath();
+      ctx.moveTo(pt.x - 2.5, pt.y - 2.5);
+      ctx.lineTo(pt.x + 2.5, pt.y + 2.5);
+      ctx.moveTo(pt.x + 2.5, pt.y - 2.5);
+      ctx.lineTo(pt.x - 2.5, pt.y + 2.5);
+      ctx.stroke();
+    }
+  }
+}
+
+/**
+ * Draws fleet armada warships (cyan teammates, red enemies) with relative yaw orientation.
+ */
+function drawFleetWarships(
+  ctx: CanvasRenderingContext2D,
+  ships: ShipSnapshot[],
+  curId: string | undefined,
+  isTeamMode: boolean,
+  selfTeam: string | undefined,
+  teamMap: Map<string, string | undefined>,
+  selfX: number,
+  selfZ: number,
+  sinH: number,
+  cosH: number,
+  scale: number,
+  cx: number,
+  cy: number,
+  heading: number,
+  canvasSize: number
+): void {
+  ctx.lineWidth = 0.8;
+  ctx.strokeStyle = '#ffffff';
+
+  for (let i = 0; i < ships.length; i++) {
+    const s = ships[i];
+    if (s.id === curId || s.isSunk) continue;
+
+    const isTeammate = isTeamMode && Boolean(selfTeam && teamMap.get(s.id) === selfTeam);
+    const pt = projectToMinimap(s.x, s.z, selfX, selfZ, sinH, cosH, scale, cx, cy);
+
+    // Clamp to square border if distant
+    const isClamped = pt.x < 8 || pt.x > canvasSize - 8 || pt.y < 8 || pt.y > canvasSize - 8;
+    const ex = Math.max(8, Math.min(canvasSize - 8, pt.x));
+    const ey = Math.max(8, Math.min(canvasSize - 8, pt.y));
+
+    const enemyRelAngle = heading - s.rotationY;
+    ctx.save();
+    ctx.translate(ex, ey);
+    ctx.rotate(enemyRelAngle);
+
+    ctx.beginPath();
+    ctx.moveTo(0, -5.5);
+    ctx.lineTo(4, 4.5);
+    ctx.lineTo(0, 2);
+    ctx.lineTo(-4, 4.5);
+    ctx.closePath();
+
+    ctx.fillStyle = isTeammate ? '#38bdf8' : '#ef4444';
+    ctx.shadowColor = isTeammate ? 'rgba(56, 189, 248, 0.6)' : 'rgba(239, 68, 68, 0.6)';
+    ctx.shadowBlur = isClamped ? 5 : 2;
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+/**
+ * Draws player's flagship permanently locked at center (cx, cy) pointing straight UP.
+ */
+function drawPlayerVessel(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.beginPath();
+  ctx.moveTo(0, -7.5);
+  ctx.lineTo(5.5, 6.5);
+  ctx.lineTo(0, 3.2);
+  ctx.lineTo(-5.5, 6.5);
+  ctx.closePath();
+  ctx.fillStyle = '#fbbf24';
+  ctx.shadowColor = '#d97706';
+  ctx.shadowBlur = 8;
+  ctx.fill();
+  ctx.strokeStyle = '#1c1917';
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * Draws rotating magnetic North Fleur-de-lis needle in top-left corner.
+ */
+function drawTrueNorthCompassNeedle(
+  ctx: CanvasRenderingContext2D,
+  needleX: number,
+  needleY: number,
+  heading: number
+): void {
+  ctx.save();
+  ctx.translate(needleX, needleY);
+  ctx.rotate(heading);
+
+  // North Arrow (Gold)
+  ctx.beginPath();
+  ctx.moveTo(0, -10);
+  ctx.lineTo(3.5, 0);
+  ctx.lineTo(0, -2);
+  ctx.closePath();
+  ctx.fillStyle = '#fde047';
+  ctx.fill();
+
+  // South Arrow (Slate)
+  ctx.beginPath();
+  ctx.moveTo(0, 10);
+  ctx.lineTo(3.5, 0);
+  ctx.lineTo(0, -2);
+  ctx.closePath();
+  ctx.fillStyle = '#64748b';
+  ctx.fill();
+
+  // Center rivet
+  ctx.beginPath();
+  ctx.arc(0, 0, 2, 0, Math.PI * 2);
+  ctx.fillStyle = '#d4af37';
+  ctx.fill();
+  ctx.restore();
+
+  // 'N' label
+  ctx.font = 'bold 7px Cinzel, serif';
+  ctx.fillStyle = '#fde047';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('N', needleX, needleY - 9);
+}
+
+/**
+ * Draws dynamic wind streamer in top-right corner.
+ */
+function drawDynamicWindStreamer(
+  ctx: CanvasRenderingContext2D,
+  badgeX: number,
+  badgeY: number,
+  curWindAngle: number,
+  sinH: number,
+  cosH: number
+): void {
+  const blowX = -Math.sin(curWindAngle);
+  const blowZ = -Math.cos(curWindAngle);
+  const windFwd = blowX * sinH + blowZ * cosH;
+  const windRight = -blowX * cosH + blowZ * sinH;
+  const windRelAngle = Math.atan2(windRight, windFwd);
+
+  ctx.save();
+  ctx.translate(badgeX, badgeY);
+  ctx.rotate(windRelAngle);
+  ctx.strokeStyle = '#f59e0b';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(0, 8);
+  ctx.lineTo(0, -8);
+  ctx.lineTo(-3, -4);
+  ctx.moveTo(0, -8);
+  ctx.lineTo(3, -4);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * Square Tactical Naval Minimap (60-144 FPS)
+ * - Player ship is ALWAYS locked at the CENTER (cx, cy) pointing forward (Heading-Up).
+ * - Close combat zoom: ocean fills 100% of the square box with zero edge seams.
+ * - Subpixel-accurate synchronization between 3D world, baked canvas, and fleet overlays.
+ * - Zero-allocation GC-optimized render pipeline.
  */
 export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({ hideWind = false, compact = false }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const telemetryRef = useRef<HTMLSpanElement | null>(null);
+  const headingReadoutRef = useRef<HTMLSpanElement | null>(null);
+
+  // Cached player team map to eliminate garbage collection inside 60fps loop
+  const cachedTeamMap = useRef(new Map<string, string | undefined>());
+  const lastPlayersRef = useRef<unknown>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -42,36 +412,56 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({ hideW
     canvas.width = CANVAS_SIZE * dpr;
     canvas.height = CANVAS_SIZE * dpr;
 
-    // Detect mobile device for canvas render throttling
-    const isMobile = isMobileDevice();
-
-
     let animId: number;
     let frameCount = 0;
-    let cachedBgGrad: CanvasGradient | null = null;
     let cachedMapId: string | null = null;
     let cachedMapConfig: ReturnType<typeof getMapConfig> | null = null;
+
+    const cx = CANVAS_SIZE * 0.5;
+    const cy = CANVAS_SIZE * 0.5;
+    const windBadgeX = CANVAS_SIZE - NEEDLE_OFFSET;
+    const windBadgeY = NEEDLE_OFFSET;
 
     const render = () => {
       frameCount++;
 
-      // Throttle canvas rendering: ~30fps on desktop (skip alternate frames), ~15fps on mobile (skip 3 of 4)
-      const skipInterval = isMobile ? 4 : 2;
-
+      // Frame throttle: skips alternate frame (~30fps) for fluid tactical chart rendering
+      const skipInterval = 2;
       if (frameCount % skipInterval !== 0) {
         animId = requestAnimationFrame(render);
         return;
       }
 
-      const { selfId: curId, ships: curShips, windAngle: curWindAngle, windSpeed: curWindSpeed } = useGameStore.getState();
-      const curSelf = curShips.find((s) => s.id === curId);
-      const cx = CANVAS_SIZE * 0.5;
-      const cy = CANVAS_SIZE * 0.5;
+      const {
+        selfId: curId,
+        ships: curShips,
+        windAngle: curWindAngle,
+        windSpeed: curWindSpeed,
+        currentMapId,
+        currentRoom,
+      } = useGameStore.getState();
 
-      // Throttle telemetry text updates to once every 15 frames (~250ms)
-      if (!hideWind && frameCount % 15 === 0 && telemetryRef.current) {
-        if (curSelf) {
-          const shipHeading = curSelf.rotationY || 0;
+      const curSelf = curShips.find((s) => s.id === curId);
+
+      const mapIdKey = currentMapId || currentRoom?.mapId || 'caribbean';
+      if (cachedMapId !== mapIdKey || !cachedMapConfig) {
+        cachedMapId = mapIdKey;
+        cachedMapConfig = getMapConfig(mapIdKey);
+      }
+
+      const mapRadius = cachedMapConfig.radius;
+      const activeIslands = cachedMapConfig.islands;
+      const activeWrecks = cachedMapConfig.shipwrecks;
+
+      // Telemetry updates (throttled to ~4Hz)
+      if (curSelf && frameCount % 15 === 0) {
+        const shipHeading = curSelf.rotationY || 0;
+        if (headingReadoutRef.current) {
+          const deg = Math.round((((shipHeading * 180) / Math.PI) % 360 + 360) % 360);
+          headingReadoutRef.current.textContent = `${deg.toString().padStart(3, '0')}°`;
+        }
+
+        if (!hideWind && telemetryRef.current) {
           const angleDiff = Math.abs((((shipHeading - curWindAngle + Math.PI) % (Math.PI * 2)) - Math.PI));
           const efficiencyRatio = 0.88 + 0.12 * Math.sin(angleDiff * 0.5);
           const efficiencyPercent = Math.round(efficiencyRatio * 100);
@@ -94,272 +484,74 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({ hideW
       const sinH = Math.sin(heading);
       const cosH = Math.cos(heading);
 
-      // 1. Antique Nautical Chart Water (Deep Oceanic Abyss)
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(cx, cy, RADAR_RADIUS, 0, Math.PI * 2);
-      ctx.clip();
-
-      if (!cachedBgGrad) {
-        cachedBgGrad = ctx.createRadialGradient(cx, cy, 2, cx, cy, RADAR_RADIUS);
-        cachedBgGrad.addColorStop(0, '#091c2b');
-        cachedBgGrad.addColorStop(0.65, '#05111d');
-        cachedBgGrad.addColorStop(1, '#02070c');
-      }
-      ctx.fillStyle = cachedBgGrad;
+      // 1. Solid Ocean Water Background
+      ctx.fillStyle = cachedMapConfig.water.midWaterColor || '#0077b6';
       ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-      // Antique Cartography Lat/Long fine gridlines
-      ctx.strokeStyle = 'rgba(212, 175, 55, 0.08)';
-      ctx.lineWidth = 0.75;
-      for (let offset = -40; offset <= 40; offset += 20) {
-        ctx.beginPath();
-        ctx.moveTo(cx + offset, cy - RADAR_RADIUS);
-        ctx.lineTo(cx + offset, cy + RADAR_RADIUS);
-        ctx.stroke();
+      // 2. High-Definition Baked Ocean & Islands Texture
+      const originPt = projectToMinimap(0, 0, curSelf.x, curSelf.z, sinH, cosH, SCALE, cx, cy);
+      const mapCenterScreenX = originPt.x;
+      const mapCenterScreenY = originPt.y;
+      const mapPixelSize = mapRadius * 2 * SCALE;
 
-        ctx.beginPath();
-        ctx.moveTo(cx - RADAR_RADIUS, cy + offset);
-        ctx.lineTo(cx + RADAR_RADIUS, cy + offset);
-        ctx.stroke();
+      const mapTexture = mapTextureService.getMapTexture(mapIdKey);
+      if (mapTexture) {
+        drawMapTexture(ctx, mapTexture, mapCenterScreenX, mapCenterScreenY, heading, mapPixelSize, mapRadius, SCALE);
+      } else {
+        drawProceduralFallbackIslands(ctx, activeIslands, curSelf.x, curSelf.z, sinH, cosH, SCALE, cx, cy);
       }
 
-      // 2. Nautical Range Rings (120m & 240m) in vintage chart gold
-      ctx.strokeStyle = 'rgba(212, 175, 55, 0.22)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.arc(cx, cy, 120 * SCALE, 0, Math.PI * 2);
-      ctx.stroke();
+      // 3. Cartographic Lat/Long Gridlines
+      drawCartographicGrid(ctx, mapCenterScreenX, mapCenterScreenY, heading, mapRadius, SCALE);
 
-      ctx.strokeStyle = 'rgba(212, 175, 55, 0.14)';
-      ctx.beginPath();
-      ctx.arc(cx, cy, 240 * SCALE, 0, Math.PI * 2);
-      ctx.stroke();
+      // 4. Tactical Overlays (Range rings and sightline)
+      drawTacticalOverlays(ctx, cx, cy, SCALE);
 
-      // Heading-Up Gunner's Sightline (Straight UP)
-      ctx.strokeStyle = 'rgba(251, 191, 36, 0.35)';
-      ctx.setLineDash([2, 3]);
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(cx, cy - RADAR_RADIUS);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      // 5. Island Inscriptions
+      drawIslandLabels(ctx, activeIslands, curSelf.x, curSelf.z, sinH, cosH, SCALE, cx, cy, CANVAS_SIZE);
 
-      const { currentMapId, currentRoom } = useGameStore.getState();
-      const mapIdKey = currentMapId || currentRoom?.mapId || 'caribbean';
-      if (cachedMapId !== mapIdKey || !cachedMapConfig) {
-        cachedMapId = mapIdKey;
-        cachedMapConfig = getMapConfig(mapIdKey);
-      }
-      const activeIslands = cachedMapConfig.islands;
-      const activeWrecks = cachedMapConfig.shipwrecks;
+      // 6. Shipwrecks
+      drawShipwrecks(ctx, activeWrecks, curSelf.x, curSelf.z, sinH, cosH, SCALE, cx, cy, CANVAS_SIZE);
 
-      // 3. Islands (Vintage Cartography styling with golden sand and green interior)
-      for (let i = 0; i < activeIslands.length; i++) {
-        const isl = activeIslands[i];
-        const dx = isl.x - curSelf.x;
-        const dz = isl.z - curSelf.z;
-        const fwd = dx * sinH + dz * cosH;
-        const right = -dx * cosH + dz * sinH;
-        const ix = cx + right * SCALE;
-        const iy = cy - fwd * SCALE;
-
-        const maxR = isl.sandRadius * (isl.elongation ? Math.max(isl.elongation.scaleX, isl.elongation.scaleZ) : 1) * SCALE;
-        if (Math.hypot(ix - cx, iy - cy) > RADAR_RADIUS + maxR) continue;
-
-        const rotAngle = (isl.elongation ? -isl.elongation.angle : 0) + (heading - Math.PI);
-        const radiusX = Math.max(3, isl.sandRadius * (isl.elongation?.scaleX ?? 1) * SCALE);
-        const radiusY = Math.max(3, isl.sandRadius * (isl.elongation?.scaleZ ?? 1) * SCALE);
-
-        ctx.save();
-        ctx.translate(ix, iy);
-        ctx.rotate(rotAngle);
-
-        // Golden beach sand base
-        ctx.beginPath();
-        ctx.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI * 2);
-        ctx.fillStyle = '#92400e';
-        ctx.fill();
-        ctx.strokeStyle = '#d97706';
-        ctx.lineWidth = 0.8;
-        ctx.stroke();
-
-        // Lush jungle interior
-        ctx.beginPath();
-        ctx.ellipse(0, 0, radiusX * 0.7, radiusY * 0.7, 0, 0, Math.PI * 2);
-        ctx.fillStyle = '#065f46';
-        ctx.fill();
-        ctx.restore();
-
-        // Island Inscription
-        ctx.fillStyle = '#fef3c7';
-        ctx.font = 'bold 7px serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(isl.name.slice(0, 3).toUpperCase(), ix, iy);
-      }
-
-      // 4. Shipwrecks (Sunken Prize crossed bones / markers)
-      for (let i = 0; i < activeWrecks.length; i++) {
-        const wreck = activeWrecks[i];
-        const dx = wreck.x - curSelf.x;
-        const dz = wreck.z - curSelf.z;
-        const fwd = dx * sinH + dz * cosH;
-        const right = -dx * cosH + dz * sinH;
-        const wx = cx + right * SCALE;
-        const wy = cy - fwd * SCALE;
-
-        if (Math.hypot(wx - cx, wy - cy) <= RADAR_RADIUS) {
-          ctx.strokeStyle = '#f59e0b';
-          ctx.lineWidth = 1.3;
-          ctx.beginPath();
-          ctx.moveTo(wx - 2.5, wy - 2.5);
-          ctx.lineTo(wx + 2.5, wy + 2.5);
-          ctx.moveTo(wx + 2.5, wy - 2.5);
-          ctx.lineTo(wx - 2.5, wy + 2.5);
-          ctx.stroke();
+      // 7. Other Warships (Cache teamMap to avoid allocating Map every frame)
+      const isTeamMode = currentRoom?.gameMode === 'TEAM';
+      if (isTeamMode && currentRoom?.players && currentRoom.players !== lastPlayersRef.current) {
+        lastPlayersRef.current = currentRoom.players;
+        cachedTeamMap.current.clear();
+        for (let pIdx = 0; pIdx < currentRoom.players.length; pIdx++) {
+          const p = currentRoom.players[pIdx];
+          cachedTeamMap.current.set(p.id, p.team);
         }
       }
-
-      // 5. Warships (Teammates vs Enemies)
-      const curRoom = currentRoom;
-      const isTeamMode = curRoom?.gameMode === 'TEAM';
-      const selfPlayer = curRoom?.players.find((p) => p.id === curId);
+      const selfPlayer = currentRoom?.players?.find((p) => p.id === curId);
       const selfTeam = selfPlayer?.team;
 
-      // O(1) team lookup Map instead of O(N) array search on every ship
-      const teamMap = new Map<string, string | undefined>();
-      if (isTeamMode && curRoom?.players) {
-        for (let pIdx = 0; pIdx < curRoom.players.length; pIdx++) {
-          const p = curRoom.players[pIdx];
-          teamMap.set(p.id, p.team);
-        }
-      }
+      drawFleetWarships(
+        ctx,
+        curShips,
+        curId,
+        isTeamMode,
+        selfTeam,
+        cachedTeamMap.current,
+        curSelf.x,
+        curSelf.z,
+        sinH,
+        cosH,
+        SCALE,
+        cx,
+        cy,
+        heading,
+        CANVAS_SIZE
+      );
 
-      for (let i = 0; i < curShips.length; i++) {
-        const s = curShips[i];
-        if (s.id === curId || s.isSunk) continue;
+      // 8. Player Ship (Locked at Center cx, cy)
+      drawPlayerVessel(ctx, cx, cy);
 
-        const isTeammate = isTeamMode && Boolean(selfTeam && teamMap.get(s.id) === selfTeam);
+      // 9. True Magnetic North Compass Needle
+      drawTrueNorthCompassNeedle(ctx, NEEDLE_OFFSET, NEEDLE_OFFSET, heading);
 
-
-        const dx = s.x - curSelf.x;
-        const dz = s.z - curSelf.z;
-        const fwd = dx * sinH + dz * cosH;
-        const right = -dx * cosH + dz * sinH;
-        let ex = cx + right * SCALE;
-        let ey = cy - fwd * SCALE;
-        const dist = Math.hypot(ex - cx, ey - cy);
-
-        // Clamp to edge of binnacle
-        if (dist > RADAR_RADIUS - 4) {
-          const clampAngle = Math.atan2(ey - cy, ex - cx);
-          ex = cx + Math.cos(clampAngle) * (RADAR_RADIUS - 5);
-          ey = cy + Math.sin(clampAngle) * (RADAR_RADIUS - 5);
-        }
-
-        const enemyRelAngle = heading - s.rotationY;
-        ctx.save();
-        ctx.translate(ex, ey);
-        ctx.rotate(enemyRelAngle);
-
-        ctx.beginPath();
-        ctx.moveTo(0, -6);
-        ctx.lineTo(4.5, 5);
-        ctx.lineTo(0, 2.5);
-        ctx.lineTo(-4.5, 5);
-        ctx.closePath();
-        ctx.fillStyle = isTeammate ? '#38bdf8' : '#dc2626';
-        ctx.fill();
-        ctx.strokeStyle = isTeammate ? '#e0f2fe' : '#fee2e2';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        ctx.restore();
-      }
-
-      // 6. Dynamic Wind Rose Streamer
-      const blowX = -Math.sin(curWindAngle);
-      const blowZ = -Math.cos(curWindAngle);
-      const windFwd = blowX * sinH + blowZ * cosH;
-      const windRight = -blowX * cosH + blowZ * sinH;
-      const windRelAngle = Math.atan2(windRight, -windFwd);
-
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(windRelAngle);
-      const windGrad = ctx.createLinearGradient(0, 20, 0, -RADAR_RADIUS + 8);
-      windGrad.addColorStop(0, 'rgba(212, 175, 55, 0)');
-      windGrad.addColorStop(1, 'rgba(251, 191, 36, 0.45)');
-      ctx.strokeStyle = windGrad;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(0, 20);
-      ctx.lineTo(0, -RADAR_RADIUS + 8);
-      ctx.stroke();
-      ctx.restore();
-
-      // End clipped ocean chart
-      ctx.restore();
-
-      // 7. Center Flagship (Heading-Up: Golden Galleon Silhouette)
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.beginPath();
-      ctx.moveTo(0, -7.5);
-      ctx.lineTo(6, 6.5);
-      ctx.lineTo(0, 3.5);
-      ctx.lineTo(-6, 6.5);
-      ctx.closePath();
-      ctx.fillStyle = '#fbbf24';
-      ctx.shadowColor = '#d97706';
-      ctx.shadowBlur = 8;
-      ctx.fill();
-      ctx.strokeStyle = '#1c1917';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      ctx.restore();
-
-      // 8. Rotating Compass Rose Bezel (Floating Cardinal Points N, E, S, W)
-      const northAngle = Math.atan2(-sinH, -cosH);
-      const drawCardinal = (angle: number, label: string, isNorth: boolean) => {
-        const lx = cx + Math.sin(angle) * (RADAR_RADIUS - 7);
-        const ly = cy - Math.cos(angle) * (RADAR_RADIUS - 7);
-
-        ctx.font = isNorth ? 'bold 9px Cinzel, serif' : '600 7px Cinzel, serif';
-        ctx.fillStyle = isNorth ? '#fde047' : '#94a3b8';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(label, lx, ly);
-
-        if (isNorth) {
-          // Fleur-de-lis / North Arrow
-          const tx = cx + Math.sin(angle) * (RADAR_RADIUS - 1.5);
-          const ty = cy - Math.cos(angle) * (RADAR_RADIUS - 1.5);
-          ctx.save();
-          ctx.translate(tx, ty);
-          ctx.rotate(angle);
-          ctx.beginPath();
-          ctx.moveTo(0, -4);
-          ctx.lineTo(3, 1.5);
-          ctx.lineTo(-3, 1.5);
-          ctx.closePath();
-          ctx.fillStyle = '#fde047';
-          ctx.fill();
-          ctx.restore();
-        }
-      };
-
-      drawCardinal(northAngle, 'N', true);
-      drawCardinal(northAngle + Math.PI * 0.5, 'E', false);
-      drawCardinal(northAngle + Math.PI, 'S', false);
-      drawCardinal(northAngle - Math.PI * 0.5, 'W', false);
-
-      // 9. Ornate Antique Brass Compass Rim with Tick Marks
-      ctx.strokeStyle = '#d4af37';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(cx, cy, RADAR_RADIUS, 0, Math.PI * 2);
-      ctx.stroke();
+      // 10. Dynamic Wind Streamer
+      drawDynamicWindStreamer(ctx, windBadgeX, windBadgeY, curWindAngle, sinH, cosH);
 
       ctx.restore();
       animId = requestAnimationFrame(render);
@@ -370,28 +562,44 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({ hideW
   }, []);
 
   const containerSizeClass = compact
-    ? 'w-[112px] h-[112px] sm:w-[128px] sm:h-[128px]'
-    : 'w-[148px] h-[148px]';
-  const canvasStyle = compact
-    ? { width: '100%', height: '100%' }
-    : { width: `${CANVAS_SIZE}px`, height: `${CANVAS_SIZE}px` };
+    ? 'w-[104px] h-[104px] sm:w-[116px] sm:h-[116px]'
+    : 'w-[156px] h-[156px] sm:w-[172px] sm:h-[172px]';
 
   return (
-    <div className="relative flex flex-col items-center select-none pointer-events-auto shrink-0">
-      {/* Heavy Carved Binnacle Housing with Brass Bezel */}
-      <div className={`relative flex items-center justify-center ${containerSizeClass} rounded-full pirate-panel border-2 border-amber-600/60 shadow-2xl p-0 overflow-hidden`}>
+    <div className="relative flex flex-col items-center select-none pointer-events-auto shrink-0 touch-none">
+      {/* Square Tactical Chart Housing with Antique Brass Bezel */}
+      <div
+        className={`relative flex items-center justify-center ${containerSizeClass} rounded-lg bg-stone-950/95 border-2 border-amber-600/80 shadow-[0_4px_20px_rgba(0,0,0,0.85)] p-0 overflow-hidden group`}
+      >
         <canvas
           ref={canvasRef}
-          style={canvasStyle}
+          style={{ width: '100%', height: '100%' }}
           className="block pointer-events-none w-full h-full"
         />
-        {/* Inner Brass Shadow Bezel */}
-        <div className="absolute inset-0 rounded-full border border-amber-400/25 pointer-events-none shadow-[inset_0_0_12px_rgba(0,0,0,0.8)]" />
+
+        {/* Ornate Antique Brass Corner Rivets & Brackets */}
+        <div className="absolute top-1 left-1 w-2.5 h-2.5 border-t-2 border-l-2 border-amber-400/80 pointer-events-none" />
+        <div className="absolute top-1 right-1 w-2.5 h-2.5 border-t-2 border-r-2 border-amber-400/80 pointer-events-none" />
+        <div className="absolute bottom-1 left-1 w-2.5 h-2.5 border-b-2 border-l-2 border-amber-400/80 pointer-events-none" />
+        <div className="absolute bottom-1 right-1 w-2.5 h-2.5 border-b-2 border-r-2 border-amber-400/80 pointer-events-none" />
+
+        {/* Subtle Inner Bezel Shadow */}
+        <div className="absolute inset-0 rounded-md border border-amber-400/20 pointer-events-none shadow-[inset_0_0_10px_rgba(0,0,0,0.7)]" />
+
+        {/* Top Header Badge: True Heading Readout */}
+        <div className="absolute top-1 inset-x-0 flex items-center justify-center pointer-events-none">
+          <span
+            ref={headingReadoutRef}
+            className="px-1.5 py-0.2 bg-stone-950/85 backdrop-blur-xs border border-amber-600/30 rounded text-[7.5px] font-cinzel font-bold text-amber-300 tracking-wider tabular-nums shadow"
+          >
+            000°
+          </span>
+        </div>
       </div>
 
-      {/* Integrated Wind & Sail Telemetry Bar (Desktop only) */}
+      {/* Integrated Wind & Sail Telemetry Bar */}
       {!hideWind && (
-        <div className="mt-1 hidden sm:flex items-center justify-center w-[148px] gap-1 px-1.5 py-0.5 bg-stone-950/80 backdrop-blur-sm text-[8.5px] font-cinzel border border-amber-600/30 rounded-full shadow-md overflow-hidden">
+        <div className="mt-1 flex items-center justify-center w-[156px] sm:w-[172px] gap-1 px-2 py-0.5 bg-stone-950/90 backdrop-blur-sm text-[8.5px] font-cinzel border border-amber-600/40 rounded shadow-md overflow-hidden">
           <Wind className="w-2.5 h-2.5 text-amber-400 shrink-0" />
           <span ref={telemetryRef} className="text-amber-200 font-bold tracking-wide truncate tabular-nums text-center">
             -- KTS · RUNNING FREE (100%)

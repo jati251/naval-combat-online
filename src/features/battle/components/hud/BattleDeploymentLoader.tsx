@@ -3,6 +3,7 @@ import { Anchor, CheckCircle2, Loader2, RotateCcw } from 'lucide-react';
 import { useGameStore } from '@/stores/useGameStore';
 import { networkClient } from '@/services/networkClient';
 import { navalAudio } from '../../services/navalAudio';
+import { mapTextureService } from '../../services/mapTextureService';
 
 interface BattleDeploymentLoaderProps {
   onReady?: () => void;
@@ -46,10 +47,12 @@ export const BattleDeploymentLoader: React.FC<BattleDeploymentLoaderProps> = ({ 
         setProgress(50);
         navalAudio.init();
 
-        // Step 3: WebGL & Shader Verification
+        // Step 3: WebGL & Shader Verification + Top-Down Minimap Texture Priming
         setPhase('assets');
-        setStatusText('Pre-compiling hydrodynamic ocean waves & shipwright timbers...');
+        setStatusText('Pre-compiling hydrodynamic ocean waves & cartographic charts...');
         setProgress(75);
+        const mapId = store.currentMapId || store.currentRoom?.mapId || 'caribbean';
+        await mapTextureService.loadMapTexture(mapId).catch(() => null);
         await new Promise((r) => requestAnimationFrame(r));
         if (isCancelled) return;
 

@@ -6,6 +6,7 @@ import { ToastContainer } from '@/components/ui/ToastContainer';
 import { OrientationLockOverlay } from '@/components/ui/OrientationLockOverlay';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { SettingsModal } from '@/features/settings';
+import { DevMapBaker } from '@/features/battle/components/DevMapBaker';
 
 const BattleView = lazy(() => import('@/features/battle/components/BattleView'));
 
@@ -23,6 +24,9 @@ export const App: React.FC = () => {
       <ToastContainer />
       <ConfirmDialog />
       <SettingsModal />
+      {import.meta.env.DEV && typeof window !== 'undefined' && window.location.search.includes('bake-maps=true') && (
+        <DevMapBaker />
+      )}
       {stage === 'LOBBY' && <LobbyView />}
 
       {(stage === 'BATTLE' || stage === 'DEBRIEF') && (

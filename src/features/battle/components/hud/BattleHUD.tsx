@@ -352,9 +352,9 @@ export const BattleHUD: React.FC = () => {
       {/* --- TOP SECTION: VINTAGE MARITIME COMMAND PERIMETER (FLUSH TO TOP ON MOBILE) --- */}
       <div className="flex items-start justify-between w-full pointer-events-none gap-1 sm:gap-2 px-1 sm:px-2 pt-0.5 sm:pt-0">
         {/* Top-Left: Minimap (Mobile) + Captain's Vitality Crest */}
-        <div className="shrink-0 pointer-events-auto flex items-center pt-0.5 sm:pt-0">
+        <div className="shrink-0 pointer-events-auto flex items-start gap-1.5 sm:gap-2 pt-0.5 sm:pt-0">
           {showTouchControls && <CompassMinimap hideWind compact />}
-          <ShipStatusContainer hasMinimap={showTouchControls} />
+          <ShipStatusContainer />
         </div>
 
         {/* Top-Center: Fleet Deathmatch Objective Banner (Flush to ceiling) */}

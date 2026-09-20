@@ -17,26 +17,23 @@ export const ShipStatusBar: React.FC<ShipStatusBarProps> = React.memo(({
   config,
   currentHp,
   hpPercent,
-  hasMinimap = false,
 }) => {
   const isCritical = hpPercent <= 25;
   const isDamaged = hpPercent <= 50;
 
   return (
     <div className="pointer-events-auto flex items-center select-none shrink min-w-0">
-      {/* Captain's Crest Medallion (Desktop only when minimap is at bottom) */}
-      {!hasMinimap && (
-        <div className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-b from-stone-800 via-stone-950 to-black border-2 border-amber-500/80 shadow-[0_0_10px_rgba(212,175,55,0.4)] flex items-center justify-center shrink-0 z-10">
-          <Anchor className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300 stroke-[2.2] drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]" />
-          <div className="absolute inset-0.5 rounded-full border border-amber-400/30 pointer-events-none" />
-        </div>
-      )}
+      {/* Captain's Crest Medallion */}
+      <div className="relative w-7 h-7 sm:w-9 sm:h-9 rounded-full bg-gradient-to-b from-stone-800 via-stone-950 to-black border-2 border-amber-500/80 shadow-[0_0_10px_rgba(212,175,55,0.4)] flex items-center justify-center shrink-0 z-10">
+        <Anchor className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5 text-amber-300 stroke-[2.2] drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]" />
+        <div className="absolute inset-0.5 rounded-full border border-amber-400/30 pointer-events-none" />
+      </div>
 
       {/* Naval Hull Integrity Command Plate */}
-      <div className={`flex flex-col justify-center bg-gradient-to-r from-stone-950/95 via-stone-900/90 to-stone-950/80 backdrop-blur-md px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-r-xl ${hasMinimap ? '-ml-2 pl-3.5 border-y border-r border-amber-500/40 rounded-l-none' : 'border-l-2 border-amber-400/90 border-y border-r border-amber-500/30'} shadow-2xl min-w-[120px] sm:min-w-[190px]`}>
+      <div className="flex flex-col justify-center bg-gradient-to-r from-stone-950/95 via-stone-900/90 to-stone-950/80 backdrop-blur-md px-2 sm:px-3 py-1 sm:py-1.5 -ml-1.5 sm:-ml-2 pl-3 sm:pl-3.5 rounded-r-xl border-l-2 border-amber-400/90 border-y border-r border-amber-500/30 shadow-2xl min-w-[110px] sm:min-w-[180px]">
         {/* Vessel Name & Class Banner */}
         <div className="flex items-center justify-between gap-1.5 leading-none pb-0.5">
-          <span className="font-cinzel font-bold text-amber-100 text-[9.5px] sm:text-xs truncate max-w-[70px] sm:max-w-[140px] gold-emboss">
+          <span className="font-cinzel font-bold text-amber-100 text-[9px] sm:text-xs truncate max-w-[65px] sm:max-w-[130px] gold-emboss">
             {shipName}
           </span>
           <span className="text-[7px] sm:text-[8.5px] font-cinzel font-bold uppercase tracking-wider px-1 sm:px-1.5 py-0.5 rounded bg-black/60 text-amber-300 border border-amber-500/40 shrink-0">
