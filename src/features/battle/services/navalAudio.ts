@@ -74,6 +74,10 @@ export class NavalAudioController {
     this.atmosphereSynth.playWoodCreak();
   }
 
+  public playThunder(strength: number): void {
+    this.atmosphereSynth.playThunder(strength);
+  }
+
   public playShipBell(): void {
     this.atmosphereSynth.playShipBell();
   }

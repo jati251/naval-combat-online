@@ -1,6 +1,4 @@
 import { PhysicsEngine } from './PhysicsEngine.js';
-import { BotAI } from './BotAI.js';
-import { getBroadsideTransform } from './NavalCombatMath.js';
 import { CombatSystem } from './CombatSystem.js';
 import { GameLoop } from './GameLoop.js';
 import {
@@ -543,6 +541,7 @@ export class GameRoom {
       ship.sail = 'HALF_SAIL';
       ship.health = config.maxHealth;
       ship.isSunk = false;
+      ship.stormExposure = 0;
       ship.reloadTimerLeft = 0;
       ship.reloadTimerRight = 0;
 

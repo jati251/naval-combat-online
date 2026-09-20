@@ -1,4 +1,4 @@
-import { getWaveHeight } from './WaveMath.js';
+import { getWaveHeight, MAX_WAVE_HEIGHT } from './WaveMath.js';
 import {
   type ShipSimulationState,
   type CannonballSimulationState,
@@ -31,8 +31,8 @@ export class CollisionSystem {
       ball.z += ball.vz * dt;
       ball.vy += gravity * dt;
 
-      const waterHeight = getWaveHeight(ball.x, ball.z, serverTime);
-      if (ball.y <= waterHeight) {
+      // The surface cannot reach a projectile above the spectrum's amplitude bound.
+      if (ball.y <= MAX_WAVE_HEIGHT && (ball.y < -MAX_WAVE_HEIGHT || ball.y <= getWaveHeight(ball.x, ball.z, serverTime))) {
         continue;
       }
 

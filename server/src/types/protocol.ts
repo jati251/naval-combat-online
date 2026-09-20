@@ -143,6 +143,7 @@ export interface PlayerInput {
 }
 
 export interface ShipSimulationState {
+  stormExposure?: number;
   id: string;
   name: string;
   shipClass: ShipClass;

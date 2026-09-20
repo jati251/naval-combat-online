@@ -34,8 +34,15 @@ export const StaticInstances = memo(function StaticInstances({
     mesh.instanceMatrix.needsUpdate = true;
     mesh.computeBoundingSphere();
     mesh.computeBoundingBox();
+    mesh.updateMatrix();
+    mesh.matrixAutoUpdate = false;
   }, [geometry, material, instances]);
 
-  return <instancedMesh ref={ref} args={[geometry, material, instances.length]}
+  useLayoutEffect(() => {
+    const mesh = ref.current;
+    return () => mesh?.dispose();
+  }, [geometry, material, instances.length]);
+
+  return <instancedMesh ref={ref} args={[geometry, material, instances.length]} dispose={null}
     castShadow={castShadow} receiveShadow={receiveShadow} />;
 });

@@ -7,6 +7,29 @@ export class AtmosphereAudioSynth {
 
   constructor(private audioMgr: AudioContextManager) {}
 
+  public playThunder(strength: number): void {
+    if (this.audioMgr.getIsMuted()) return;
+    const ctx = this.audioMgr.getContext();
+    const destination = this.audioMgr.getAudioDestination();
+    if (!ctx || !destination || ctx.state !== 'running') return;
+    const source = ctx.createBufferSource();
+    source.buffer = this.audioMgr.getBrownNoiseBuffer();
+    if (!source.buffer) return;
+    source.loop = true;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 450;
+    const gain = ctx.createGain();
+    const t = ctx.currentTime;
+    gain.gain.setValueAtTime(0.001, t);
+    gain.gain.linearRampToValueAtTime(Math.min(0.55, strength * 0.5), t + 0.14);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 3.5);
+    source.connect(filter).connect(gain).connect(destination);
+    source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); };
+    source.start(t);
+    source.stop(t + 3.6);
+  }
+
   public playWoodCreak(): void {
     if (this.audioMgr.getIsMuted()) return;
     const now = performance.now();

@@ -1,6 +1,7 @@
 import { useMemo, useRef } from "react";
 import { DirectionalLight, Object3D, MathUtils } from "three";
 import { useFrame } from "@react-three/fiber";
+import { getLocalStorm } from '../../../utils/weather';
 
 export function SceneSunLight({ color, intensity, shadows, shadowMapSize = 1024 }: {
   color: string; intensity: number; shadows: boolean; shadowMapSize?: number;
@@ -10,6 +11,7 @@ export function SceneSunLight({ color, intensity, shadows, shadowMapSize = 1024 
 
   useFrame(({ camera }, delta) => {
     if (!light.current) return;
+    light.current.intensity = intensity * (1 - getLocalStorm(camera.position.x, camera.position.z) * 0.94);
 
     // Smoothly track camera position
     const rawX = MathUtils.damp(target.position.x, camera.position.x, 14, delta);

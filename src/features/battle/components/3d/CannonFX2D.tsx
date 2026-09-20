@@ -210,6 +210,8 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
       }
       geo.setDrawRange(0, activeSmoke);
       if (activeSmoke > 0) {
+        posAttr.clearUpdateRanges();
+        posAttr.addUpdateRange(0, activeSmoke * 3);
         posAttr.needsUpdate = true;
       }
     }
@@ -233,6 +235,8 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
       }
       geo.setDrawRange(0, activeFlash);
       if (activeFlash > 0) {
+        posAttr.clearUpdateRanges();
+        posAttr.addUpdateRange(0, activeFlash * 3);
         posAttr.needsUpdate = true;
       }
     }
@@ -261,6 +265,8 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
       }
       geo.setDrawRange(0, activeSparks);
       if (activeSparks > 0) {
+        posAttr.clearUpdateRanges();
+        posAttr.addUpdateRange(0, activeSparks * 3);
         posAttr.needsUpdate = true;
       }
     }
@@ -287,6 +293,8 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
       }
       geo.setDrawRange(0, activePlumes);
       if (activePlumes > 0) {
+        posAttr.clearUpdateRanges();
+        posAttr.addUpdateRange(0, activePlumes * 3);
         posAttr.needsUpdate = true;
       }
     }
@@ -297,7 +305,7 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
       {/* 2D Billowy Gunpowder Smoke Clouds */}
       <points ref={smokePointsRef} frustumCulled={false}>
         <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[smokePos, 3]} />
+          <bufferAttribute attach="attributes-position" args={[smokePos, 3]} usage={THREE.DynamicDrawUsage} />
         </bufferGeometry>
         <pointsMaterial
           map={smokeTex}
@@ -314,7 +322,7 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
       {/* 2D Muzzle Flash Explosive Bursts */}
       <points ref={flashPointsRef} frustumCulled={false}>
         <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[flashPos, 3]} />
+          <bufferAttribute attach="attributes-position" args={[flashPos, 3]} usage={THREE.DynamicDrawUsage} />
         </bufferGeometry>
         <pointsMaterial
           map={flashTex}
@@ -331,7 +339,7 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
       {/* 2D Flying Ember Sparks */}
       <points ref={sparkPointsRef} frustumCulled={false}>
         <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[sparkPos, 3]} />
+          <bufferAttribute attach="attributes-position" args={[sparkPos, 3]} usage={THREE.DynamicDrawUsage} />
         </bufferGeometry>
         <pointsMaterial
           map={sparkTex}
@@ -348,7 +356,7 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
       {/* 2D Vertical Water Splash Plumes */}
       <points ref={plumePointsRef} frustumCulled={false}>
         <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[plumePos, 3]} />
+          <bufferAttribute attach="attributes-position" args={[plumePos, 3]} usage={THREE.DynamicDrawUsage} />
         </bufferGeometry>
         <pointsMaterial
           map={plumeTex}

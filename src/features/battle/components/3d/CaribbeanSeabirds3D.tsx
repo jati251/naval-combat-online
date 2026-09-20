@@ -111,7 +111,7 @@ export const CaribbeanSeabirds3D: React.FC = React.memo(() => {
   const spriteRefs = useRef<(THREE.Sprite | null)[]>([]);
 
   useFrame((state) => {
-    const t = state.clock.getElapsedTime();
+    const t = state.clock.elapsedTime;
 
     // Native Three.js GPU Frustum Culling:
     // Sprites have frustumCulled={true} by default, eliminating batch popping.

@@ -8,7 +8,6 @@ import { Environment3D } from "./Environment3D";
 import { Islands3D } from "./Islands3D";
 import { Shipwrecks3D } from "./Shipwrecks3D";
 import { JumpingFish3D } from "./JumpingFish3D";
-import { MapBoundary3D } from "./MapBoundary3D";
 import { CaribbeanSeabirds3D } from "./CaribbeanSeabirds3D";
 import { OceanAtmosphereParticles3D } from "./OceanAtmosphereParticles3D";
 import { ShipEntity } from "./ShipEntity";
@@ -111,7 +110,7 @@ export const NavalCanvas: React.FC = React.memo(() => {
           antialias: false,
           alpha: false,
           powerPreference: "high-performance",
-          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMapping: THREE.NoToneMapping,
           toneMappingExposure: exposure,
         }}
         onCreated={({ gl }) => {
@@ -127,7 +126,6 @@ export const NavalCanvas: React.FC = React.memo(() => {
         <Shipwrecks3D isMobile={activeIsMobile} />
         <NavigationBuoys3D isMobile={activeIsMobile} />
         <JumpingFish3D />
-        <MapBoundary3D isMobile={activeIsMobile} />
         {!isNight && <CaribbeanSeabirds3D />}
         <OceanAtmosphereParticles3D
           isMobile={activeIsMobile}

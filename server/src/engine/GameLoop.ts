@@ -1,8 +1,8 @@
 import { PhysicsEngine } from './PhysicsEngine.js';
 import { BotAI } from './BotAI.js';
-import { CombatSystem } from './CombatSystem.js';
 import { CollisionSystem } from './CollisionSystem.js';
 import type { GameRoom } from './GameRoom.js';
+import { applyStormDamage, STORM_KILLER_ID } from './StormSystem.js';
 
 export class GameLoop {
   public static step(room: GameRoom, now: number): void {
@@ -30,6 +30,16 @@ export class GameLoop {
 
       for (const ship of room.ships.values()) {
         PhysicsEngine.updateShip(ship, room.FIXED_DT, serverTime, room.windAngle, room.windSpeed, room.mapId);
+        if (applyStormDamage(ship, room.FIXED_DT)) {
+          const victim = room.players.get(ship.id);
+          if (victim) {
+            victim.deaths = (victim.deaths || 0) + 1;
+            victim.respawnCountdown = 5;
+          }
+          room.broadcastToRoom({ type: 'SHIP_SUNK', shipId: ship.id, killerId: STORM_KILLER_ID });
+          room.broadcastRoomState();
+          room.scheduleShipRespawn(ship.id);
+        }
       }
 
       CollisionSystem.resolveShipCollisions(room.ships, room.FIXED_DT);

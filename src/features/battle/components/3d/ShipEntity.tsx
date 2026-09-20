@@ -2,6 +2,7 @@ import React, { useRef, useMemo, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { ShipModel3D } from './ShipModel3D';
+import { ShipWakeSplash3D } from './ShipWakeSplash3D';
 import {
   MAX_VIEW_DISTANCE_DESKTOP,
   MAX_VIEW_DISTANCE_MOBILE,
@@ -15,6 +16,8 @@ import {
 } from '../../utils/deadReckoning';
 import { createInitialCameraState, updateChaseCamera } from '../../utils/cameraController';
 import { dampAngle, damp } from '../../utils/math';
+import { getHullWaterPose } from '../../utils/waveMath';
+import { getOceanTime } from '../../utils/oceanTime';
 import { useGameStore } from '@/stores/useGameStore';
 import { findShip } from '@/stores/selectors/shipLookup';
 import { navalAudio } from '../../services/navalAudio';
@@ -37,6 +40,7 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
   const shipClass = initialShip?.shipClass || 'brig';
   const shipConfig = SHIP_PRESETS[shipClass] || SHIP_PRESETS.brig;
   const shipLen = shipConfig.length || 18;
+  const draft = shipConfig.width * 0.22;
   const mastHeight = shipLen * 0.85;
   const nameplateY = mastHeight + 3.2;
 
@@ -44,6 +48,7 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
   const curSailRef = useRef<SailState>(initialShip?.sail || 'HALF_SAIL');
 
   const groupRef = useRef<THREE.Group>(null);
+  const waterPose = useRef({ y: 0, pitch: 0, roll: 0 });
 
   const isTeamMode = useGameStore((s) => s.currentRoom?.gameMode === 'TEAM');
   const selfTeam = useGameStore((s) => s.currentRoom?.players.find((p) => p.id === s.selfId)?.team);
@@ -55,7 +60,7 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
   const drBuffer = useRef(
     createDeadReckoningBuffer(
       initialShip?.x ?? 0,
-      (initialShip?.y ?? 0) + 0.85,
+      (initialShip?.y ?? 0) - draft,
       initialShip?.z ?? 0,
       initialShip?.rotationY ?? 0
     )
@@ -210,11 +215,11 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
     if ((wasSunk && !curShip.isSunk) || distSqFromTarget > 2500) {
       drBuffer.current = createDeadReckoningBuffer(
         curShip.x,
-        curShip.y + 0.85,
+        curShip.y - draft,
         curShip.z,
         curShip.rotationY
       );
-      groupRef.current.position.set(curShip.x, curShip.y + 0.85, curShip.z);
+      groupRef.current.position.set(curShip.x, curShip.y - draft, curShip.z);
       groupRef.current.rotation.y = curShip.rotationY;
       groupRef.current.rotation.x = 0;
       groupRef.current.rotation.z = 0;
@@ -233,7 +238,7 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
 
     // First frame initialization or continuous dead reckoning extrapolation
     if (!isInitialized.current) {
-      groupRef.current.position.set(curShip.x, curShip.isSunk ? curShip.y : curShip.y + 0.85, curShip.z);
+      groupRef.current.position.set(curShip.x, curShip.isSunk ? curShip.y : curShip.y - draft, curShip.z);
       groupRef.current.rotation.y = curShip.rotationY;
       groupRef.current.rotation.x = curShip.pitch;
       groupRef.current.rotation.z = curShip.roll;
@@ -244,14 +249,12 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
 
       // High-precision frame-rate independent exponential damping (60-240+ fps)
       groupRef.current.position.x = damp(groupRef.current.position.x, target.x, 24, delta);
-      groupRef.current.position.y = damp(groupRef.current.position.y, target.y, 16, delta);
       groupRef.current.position.z = damp(groupRef.current.position.z, target.z, 24, delta);
 
       // Shortest-arc angle wrapping with exponential decay
       groupRef.current.rotation.y = dampAngle(groupRef.current.rotation.y, target.heading, 20, delta);
-      groupRef.current.rotation.x = damp(groupRef.current.rotation.x, curShip.pitch, 12, delta);
-      groupRef.current.rotation.z = damp(groupRef.current.rotation.z, curShip.roll, 12, delta);
     }
+
 
     // Throttled distance and frustum check
     frameCount.current++;
@@ -264,7 +267,9 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
         const distSq = dx * dx + dz * dz;
 
         // 1 & 2. Distance and Frustum Culling: Skip rendering ships completely beyond view distance or outside camera frustum
-        const maxViewDist = isMobile ? MAX_VIEW_DISTANCE_MOBILE : MAX_VIEW_DISTANCE_DESKTOP;
+        const maxViewDist = state.scene.fog instanceof THREE.FogExp2
+          ? 2.5 / state.scene.fog.density + shipLen
+          : (isMobile ? MAX_VIEW_DISTANCE_MOBILE : MAX_VIEW_DISTANCE_DESKTOP);
         const withinDistance = distSq <= maxViewDist * maxViewDist;
         
         const inFrustum = withinDistance && isSeaEntityInFrustum(
@@ -291,6 +296,15 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
     }
 
     if (!groupRef.current.visible) return;
+
+    const pose = getHullWaterPose(groupRef.current.position.x, groupRef.current.position.z,
+      groupRef.current.rotation.y, shipLen, shipConfig.width, getOceanTime(store, clock.elapsedTime), waterPose.current);
+    const response = Math.max(2.5, 7 - shipLen * 0.09);
+    groupRef.current.position.y = damp(groupRef.current.position.y, pose.y - draft, response, delta);
+    groupRef.current.rotation.order = 'YXZ';
+    groupRef.current.rotation.x = damp(groupRef.current.rotation.x, pose.pitch, response, delta);
+    const heel = -curShip.rudder * Math.min(0.075, curShip.speed ** 2 * 0.0007);
+    groupRef.current.rotation.z = damp(groupRef.current.rotation.z, pose.roll + heel, response, delta);
 
     // Billboard orientation & dynamic distance scaling: orient health bar mesh to face camera
     // and scale smoothly with distance so ship name & health remain crisp and legible across the sea
@@ -336,6 +350,7 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
         shipZ: groupRef.current.position.z,
         shipHeading: groupRef.current.rotation.y,
         shipSpeed: curShip.speed ?? 0,
+        shipLength: shipLen,
         sailState: curShip.sail,
         aimDirection: store.aimDirection,
         cameraState: cameraState.current,
@@ -356,6 +371,7 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
 
   return (
     <group ref={groupRef}>
+      <ShipWakeSplash3D shipId={targetId} shipLength={shipLen} shipWidth={shipConfig.width} isEnemy={!isSelf} isMobile={isMobile} />
       <ShipModel3D
         shipClass={shipClass}
         sailState={currentSail}

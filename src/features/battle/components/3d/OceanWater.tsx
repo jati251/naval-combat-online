@@ -7,6 +7,11 @@ import { getMapConfig } from '../../maps';
 import type { GraphicProfile } from '@/features/settings';
 import { getOceanVertexShader, getOceanFragmentShader } from './oceanShaders';
 import { dampAngle } from '../../utils/math';
+import { GERSTNER_WAVES, SHIP_PRESETS } from '@/types';
+import { getOceanTime } from '../../utils/oceanTime';
+import { createCoastalHeightField } from './islands/coastalHeightField';
+import { getOceanDetail, getWeatherNoise } from './textures/oceanTextures';
+import { getLightning, getLocalStorm } from '../../utils/weather';
 
 interface OceanWaterProps {
   size?: number;
@@ -17,16 +22,17 @@ interface OceanWaterProps {
 // Precompute mathematical constants for Gerstner waves at compile time (avoids ~500k redundant GPU vertex math ops/frame)
 function makeWaveGLSL(dx: number, dy: number, steepness: number, wavelength: number, speed: number): string {
   const len = Math.hypot(dx, dy) || 1;
-  const nx = (dx / len).toFixed(5);
-  const ny = (dy / len).toFixed(5);
-  const k = ((2 * Math.PI) / wavelength).toFixed(5);
-  const a = (steepness / ((2 * Math.PI) / wavelength)).toFixed(5);
+  const nx = (dx / len).toFixed(9);
+  const ny = (dy / len).toFixed(9);
+  const k = ((2 * Math.PI) / wavelength).toFixed(9);
+  const a = (steepness / ((2 * Math.PI) / wavelength)).toFixed(9);
   const s = steepness.toFixed(4);
   const spd = speed.toFixed(3);
   return `Wave(vec2(${nx}, ${ny}), ${s}, ${k}, ${a}, ${spd})`;
 }
 
-export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, isMobile = false, profile }) => {
+export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size: requestedSize, isMobile = false, profile }) => {
+  const size = requestedSize ?? 2 * ((profile?.waterShader.horizonLODCutoff ?? 950) + 32);
   const meshRef = useRef<THREE.Mesh>(null);
   const timeOfDay = useGameStore((s) => s.timeOfDay);
   const isNight = timeOfDay === 'NIGHT';
@@ -37,97 +43,45 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
 
   const qualityTier = profile?.id ?? (isMobile ? 'fast' : 'balanced');
 
-  // Responsive vertex grid density:
-  // - fast: 90x90 quads (8,100 quads)
-  // - balanced: 160x160 quads (25,600 quads)
-  // - performance (Ultra Realism): 180x180 quads (32,400 quads) for high-framerate physical Gerstner curves
   const segments = profile ? profile.waterSegments : (isMobile ? 120 : 160);
 
   // Unified Continuous Ocean Mesh:
-  // Centered around the camera, snaps to gridStep to eliminate vertex shimmer.
+  // Continuous camera-relative tessellation; wave phases remain in world space.
   // Single draw call eliminates WebGL state-binding overhead.
   // frustumCulled={false} ensures vertex-displaced Gerstner wave crests never clip.
   const geometry = useMemo(() => {
     const geo = new THREE.PlaneGeometry(size, size, segments, segments);
     geo.rotateX(-Math.PI / 2);
+    // Concentrate vertices around the vessel while retaining the full horizon.
+    const positions = geo.attributes.position;
+    for (let i = 0; i < positions.count; i++) {
+      const warp = (value: number) => {
+        const n = value / (size * 0.5);
+        return (n * 0.12 + n * n * n * 0.88) * size * 0.5;
+      };
+      positions.setXYZ(i, warp(positions.getX(i)), 0, warp(positions.getZ(i)));
+    }
+    geo.computeBoundingSphere();
     return geo;
   }, [size, segments]);
 
-  // Pack arena islands data into uniform arrays: position/seed and elongation params (supports up to 12 islands)
-  const islandPositions = useMemo(() => {
-    const list: THREE.Vector4[] = [];
-    for (let i = 0; i < 12; i++) {
-      if (i < islands.length) {
-        const isl = islands[i];
-        const sandR = isl.settlement?.type === 'sea-arch' ? 0 : isl.sandRadius;
-        list.push(new THREE.Vector4(isl.x, isl.z, sandR, isl.seed));
-      } else {
-        list.push(new THREE.Vector4(9999, 9999, 0, 0));
-      }
-    }
-    return list;
-  }, [islands]);
+  const coastalField = useMemo(() => createCoastalHeightField(islands), [islands]);
+  const coastalTexture = useMemo(() => {
+    const texture = new THREE.DataTexture(coastalField.data, coastalField.resolution, coastalField.resolution, THREE.RGFormat);
+    texture.minFilter = texture.magFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false;
+    texture.needsUpdate = true;
+    return texture;
+  }, [coastalField]);
+  useEffect(() => () => coastalTexture.dispose(), [coastalTexture]);
 
-  const islandParams = useMemo(() => {
-    const list: THREE.Vector4[] = [];
-    for (let i = 0; i < 12; i++) {
-      if (i < islands.length) {
-        const isl = islands[i];
-        list.push(
-          isl.elongation
-            ? new THREE.Vector4(isl.elongation.scaleX, isl.elongation.scaleZ, isl.elongation.angle, 1.0)
-            : new THREE.Vector4(1.0, 1.0, 0.0, 0.0)
-        );
-      } else {
-        list.push(new THREE.Vector4(1.0, 1.0, 0.0, 0.0));
-      }
-    }
-    return list;
-  }, [islands]);
-
-  // Modular Gerstner wave spectrum based on quality tier (constants precalculated)
+  // Every quality tier must use the same surface as hull buoyancy.
   const waveShaderChunk = useMemo(() => {
-    if (qualityTier === 'fast') {
-      return `
-        const int NUM_WAVES = 2;
-        const Wave waves[NUM_WAVES] = Wave[NUM_WAVES](
-          ${makeWaveGLSL(1.0, 0.28, 0.11, 92.0, 2.6)},
-          ${makeWaveGLSL(0.55, 0.85, 0.085, 48.0, 2.1)}
-        );
-      `;
-    }
-    if (qualityTier === 'performance') {
-      return `
-        const int NUM_WAVES = 6;
-        const Wave waves[NUM_WAVES] = Wave[NUM_WAVES](
-          // 1. Primary rolling Caribbean swell
-          ${makeWaveGLSL(1.0, 0.28, 0.11, 96.0, 2.6)},
-          // 2. Secondary diagonal cross-swell
-          ${makeWaveGLSL(0.55, 0.85, 0.085, 52.0, 2.1)},
-          // 3. Intermediate surface swell
-          ${makeWaveGLSL(-0.35, 0.92, 0.065, 32.0, 1.8)},
-          // 4. Moderate wind swell
-          ${makeWaveGLSL(-0.75, -0.65, 0.045, 19.0, 1.5)},
-          // 5. Transverse chop harmonic
-          ${makeWaveGLSL(0.88, -0.47, 0.035, 12.5, 1.3)},
-          // 6. Opposing sea ripple
-          ${makeWaveGLSL(-0.25, 0.96, 0.025, 8.2, 1.1)}
-        );
-      `;
-    }
-    // Default / Balanced (4 Gerstner waves)
-    return `
-      const int NUM_WAVES = 4;
+    return `const int NUM_WAVES = ${GERSTNER_WAVES.length};
       const Wave waves[NUM_WAVES] = Wave[NUM_WAVES](
-        ${makeWaveGLSL(1.0, 0.28, 0.11, 92.0, 2.6)},
-        ${makeWaveGLSL(0.55, 0.85, 0.085, 48.0, 2.1)},
-        ${makeWaveGLSL(-0.35, 0.92, 0.065, 28.0, 1.7)},
-        ${makeWaveGLSL(-0.75, -0.65, 0.045, 18.0, 1.4)}
-      );
-    `;
-  }, [qualityTier]);
+      ${GERSTNER_WAVES.map(w => makeWaveGLSL(...w.direction, w.steepness, w.wavelength, w.speed)).join(',\n')});`;
+  }, []);
 
-  // Assassin's Creed IV: Black Flag & Sea of Thieves AAA Ocean Shader (Modularized)
   const shaderMaterial = useMemo(() => {
     const fogDensity = profile
       ? (isNight ? profile.fogDensityNight : profile.fogDensityDay)
@@ -142,21 +96,30 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
     return new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
-        uDeepWaterColor: { value: new THREE.Color(isNight ? '#082040' : activeMap.water.deepWaterColor) },
-        uMidWaterColor: { value: new THREE.Color(isNight ? '#0f3566' : activeMap.water.midWaterColor) },
-        uShallowColor: { value: new THREE.Color(isNight ? '#154c8a' : activeMap.water.shallowColor) },
+        uWaterDetail: { value: getOceanDetail() },
+        uWeatherNoise: { value: getWeatherNoise() },
+        uSkyTopColor: { value: new THREE.Color(isNight ? '#081321' : '#487a99') },
+        uStorm: { value: 0 },
+        uLightning: { value: 0 },
+        uWind: { value: new THREE.Vector2(1, 0) },
+        uDeepWaterColor: { value: new THREE.Color(isNight ? '#071821' : activeMap.water.deepWaterColor).lerp(new THREE.Color('#082f38'), isNight ? 0 : 0.65) },
+        uMidWaterColor: { value: new THREE.Color(isNight ? '#0d2835' : activeMap.water.midWaterColor).lerp(new THREE.Color('#14616a'), isNight ? 0 : 0.65) },
+        uShallowColor: { value: new THREE.Color(isNight ? '#15333d' : activeMap.water.shallowColor).lerp(new THREE.Color('#367c7e'), isNight ? 0 : 0.6) },
         uLagoonColor: { value: new THREE.Color(isNight ? '#185880' : activeMap.water.lagoonColor) },
         uCrestGlowColor: { value: new THREE.Color(isNight ? '#3f78b8' : activeMap.water.crestGlowColor) },
         uSubsurfaceColor: { value: new THREE.Color(isNight ? '#18548a' : activeMap.water.subsurfaceColor) },
         uFoamColor: { value: new THREE.Color(isNight ? '#769ec9' : activeMap.water.foamColor) },
-        uSunColor: { value: new THREE.Color(isNight ? activeMap.atmosphere.moonColorNight : activeMap.atmosphere.sunColorDay) },
+        uSunColor: { value: new THREE.Color(isNight ? '#a8c6dd' : '#fff2d5') },
         uSkyHorizonColor: { value: new THREE.Color(isNight ? activeMap.atmosphere.fogColorNight : activeMap.atmosphere.fogColorDay) },
         uLightDir: { value: new THREE.Vector3(70, 140, -50).normalize() },
-        uIslandPos: { value: islandPositions },
-        uIslandParams: { value: islandParams },
+        uCoastalHeight: { value: coastalTexture },
+        uCoastalBounds: { value: new THREE.Vector4(coastalField.minX, coastalField.minZ, coastalField.spanX, coastalField.spanZ) },
+        uCoastalResolution: { value: coastalField.resolution },
         uShipPos: { value: new THREE.Vector3(0, 0, 0) },
         uShipHeading: { value: 0 },
         uShipSpeed: { value: 0 },
+        uShipLength: { value: 18 },
+        uShipWidth: { value: 6 },
         uIsMobile: { value: qualityTier === 'fast' ? 1.0 : 0.0 },
         uIsNight: { value: isNight ? 1.0 : 0.0 },
         uFogDensity: { value: fogDensity },
@@ -168,11 +131,11 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
         uWakesEnabled: { value: wakesEnabled },
       },
       vertexShader: getOceanVertexShader(waveShaderChunk),
-      fragmentShader: getOceanFragmentShader(),
+      fragmentShader: getOceanFragmentShader(waveShaderChunk),
       transparent: false,
       wireframe: false,
     });
-  }, [isNight, isMobile, activeMap, islandPositions, islandParams, waveShaderChunk, qualityTier, profile]);
+  }, [isNight, isMobile, activeMap, coastalTexture, coastalField, waveShaderChunk, qualityTier, profile]);
 
   useEffect(() => () => shaderMaterial.dispose(), [shaderMaterial]);
   useEffect(() => () => geometry.dispose(), [geometry]);
@@ -183,13 +146,27 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
   const smoothShipSpeed = useRef(0);
 
   useFrame((state, delta) => {
-    const t = state.clock.getElapsedTime();
+    const t = getOceanTime(useGameStore.getState(), state.clock.elapsedTime);
     if (shaderMaterial) {
       shaderMaterial.uniforms.uTime.value = t;
+      const store = useGameStore.getState();
+      const storm = getLocalStorm(state.camera.position.x, state.camera.position.z);
+      shaderMaterial.uniforms.uStorm.value = THREE.MathUtils.damp(shaderMaterial.uniforms.uStorm.value, storm, 1.5, delta);
+      shaderMaterial.uniforms.uLightning.value = getLightning(t, storm);
+      shaderMaterial.uniforms.uWind.value.set(Math.sin(store.windAngle), Math.cos(store.windAngle));
+      const fog = state.scene.fog;
+      if (fog instanceof THREE.FogExp2) {
+        shaderMaterial.uniforms.uFogDensity.value = fog.density;
+        shaderMaterial.uniforms.uHorizonCutoff.value = Math.min(profile?.waterShader.horizonLODCutoff ?? 950, 2.5 / fog.density);
+        shaderMaterial.uniforms.uSkyHorizonColor.value.copy(fog.color);
+      }
 
       const { ships, selfId } = useGameStore.getState();
       const selfShip = findShip(ships, selfId);
       if (selfShip && !selfShip.isSunk) {
+        const hull = SHIP_PRESETS[selfShip.shipClass];
+        shaderMaterial.uniforms.uShipLength.value = hull.length;
+        shaderMaterial.uniforms.uShipWidth.value = hull.width;
         smoothShipPos.current.x = THREE.MathUtils.damp(smoothShipPos.current.x, selfShip.x, 24, delta);
         smoothShipPos.current.y = THREE.MathUtils.damp(smoothShipPos.current.y, selfShip.y, 24, delta);
         smoothShipPos.current.z = THREE.MathUtils.damp(smoothShipPos.current.z, selfShip.z, 24, delta);
@@ -206,9 +183,8 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
     }
 
     if (meshRef.current) {
-      const gridStep = size / segments;
-      meshRef.current.position.x = Math.round(state.camera.position.x / gridStep) * gridStep;
-      meshRef.current.position.z = Math.round(state.camera.position.z / gridStep) * gridStep;
+      meshRef.current.position.x = state.camera.position.x;
+      meshRef.current.position.z = state.camera.position.z;
     }
   });
 
@@ -217,7 +193,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size = 1600, 
       ref={meshRef}
       geometry={geometry}
       material={shaderMaterial}
-      position={[0, -0.05, 0]}
+      position={[0, 0, 0]}
       frustumCulled={false}
     />
   );

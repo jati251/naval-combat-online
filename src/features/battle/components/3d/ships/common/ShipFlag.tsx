@@ -92,7 +92,7 @@ export const ShipFlag: React.FC<ShipFlagProps> = React.memo(({
 
   useFrame((state) => {
     if (flagRef.current && isObjectVisible(flagRef.current)) {
-      const t = state.clock.getElapsedTime();
+      const t = state.clock.elapsedTime;
       flagRef.current.parent?.getWorldQuaternion(orientation);
       const parentRotY = heading.setFromQuaternion(orientation, 'YXZ').y;
       // Wind blowing direction relative to the ship hull

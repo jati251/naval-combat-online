@@ -1,3 +1,5 @@
+import { getStormIntensity } from './StormSystem.js';
+
 export interface GerstnerWaveParams {
   direction: [number, number];
   steepness: number;
@@ -6,15 +8,14 @@ export interface GerstnerWaveParams {
 }
 
 export const GERSTNER_WAVES: GerstnerWaveParams[] = [
-  // 1. Dominant gentle Caribbean swell (long rolling crest, ~1.3m amplitude)
-  { direction: [1.0, 0.25], steepness: 0.10, wavelength: 85.0, speed: 2.8 },
-  // 2. Secondary diagonal swell (~0.55m amplitude)
-  { direction: [0.55, 0.85], steepness: 0.08, wavelength: 44.0, speed: 2.2 },
-  // 3. Surface chop wave (~0.2m amplitude)
-  { direction: [-0.35, 0.92], steepness: 0.06, wavelength: 22.0, speed: 1.7 },
-  // 4. Fine capillary ripple (~0.07m amplitude)
-  { direction: [-0.75, -0.65], steepness: 0.04, wavelength: 11.0, speed: 1.3 },
+  // Metres and seconds: hull-scale swell with deep-water dispersion.
+  { direction: [1, 0.28], steepness: 0.12, wavelength: 28, speed: 6.61 },
+  { direction: [0.55, 0.85], steepness: 0.10, wavelength: 17, speed: 5.15 },
+  { direction: [-0.35, 0.92], steepness: 0.075, wavelength: 10, speed: 3.95 },
+  { direction: [0.88, -0.47], steepness: 0.045, wavelength: 6, speed: 3.06 },
 ];
+
+export const MAX_WAVE_HEIGHT = GERSTNER_WAVES.reduce((sum, w) => sum + w.steepness * w.wavelength / (2 * Math.PI), 0) * 2.8;
 
 interface PrecomputedWave {
   kx: number;
@@ -26,6 +27,8 @@ interface PrecomputedWave {
 }
 
 const PRECOMPUTED_DEFAULT_WAVES: PrecomputedWave[] = GERSTNER_WAVES.map((w) => {
+  const length = Math.hypot(...w.direction) || 1;
+  w.direction = [w.direction[0] / length, w.direction[1] / length];
   const k = (2 * Math.PI) / w.wavelength;
   const a = w.steepness / k;
   return {
@@ -53,6 +56,7 @@ export function getWaveDisplacement(
   let dispZ = 0;
 
   if (waves === GERSTNER_WAVES) {
+    const seaScale = 1 + getStormIntensity(x, z) * 1.8;
     for (let i = 0; i < PRECOMPUTED_DEFAULT_WAVES.length; i++) {
       const pw = PRECOMPUTED_DEFAULT_WAVES[i];
       const phase = pw.kx * x + pw.kz * z - pw.omega * time;
@@ -62,7 +66,7 @@ export function getWaveDisplacement(
       dispY += pw.a * sinP;
       dispZ += pw.dzA * cosP;
     }
-    return { x: dispX, y: dispY, z: dispZ };
+    return { x: dispX * seaScale, y: dispY * seaScale, z: dispZ * seaScale };
   }
 
   for (let i = 0; i < waves.length; i++) {
@@ -70,8 +74,9 @@ export function getWaveDisplacement(
     const k = (2 * Math.PI) / wave.wavelength;
     const c = wave.speed;
     const a = wave.steepness / k;
-    const dx = wave.direction[0];
-    const dz = wave.direction[1];
+    const length = Math.hypot(...wave.direction) || 1;
+    const dx = wave.direction[0] / length;
+    const dz = wave.direction[1] / length;
 
     const dot = dx * x + dz * z;
     const phase = k * (dot - c * time);
@@ -89,14 +94,48 @@ export function getWaveDisplacement(
 
 /**
  * Calculates water surface height Y at world coordinate (x, z) at time t.
- * Fast zero-allocation scalar evaluation (skips cos, dispX, dispZ, and object allocations).
+ * Inverts the parametric surface so hull probes agree with displaced vertices.
  */
 export function getWaveHeight(x: number, z: number, time: number): number {
+  let seaScale = 1 + getStormIntensity(x, z) * 1.8;
+  // Invert horizontal displacement to sample the rendered world-space surface.
+  let sampleX = x;
+  let sampleZ = z;
+  const iterations = seaScale > 1.01 ? 8 : 4;
+  for (let iteration = 0; iteration < iterations; iteration++) {
+    if (iterations > 4) seaScale = 1 + getStormIntensity(sampleX, sampleZ) * 1.8;
+    let dx = 0, dz = 0;
+    for (let i = 0; i < PRECOMPUTED_DEFAULT_WAVES.length; i++) {
+      const pw = PRECOMPUTED_DEFAULT_WAVES[i];
+      const cosine = Math.cos(pw.kx * sampleX + pw.kz * sampleZ - pw.omega * time);
+      dx += pw.dxA * cosine;
+      dz += pw.dzA * cosine;
+    }
+    sampleX = x - dx * seaScale;
+    sampleZ = z - dz * seaScale;
+  }
   let dispY = 0;
   for (let i = 0; i < PRECOMPUTED_DEFAULT_WAVES.length; i++) {
     const pw = PRECOMPUTED_DEFAULT_WAVES[i];
-    dispY += pw.a * Math.sin(pw.kx * x + pw.kz * z - pw.omega * time);
+    dispY += pw.a * Math.sin(pw.kx * sampleX + pw.kz * sampleZ - pw.omega * time);
   }
-  return dispY;
+  if (iterations > 4) seaScale = 1 + getStormIntensity(sampleX, sampleZ) * 1.8;
+  return dispY * seaScale;
 }
 
+export function getHullWaterPose(x: number, z: number, heading: number, length: number, width: number, time: number,
+  out = { y: 0, pitch: 0, roll: 0 }) {
+  const fx = Math.sin(heading) * length * 0.4;
+  const fz = Math.cos(heading) * length * 0.4;
+  const rx = Math.cos(heading) * width * 0.4;
+  const rz = -Math.sin(heading) * width * 0.4;
+  const bow = getWaveHeight(x + fx, z + fz, time);
+  const stern = getWaveHeight(x - fx, z - fz, time);
+  const port = getWaveHeight(x - rx, z - rz, time);
+  const starboard = getWaveHeight(x + rx, z + rz, time);
+  const center = getWaveHeight(x, z, time);
+  out.y = (bow + stern + port + starboard + center * 2) / 6;
+  out.pitch = -Math.atan2(bow - stern, length * 0.8);
+  out.roll = Math.atan2(starboard - port, width * 0.8);
+  return out;
+}

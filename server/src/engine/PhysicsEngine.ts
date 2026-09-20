@@ -1,7 +1,6 @@
-import { getWaveHeight } from './WaveMath.js';
+import { getHullWaterPose } from './WaveMath.js';
 import {
   type ShipSimulationState,
-  type CannonballSimulationState,
   type MapId,
   SERVER_SHIP_CONFIGS,
 } from '../types/protocol.js';
@@ -17,6 +16,7 @@ export const SERVER_ISLANDS = SERVER_MAPS.caribbean.islands;
 export const SERVER_WRECKS = SERVER_MAPS.caribbean.wrecks;
 
 export class PhysicsEngine {
+  private static readonly waterPose = { y: 0, pitch: 0, roll: 0 };
   /**
    * Generates a guaranteed safe spawn point with ample clearance from islands and shipwrecks.
    */
@@ -221,6 +221,7 @@ export class PhysicsEngine {
     windSpeed: number,
     mapId: MapId = 'caribbean'
   ): void {
+    if (!Number.isFinite(dt) || dt <= 0) return;
     if (ship.isSunk) {
       // Sinking animation: ship sinks downwards and tilts
       ship.y -= 1.8 * dt;
@@ -259,8 +260,10 @@ export class PhysicsEngine {
       ship.speed = Math.max(targetSpeed, ship.speed - (config.acceleration * 1.5) * dt);
     }
 
-    // Rudder turning: turning rate scales with speed, with responsive low-speed turning
-    const effectiveTurnSpeed = config.turnSpeed * Math.max(0.65, Math.min(1.0, (ship.speed + 2.5) / config.topSpeed));
+    // Rudder authority needs water flowing past the stern; turns shed forward speed.
+    const steerage = Math.min(1, ship.speed / Math.max(1, config.topSpeed * 0.55));
+    const effectiveTurnSpeed = config.turnSpeed * steerage;
+    ship.speed *= Math.exp(-Math.abs(ship.rudder) * steerage * 0.075 * dt);
     ship.rotationY += ship.rudder * effectiveTurnSpeed * dt;
 
     // Anti-Cheat: Cap maximum possible speed (prevents speedhack)
@@ -280,16 +283,6 @@ export class PhysicsEngine {
 
     ship.x += moveX;
     ship.z += moveZ;
-
-    // Anti-Cheat: Ocean Arena Boundaries (Radius 500m)
-    const maxRadius = 500;
-    const distFromCenter = Math.hypot(ship.x, ship.z);
-    if (distFromCenter > maxRadius) {
-      const angle = Math.atan2(ship.x, ship.z);
-      ship.x = Math.sin(angle) * maxRadius;
-      ship.z = Math.cos(angle) * maxRadius;
-      ship.speed *= 0.2;
-    }
 
     // Ship physical collision radius: tightened to realistic hull half-width + safety margin
     const shipRadius = Math.max(1.8, Math.min(4.0, config.width * 0.5 + 0.6));
@@ -391,39 +384,12 @@ export class PhysicsEngine {
     ship.vx = (ship.x - prevX) / dt;
     ship.vz = (ship.z - prevZ) / dt;
 
-    // 3-Point Water Height Probing for Buoyancy and Pitch/Roll
-    const halfLen = config.length * 0.5;
-    const halfWid = config.width * 0.5;
-
-    // Bow & Stern probe coordinates
-    const bowX = ship.x + Math.sin(ship.rotationY) * halfLen;
-    const bowZ = ship.z + Math.cos(ship.rotationY) * halfLen;
-    const sternX = ship.x - Math.sin(ship.rotationY) * halfLen;
-    const sternZ = ship.z - Math.cos(ship.rotationY) * halfLen;
-
-    const bowWaterY = getWaveHeight(bowX, bowZ, serverTime);
-    const sternWaterY = getWaveHeight(sternX, sternZ, serverTime);
-
-    // Left & Right probe coordinates (lateral)
-    const leftX = ship.x - Math.cos(ship.rotationY) * halfWid;
-    const leftZ = ship.z + Math.sin(ship.rotationY) * halfWid;
-    const rightX = ship.x + Math.cos(ship.rotationY) * halfWid;
-    const rightZ = ship.z - Math.sin(ship.rotationY) * halfWid;
-
-    const leftWaterY = getWaveHeight(leftX, leftZ, serverTime);
-    const rightWaterY = getWaveHeight(rightX, rightZ, serverTime);
-
-    // Target water height at center of mass
-    const centerWaterY = (bowWaterY + sternWaterY + leftWaterY + rightWaterY) * 0.25;
-    // Dampen height transition
-    ship.y += (centerWaterY - ship.y) * Math.min(1.0, 10 * dt);
-
-    // Calculate pitch (tilt along length) and roll (tilt along width)
-    const targetPitch = Math.atan2(bowWaterY - sternWaterY, config.length);
-    const targetRoll = Math.atan2(leftWaterY - rightWaterY, config.width) + (ship.rudder * 0.08); // slight roll into turns
-
-    ship.pitch += (targetPitch - ship.pitch) * Math.min(1.0, 8 * dt);
-    ship.roll += (targetRoll - ship.roll) * Math.min(1.0, 8 * dt);
+    const pose = getHullWaterPose(ship.x, ship.z, ship.rotationY, config.length, config.width, serverTime, PhysicsEngine.waterPose);
+    const response = 1 - Math.exp(-Math.max(2.5, 7 - config.length * 0.09) * dt);
+    ship.y += (pose.y - ship.y) * response;
+    ship.pitch += (pose.pitch - ship.pitch) * response;
+    const turnHeel = -ship.rudder * Math.min(0.075, ship.speed * ship.speed * 0.0007);
+    ship.roll += (pose.roll + turnHeel - ship.roll) * response;
   }
 
 

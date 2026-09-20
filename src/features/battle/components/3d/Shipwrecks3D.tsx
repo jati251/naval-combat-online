@@ -167,7 +167,7 @@ const ShipwreckEntity: React.FC<{ wreck: ShipwreckDefinition }> = React.memo(({ 
 
     if (!rootRef.current.visible || !groupRef.current) return;
 
-    const t = state.clock.getElapsedTime();
+    const t = state.clock.elapsedTime;
 
     // Gentle ocean swell buoyancy bobbing
     const swell = Math.sin(t * 0.85 + wreck.seed * 0.2) * 0.35;

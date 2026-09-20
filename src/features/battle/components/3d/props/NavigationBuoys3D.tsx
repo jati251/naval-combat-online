@@ -100,7 +100,7 @@ const SingleBuoy: React.FC<SingleBuoyProps> = React.memo(({ buoy, isMobile = fal
     }
     if (!groupRef.current.visible) return;
 
-    const t = state.clock.getElapsedTime();
+    const t = state.clock.elapsedTime;
 
     // Ocean swell buoyancy bobbing with gentle roll & pitch
     const swellY = Math.sin(t * 1.6 + buoy.phase) * 0.22;

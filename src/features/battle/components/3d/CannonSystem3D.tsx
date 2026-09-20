@@ -81,6 +81,7 @@ export const CannonSystem3D: React.FC<CannonSystem3DProps> = React.memo(({ canno
   const ballPositions = useMemo(() => new Float32Array(MAX_RENDER_BALLS * 3), []);
   const trajectoryPositions = useMemo(() => new Float32Array(MAX_TRAJECTORY_STEPS * 3), []);
   const clientBalls = useRef<Map<string, ClientBallState>>(new Map());
+  const lastSnapshot = useRef<typeof cannonballs>(undefined);
 
   // Per-Frame Ballistic Flight Physics & Smooth Position Updates (60-144 FPS)
   useFrame((state, delta) => {
@@ -128,30 +129,33 @@ export const CannonSystem3D: React.FC<CannonSystem3DProps> = React.memo(({ canno
 
     // 1. Sync from server snapshots (zero dynamic Map allocation)
     const activeBalls = cannonballs ?? useGameStore.getState().cannonballs;
-    for (const b of activeBalls) {
-      const existing = clientBalls.current.get(b.id);
-      if (!existing) {
-        clientBalls.current.set(b.id, {
-          id: b.id,
-          x: b.x,
-          y: b.y,
-          z: b.z,
-          vx: b.vx ?? 0,
-          vy: b.vy ?? 5.5,
-          vz: b.vz ?? 0,
-          targetX: b.x,
-          targetY: b.y,
-          targetZ: b.z,
-          lastServerUpdate: now,
-        });
-      } else {
-        existing.targetX = b.x;
-        existing.targetY = b.y;
-        existing.targetZ = b.z;
-        if (b.vx !== undefined) existing.vx = b.vx;
-        if (b.vy !== undefined) existing.vy = b.vy;
-        if (b.vz !== undefined) existing.vz = b.vz;
-        existing.lastServerUpdate = now;
+    if (activeBalls !== lastSnapshot.current) {
+      lastSnapshot.current = activeBalls;
+      for (const b of activeBalls) {
+        const existing = clientBalls.current.get(b.id);
+        if (!existing) {
+          clientBalls.current.set(b.id, {
+            id: b.id,
+            x: b.x,
+            y: b.y,
+            z: b.z,
+            vx: b.vx ?? 0,
+            vy: b.vy ?? 5.5,
+            vz: b.vz ?? 0,
+            targetX: b.x,
+            targetY: b.y,
+            targetZ: b.z,
+            lastServerUpdate: now,
+          });
+        } else {
+          existing.targetX = b.x;
+          existing.targetY = b.y;
+          existing.targetZ = b.z;
+          if (b.vx !== undefined) existing.vx = b.vx;
+          if (b.vy !== undefined) existing.vy = b.vy;
+          if (b.vz !== undefined) existing.vz = b.vz;
+          existing.lastServerUpdate = now;
+        }
       }
     }
 
@@ -191,7 +195,11 @@ export const CannonSystem3D: React.FC<CannonSystem3DProps> = React.memo(({ canno
       geo.setDrawRange(0, count);
       if (count > 0) {
         const posAttr = geo.attributes.position as THREE.BufferAttribute;
-        if (posAttr) posAttr.needsUpdate = true;
+        if (posAttr) {
+          posAttr.clearUpdateRanges();
+          posAttr.addUpdateRange(0, count * 3);
+          posAttr.needsUpdate = true;
+        }
       }
     }
   });
@@ -204,6 +212,7 @@ export const CannonSystem3D: React.FC<CannonSystem3DProps> = React.memo(({ canno
           <bufferAttribute
             attach="attributes-position"
             args={[ballPositions, 3]}
+            usage={THREE.DynamicDrawUsage}
           />
         </bufferGeometry>
         <pointsMaterial

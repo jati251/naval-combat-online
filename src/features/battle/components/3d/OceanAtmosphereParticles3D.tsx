@@ -88,7 +88,7 @@ export const OceanAtmosphereParticles3D: React.FC<{ isMobile?: boolean; particle
       const speed = speedMult * initialOffsets[idx + 2];
       // Physical wind drift
       arr[idx] += blowX * speed * delta;
-      arr[idx + 1] += Math.sin(state.clock.getElapsedTime() + initialOffsets[idx]) * delta * 1.0;
+      arr[idx + 1] += Math.sin(state.clock.elapsedTime + initialOffsets[idx]) * delta * 1.0;
       arr[idx + 2] += blowZ * speed * delta;
 
       // Wrap boundaries around camera

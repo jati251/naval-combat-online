@@ -13,6 +13,7 @@ export interface CameraUpdateParams {
   shipZ: number;
   shipHeading: number;
   shipSpeed: number;
+  shipLength?: number;
   sailState?: SailState;
   aimDirection: 'none' | 'left' | 'right';
   cameraState: CameraState;
@@ -41,7 +42,6 @@ export function updateChaseCamera(params: CameraUpdateParams): void {
   const {
     camera,
     delta,
-    elapsedTime,
     shipX,
     shipY,
     shipZ,
@@ -141,10 +141,10 @@ export function updateChaseCamera(params: CameraUpdateParams): void {
   const sinH = Math.sin(shipHeading);
   const cosH = Math.cos(shipHeading);
 
-  // Dynamic distance pull-back and gentle ocean swell breathing on camera height
-  const dynamicDist = CONTROL_CONFIG.CAMERA_DISTANCE + speedRatio * 2.4 + targetAimDistMod + (cameraState.currentSailDistOffset ?? 0);
-  const speedBob = Math.sin(elapsedTime * 1.9) * 0.28 * speedRatio;
-  const dynamicHeight = CONTROL_CONFIG.CAMERA_HEIGHT + speedBob + targetAimHeightMod + (cameraState.currentSailHeightOffset ?? 0);
+  // Frame the hull consistently; vertical motion comes from its water response.
+  const hullScale = Math.max(0.72, (params.shipLength ?? 18) / 18);
+  const dynamicDist = (CONTROL_CONFIG.CAMERA_DISTANCE + targetAimDistMod + cameraState.currentSailDistOffset) * hullScale + speedRatio * 1.2;
+  const dynamicHeight = (CONTROL_CONFIG.CAMERA_HEIGHT + targetAimHeightMod + cameraState.currentSailHeightOffset) * hullScale;
 
   camera.position.x = shipX - sinH * dynamicDist + cosH * sOffset + sinH * fOffset + cosH * shakeX;
   camera.position.y = shipY + dynamicHeight + shakeY;

@@ -4,7 +4,23 @@ import type { IslandDefinition } from './types';
 
 const RESOLUTION = 112;
 const smooth = (a: number, b: number, x: number) => THREE.MathUtils.smoothstep(x, a, b);
-const extent = (island: IslandDefinition) => Math.max(island.sandRadius * 1.32, island.radius * 1.45);
+export const getTerrainExtent = (island: IslandDefinition) => Math.max(island.sandRadius * 1.32, island.radius * 1.45);
+const terrainHeights = new WeakMap<IslandDefinition, Float64Array>();
+
+function getHeightGrid(island: IslandDefinition): Float64Array {
+  const cached = terrainHeights.get(island);
+  if (cached) return cached;
+  const size = getTerrainExtent(island);
+  const step = size * 2 / RESOLUTION;
+  const values = new Float64Array((RESOLUTION + 1) ** 2);
+  for (let z = 0; z <= RESOLUTION; z++) {
+    for (let x = 0; x <= RESOLUTION; x++) {
+      values[z * (RESOLUTION + 1) + x] = surface(island, -size + x * step, -size + z * step);
+    }
+  }
+  terrainHeights.set(island, values);
+  return values;
+}
 
 let noiseSeed = 271828;
 const noise = createNoise2D(() => {
@@ -68,13 +84,14 @@ export function getIslandElevation(island: IslandDefinition): number {
 }
 
 export function createIslandTerrainGeometry(island: IslandDefinition): THREE.BufferGeometry {
-  const size = extent(island);
+  const size = getTerrainExtent(island);
+  const heights = getHeightGrid(island);
   const geo = new THREE.PlaneGeometry(size * 2, size * 2, RESOLUTION, RESOLUTION);
   geo.rotateX(-Math.PI / 2);
   const p = geo.getAttribute('position');
   const uv = geo.getAttribute('uv');
   for (let i = 0; i < p.count; i++) {
-    p.setY(i, surface(island, p.getX(i), p.getZ(i)) - island.height * 0.5);
+    p.setY(i, heights[i] - island.height * 0.5);
     uv.setXY(i, p.getX(i) / 8, p.getZ(i) / 8);
   }
   geo.computeVertexNormals();
@@ -108,6 +125,7 @@ export function createIslandTerrainGeometry(island: IslandDefinition): THREE.Buf
   const c = new THREE.Color();
   const rockCol = new THREE.Color();
   const forestCol = new THREE.Color();
+  const tideSand = new THREE.Color();
 
   for (let i = 0; i < p.count; i++) {
     const px = p.getX(i), pz = p.getZ(i);
@@ -191,7 +209,7 @@ export function createIslandTerrainGeometry(island: IslandDefinition): THREE.Buf
     c.copy(rockCol).lerp(forestCol, vegetation);
     const sandFactor = 1 - smooth(1.4, 3.6, y);
     if (sandFactor > 0) {
-      const tideSand = sandWet.clone().lerp(sand, smooth(0.3, 1.8, y));
+      tideSand.copy(sandWet).lerp(sand, smooth(0.3, 1.8, y));
       c.lerp(tideSand, sandFactor);
     }
 
@@ -210,7 +228,7 @@ export function createIslandTerrainGeometry(island: IslandDefinition): THREE.Buf
 
 /** Interpolate the same triangles as the rendered grid, including elongated islands. */
 export function getTerrainSurfaceY(island: IslandDefinition, relX: number, relZ: number): number {
-  const size = extent(island), step = size * 2 / RESOLUTION;
+  const size = getTerrainExtent(island), step = size * 2 / RESOLUTION;
   const x = relX / (island.elongation?.scaleX ?? 1);
   const z = relZ / (island.elongation?.scaleZ ?? 1);
   if (Math.abs(x) > size || Math.abs(z) > size) return -4;
@@ -218,8 +236,9 @@ export function getTerrainSurfaceY(island: IslandDefinition, relX: number, relZ:
   const ix = Math.min(RESOLUTION - 1, Math.floor(gx));
   const iz = Math.min(RESOLUTION - 1, Math.floor(gz));
   const u = gx - ix, v = gz - iz;
-  const x0 = -size + ix * step, z0 = -size + iz * step;
-  const a = surface(island, x0, z0), b = surface(island, x0 + step, z0);
-  const c = surface(island, x0, z0 + step), d = surface(island, x0 + step, z0 + step);
+  const heights = getHeightGrid(island);
+  const index = iz * (RESOLUTION + 1) + ix;
+  const a = heights[index], b = heights[index + 1];
+  const c = heights[index + RESOLUTION + 1], d = heights[index + RESOLUTION + 2];
   return u + v <= 1 ? a + (b - a) * u + (c - a) * v : d + (c - d) * (1 - u) + (b - d) * (1 - v);
 }

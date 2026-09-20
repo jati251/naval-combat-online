@@ -10,6 +10,7 @@ export interface CameraShakeEvent {
 
 export interface BattleSlice {
   serverTime: number;
+  snapshotReceivedAt: number;
   timeOfDay: 'DAY' | 'NIGHT';
   currentMapId: MapId;
   ships: ShipSnapshot[];
@@ -42,6 +43,7 @@ export const createBattleSlice: StateCreator<
   BattleSlice
 > = (set) => ({
   serverTime: 0,
+  snapshotReceivedAt: 0,
   timeOfDay: 'DAY',
   currentMapId: 'caribbean',
   ships: [],
@@ -56,6 +58,7 @@ export const createBattleSlice: StateCreator<
   updateWorldSnapshot: (serverTime, ships, cannonballs) =>
     set({
       serverTime,
+      snapshotReceivedAt: performance.now(),
       ships,
       cannonballs,
     }),

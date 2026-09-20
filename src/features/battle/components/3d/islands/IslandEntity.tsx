@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import type { IslandDefinition } from './types';
-import { createIslandTerrainGeometry, getIslandElevation, getTerrainSurfaceY } from './islandGeometries';
+import { createIslandTerrainGeometry, getIslandElevation, getTerrainSurfaceY, getTerrainExtent } from './islandGeometries';
 import { IslandFoliage } from './IslandFoliage';
 import { IslandRocks } from './RockFormation';
 import { CoastalSettlement } from './CoastalSettlement';
@@ -20,10 +20,6 @@ interface IslandEntityProps {
   isMobile?: boolean;
 }
 
-/**
- * High-Detail Island Entity with procedural terrain, unique silhouette per type,
- * organic vegetation scatter, coastal rock formations, and smooth atmospheric fog integration.
- */
 export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, materials, isMobile = false }) => {
   const rootRef = useRef<THREE.Group>(null);
   const treesRef = useRef<THREE.Group>(null);
@@ -33,23 +29,19 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
   const terrainGeo = useMemo(() => createIslandTerrainGeometry(island), [island]);
   useEffect(() => () => terrainGeo.dispose(), [terrainGeo]);
 
-  // AAA Staged Level-of-Detail (LOD) Emergence:
-  // 1. Mountain terrain is ALWAYS visible as a distant horizon landmark through soft sea haze (ZERO pop-in).
-  // 2. Beach & shoreline emerge at 350m (desktop) / 200m (mobile).
-  // 3. Tree canopy smoothly emerges from 230m down to 140m via scale interpolation.
-  // 4. Coastal boulders & bushes smoothly emerge from 130m down to 75m via scale interpolation.
-  useFrame(({ camera }) => {
-    const scaleX = island.elongation?.scaleX ?? 1;
-    const scaleZ = island.elongation?.scaleZ ?? 1;
-    const islandRadius = Math.max(island.radius, island.sandRadius) * Math.max(scaleX, scaleZ);
-
-    // Three.js InstancedMesh automatically performs GPU/render-pass frustum culling per draw call.
-    // Preserving group visibility maintains consistent directional shadow maps with zero pipeline stalls.
-
+  const boundsRadius = getTerrainExtent(island) * Math.SQRT2 * Math.max(island.elongation?.scaleX ?? 1, island.elongation?.scaleZ ?? 1) + island.height;
+  const nextVisibilityCheck = useRef(0);
+  useFrame(({ camera, scene, clock }) => {
+    if (clock.elapsedTime < nextVisibilityCheck.current) return;
+    nextVisibilityCheck.current = clock.elapsedTime + 0.1;
     const dx = camera.position.x - island.x;
     const dz = camera.position.z - island.z;
-    const distSq = dx * dx + dz * dz;
-    const dist = Math.sqrt(distSq);
+    const dist = Math.hypot(dx, dz);
+    const islandRadius = Math.max(island.radius, island.sandRadius) * Math.max(island.elongation?.scaleX ?? 1, island.elongation?.scaleZ ?? 1);
+    // At this distance exponential fog hides over 99.8% of the entire island.
+    const hiddenDistance = scene.fog instanceof THREE.FogExp2 ? 2.5 / scene.fog.density : Infinity;
+    if (rootRef.current) rootRef.current.visible = dist - boundsRadius < hiddenDistance;
+    if (dist - boundsRadius >= hiddenDistance) return;
 
     // 3. Tree Canopy Foliage Staging (Visible across entire battle sea, smooth vertical emergence at far horizon)
     const treeFar = (isMobile ? 400 : 780) + islandRadius * 0.6;
@@ -94,7 +86,7 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
       {/* Scaled Island Mass (Terrain, Beach, Shallows) - Not rendered for sea-arch formations */}
       {!isSeaArch && (
         <group scale={[scaleX, 1, scaleZ]}>
-          {/* Tier 1: Core Geological Mountain Mass (Always rendered as horizon landmark) */}
+          {/* Terrain silhouette survives until concealed by haze */}
           <mesh
             position={[0, getIslandElevation(island) + 2.0, 0]}
             castShadow

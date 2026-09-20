@@ -1,4 +1,5 @@
-import { useState, useLayoutEffect } from 'react';
+import { useState, useLayoutEffect, useRef } from 'react';
+import type { Group } from 'three';
 import { createRoot } from 'react-dom/client';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
@@ -6,6 +7,20 @@ import { ShipModel3D } from '../../src/features/battle/components/3d/ShipModel3D
 import { Islands3D } from '../../src/features/battle/components/3d/Islands3D';
 import { SHIP_PRESETS, type ShipClass, type SailState } from '../../src/types/game';
 import { useGameStore } from '../../src/stores/useGameStore';
+import { OceanWater } from '../../src/features/battle/components/3d/OceanWater';
+import { getHullWaterPose } from '../../src/features/battle/utils/waveMath';
+
+function FloatingShip({ ship, sail }: { ship: ShipClass; sail: SailState }) {
+  const group = useRef<Group>(null);
+  const config = SHIP_PRESETS[ship];
+  useFrame(({ clock }) => {
+    if (!group.current) return;
+    const pose = getHullWaterPose(0, 0, 0, config.length, config.width, clock.elapsedTime);
+    group.current.position.y = pose.y - config.width * 0.22;
+    group.current.rotation.set(pose.pitch, 0, pose.roll, 'YXZ');
+  });
+  return <group ref={group}><ShipModel3D shipClass={ship} sailState={sail} /></group>;
+}
 
 function Camera({ length }: { length: number }) {
   const { camera } = useThree();
@@ -49,7 +64,8 @@ function Audit() {
         <hemisphereLight args={[night ? '#617fa1' : '#dce9ee', '#715844', night ? 0.65 : 1.8]} />
         <directionalLight position={[30, 60, 20]} intensity={night ? 0.5 : 3} />
         <directionalLight position={[-20, 20, -30]} intensity={night ? 0.3 : 1.8} />
-        <ShipModel3D shipClass={ship} sailState={sail} />
+        <FloatingShip ship={ship} sail={sail} />
+        <OceanWater isMobile={mobile} />
         <Camera length={config.length} />
         {islands && <Islands3D isMobile={mobile} />}
         <OrbitControls target={[0, config.length * 0.35, 0]} />

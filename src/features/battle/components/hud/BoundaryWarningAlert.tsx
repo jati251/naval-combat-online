@@ -1,16 +1,16 @@
 import React from 'react';
 import { AlertTriangle, Compass } from 'lucide-react';
 import { useGameStore } from '@/stores/useGameStore';
-import { ARENA_RADIUS } from '../3d/MapBoundary3D';
+import { STORM_DAMAGE_RADIUS, STORM_WARNING_RADIUS } from '../../../../../server/src/engine/StormSystem';
 
 export const BoundaryWarningAlert: React.FC = React.memo(() => {
   const boundaryState = useGameStore((s) => {
     const ship = s.ships.find((sh) => sh.id === s.selfId);
     if (!ship || ship.isSunk) return null;
     const dist = Math.hypot(ship.x, ship.z);
-    if (dist < 420) return null;
-    const remaining = Math.max(0, Math.round(ARENA_RADIUS - dist));
-    const isCritical = remaining < 30;
+    if (dist < STORM_WARNING_RADIUS) return null;
+    const remaining = Math.round(STORM_DAMAGE_RADIUS - dist);
+    const isCritical = remaining <= 0;
     return `${remaining}:${isCritical}`;
   });
 
@@ -35,11 +35,11 @@ export const BoundaryWarningAlert: React.FC = React.memo(() => {
 
         <div className="flex flex-col">
           <div className="text-xs font-cinzel font-black tracking-widest uppercase gold-emboss">
-            {isCritical ? 'TREACHEROUS REEFS AHEAD!' : 'APPROACHING UNCHARTED SHOALS'}
+            {isCritical ? 'STORM — HULL IN DANGER' : 'SQUALL AHEAD'}
           </div>
           <div className="text-[10px] font-fell italic opacity-90 flex items-center gap-1.5 mt-0.5">
             <Compass className="w-3 h-3 text-amber-400" />
-            <span>Heed the helm! Turn about before grounding — {remaining}m to squall boundary.</span>
+            <span>{isCritical ? `Turn toward the islands — ${Math.abs(remaining)}m back to safe waters. Prolonged exposure will sink the ship.` : `Turn toward the islands — dangerous waters in ${remaining}m.`}</span>
           </div>
         </div>
       </div>

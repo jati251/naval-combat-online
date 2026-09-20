@@ -56,7 +56,7 @@ export function AdaptiveResolution({ isMobile, dprRange }: { isMobile?: boolean;
 
     const nativePixelRatio = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
     const maximum = dprRange ? Math.min(nativePixelRatio, dprRange[1]) : Math.min(nativePixelRatio, isMobile ? 1.5 : 2.0);
-    const minimum = dprRange ? Math.max(1.0, Math.min(dprRange[0], maximum)) : (isMobile ? 1.0 : 1.25);
+    const minimum = Math.min(maximum, dprRange?.[0] ?? (isMobile ? 1.0 : 1.25));
 
     const currentDpr = viewport.dpr;
 

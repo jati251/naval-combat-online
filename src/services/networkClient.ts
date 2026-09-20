@@ -306,7 +306,9 @@ class NetworkClient {
           isSelf: shipId === store.selfId,
           worldPos: sunkShip ? { x: sunkShip.x, z: sunkShip.z } : undefined,
         });
-        store.addCombatLog(`💥 ${name} was shattered and sent to Davy Jones' locker!`, 'sink');
+        store.addCombatLog(msg.killerId === 'environment:storm'
+          ? `${name} was lost to the storm.`
+          : `💥 ${name} was shattered and sent to Davy Jones' locker!`, 'sink');
 
         // Immediately mark the ship as sunk and zero health in store snapshot
         const { ships, serverTime, cannonballs } = store;
