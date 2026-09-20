@@ -21,6 +21,7 @@ import {
   spawnFlash,
   spawnSparks,
   spawnWaterImpact,
+  spawnHullImpactDebris,
   createMuzzleFlashTexture,
   createGunpowderSmokeTexture,
   createSparkTexture,
@@ -54,6 +55,9 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
   const sparkPointsRef = useRef<THREE.Points>(null);
   const plumePointsRef = useRef<THREE.Points>(null);
 
+  const flashLightRef = useRef<THREE.PointLight>(null);
+  const flashLightIntensity = useRef(0);
+
   const flashPos = useMemo(() => new Float32Array(maxFlash * 3), [maxFlash]);
   const smokePos = useMemo(() => new Float32Array(maxSmoke * 3), [maxSmoke]);
   const sparkPos = useMemo(() => new Float32Array(maxSparks * 3), [maxSparks]);
@@ -78,6 +82,13 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
     const shipCfg = SHIP_PRESETS[firingShip.shipClass] || SHIP_PRESETS.brig;
     const gunDeckY = firingShip.y + 1.8;
 
+    // Position dynamic warm muzzle flash light to illuminate the hull, rigging and ocean
+    const midTransform = getBroadsideTransform(firingShip.x, firingShip.z, firingShip.rotationY, side, shipCfg.width * 0.9, 0);
+    if (flashLightRef.current) {
+      flashLightRef.current.position.set(midTransform.spawnX, gunDeckY + 0.8, midTransform.spawnZ);
+      flashLightIntensity.current = isSelf ? 22.0 : 12.0;
+    }
+
     // For player ship: full cinematic salvo; for bot/opponent ships: clean balanced emitters
     const numGuns = isSelf
       ? (isMobile ? Math.min(4, Math.max(2, Math.floor(shipCfg.length / 3.0))) : Math.min(6, Math.max(3, Math.floor(shipCfg.length / 2.4))))
@@ -92,20 +103,20 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
       const normX = Math.sin(transform.fireAngle);
       const normZ = Math.cos(transform.fireAngle);
 
-      // Bright fiery muzzle flash point
-      spawnFlash(flashPool.current, gx, gy, gz, 5.0 + Math.random() * 2.0);
+      // Bright fiery muzzle flash point (high-contrast explosion starburst)
+      spawnFlash(flashPool.current, gx, gy, gz, 7.5 + Math.random() * 3.5);
 
       // Gunpowder sparks & burning wad debris
       spawnSparks(sparkPool.current, gx, gy, gz, normX, normZ);
 
-      // Billowy smoke clouds per gun emitter (lean on opponents to prevent particle pool thrashing)
-      const smokeCount = isSelf ? (isMobile ? 1 : 2) : 1;
+      // Billowy volumetric smoke clouds per gun emitter
+      const smokeCount = isSelf ? (isMobile ? 2 : 3) : 1;
       for (let sm = 0; sm < smokeCount; sm++) {
-        const outSpeed = 4.0 + Math.random() * 8.0;
-        const svx = normX * outSpeed + (Math.random() - 0.5) * 3.0;
-        const svy = 1.0 + Math.random() * 2.0;
-        const svz = normZ * outSpeed + (Math.random() - 0.5) * 3.0;
-        spawnSmoke(smokePool.current, gx, gy, gz, svx, svy, svz, 3.6 + Math.random() * 2.0);
+        const outSpeed = 5.5 + Math.random() * 9.5;
+        const svx = normX * outSpeed + (Math.random() - 0.5) * 3.5;
+        const svy = 1.2 + Math.random() * 2.2;
+        const svz = normZ * outSpeed + (Math.random() - 0.5) * 3.5;
+        spawnSmoke(smokePool.current, gx, gy, gz, svx, svy, svz, 4.2 + Math.random() * 2.5);
       }
     }
   };
@@ -117,6 +128,16 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
     frameCounter.current++;
     const { cannonballs } = useGameStore.getState();
 
+    // Fade dynamic muzzle flash light
+    if (flashLightRef.current) {
+      if (flashLightIntensity.current > 0.02) {
+        flashLightIntensity.current = Math.max(0, flashLightIntensity.current - delta * 42.0);
+        flashLightRef.current.intensity = flashLightIntensity.current;
+      } else {
+        flashLightRef.current.intensity = 0;
+      }
+    }
+
     // 1. Check & Dispatch Fire Events (Instant Local & Network Firing Feedback via zero-overhead queue)
     const newFireEvents = fireEventQueue.drain();
     for (const ev of newFireEvents) {
@@ -127,7 +148,7 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
     currentBallIds.current.clear();
     const totalBalls = cannonballs.length;
     // Dynamic smoke ribbon throttling when many cannonballs are active
-    const smokeInterval = totalBalls > 15 ? (isMobile ? 8 : 6) : (isMobile ? 5 : 3);
+    const smokeInterval = totalBalls > 15 ? (isMobile ? 7 : 5) : (isMobile ? 4 : 2);
     const shouldSpawnBallSmoke = frameCounter.current % smokeInterval === 0;
 
     for (const b of cannonballs) {
@@ -142,18 +163,40 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
         ballPos.z = b.z;
       }
 
-      // Persistent smoke ribbon following flying cannonballs (throttled)
-      if (shouldSpawnBallSmoke && totalBalls <= 32) {
+      // Persistent smoke ribbon following flying cannonballs
+      if (shouldSpawnBallSmoke && totalBalls <= 36) {
         spawnSmoke(
           smokePool.current,
           b.x - (b.vx ?? 0) * 0.03,
           b.y - (b.vy ?? 0) * 0.03,
           b.z - (b.vz ?? 0) * 0.03,
-          (Math.random() - 0.5) * 0.25,
-          0.2 + (Math.random() - 0.5) * 0.2,
-          (Math.random() - 0.5) * 0.25,
-          1.5 + Math.random() * 0.7
+          (Math.random() - 0.5) * 0.3,
+          0.25 + (Math.random() - 0.5) * 0.2,
+          (Math.random() - 0.5) * 0.3,
+          1.8 + Math.random() * 0.8
         );
+      }
+
+      // Micro-spark fiery tail behind flying cannonballs (every 2 frames)
+      if (frameCounter.current % 2 === 0 && totalBalls <= 32) {
+        const spLen = sparkPool.current.length;
+        if (spLen > 0) {
+          const slot = Math.floor(Math.random() * spLen);
+          const p = sparkPool.current[slot];
+          if (p && p.life <= 0) {
+            p.x = b.x - (b.vx ?? 0) * 0.02 + (Math.random() - 0.5) * 0.3;
+            p.y = b.y - (b.vy ?? 0) * 0.02 + (Math.random() - 0.5) * 0.3;
+            p.z = b.z - (b.vz ?? 0) * 0.02 + (Math.random() - 0.5) * 0.3;
+            p.vx = (Math.random() - 0.5) * 1.5;
+            p.vy = 0.5 + Math.random() * 1.5;
+            p.vz = (Math.random() - 0.5) * 1.5;
+            p.maxLife = 0.25 + Math.random() * 0.2;
+            p.life = p.maxLife;
+            p.size = 1.2;
+            p.growth = -0.4;
+            p.opacity = 1.0;
+          }
+        }
       }
     }
 
@@ -162,21 +205,19 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
     for (const [id, lastPos] of knownBallIds.current.entries()) {
       if (!currentBallIds.current.has(id)) {
         if (lastPos.y <= 1.8) {
-          if (plumesSpawnedThisFrame < 2) {
+          if (plumesSpawnedThisFrame < 3) {
             spawnWaterImpact(plumePool.current, smokePool.current, lastPos.x, lastPos.z);
             plumesSpawnedThisFrame++;
           }
         } else {
-          spawnFlash(flashPool.current, lastPos.x, lastPos.y, lastPos.z, 4.0);
-          spawnSmoke(
+          // Cannonball smashed into a ship hull: explosive wooden splinters, sparks & smoke
+          spawnHullImpactDebris(
+            flashPool.current,
+            sparkPool.current,
             smokePool.current,
             lastPos.x,
             lastPos.y,
-            lastPos.z,
-            (Math.random() - 0.5) * 4.0,
-            1.5 + Math.random() * 2.0,
-            (Math.random() - 0.5) * 4.0,
-            1.6
+            lastPos.z
           );
         }
         knownBallIds.current.delete(id);
@@ -302,6 +343,15 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
 
   return (
     <group>
+      {/* Dynamic Salvo Muzzle Flash Light (Illuminates hull, rigging and ocean) */}
+      <pointLight
+        ref={flashLightRef}
+        color="#ffaa3b"
+        intensity={0}
+        distance={55}
+        decay={2}
+      />
+
       {/* 2D Billowy Gunpowder Smoke Clouds */}
       <points ref={smokePointsRef} frustumCulled={false}>
         <bufferGeometry>
@@ -312,9 +362,9 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
           transparent
           depthWrite={false}
           blending={THREE.NormalBlending}
-          opacity={0.85}
+          opacity={0.88}
           color="#f1f5f9"
-          size={6.0}
+          size={7.5}
           sizeAttenuation
         />
       </points>
@@ -331,7 +381,7 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
           blending={THREE.AdditiveBlending}
           opacity={1.0}
           color="#ffffff"
-          size={7.5}
+          size={9.2}
           sizeAttenuation
         />
       </points>
@@ -346,9 +396,9 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
           transparent
           depthWrite={false}
           blending={THREE.AdditiveBlending}
-          opacity={0.95}
+          opacity={0.98}
           color="#fef08a"
-          size={1.8}
+          size={2.2}
           sizeAttenuation
         />
       </points>
@@ -363,9 +413,9 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
           transparent
           depthWrite={false}
           blending={THREE.NormalBlending}
-          opacity={0.9}
+          opacity={0.92}
           color="#f0f9ff"
-          size={8.5}
+          size={9.8}
           sizeAttenuation
         />
       </points>

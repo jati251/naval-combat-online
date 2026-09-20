@@ -79,6 +79,8 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
   const lastHpPctRef = useRef<number>(-1);
   const lastScaleRef = useRef<number>(1);
   const lastSailChangeTime = useRef<number>(0);
+  const lastShakeTime = useRef<number>(0);
+  const recoilRoll = useRef<number>(0);
 
   // Static high-definition Name Badge texture (Generated ONCE at mount, 0 CPU/GPU overhead during battle)
   const nameTexture = useMemo(() => {
@@ -303,8 +305,21 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
     groupRef.current.position.y = damp(groupRef.current.position.y, pose.y - draft, response, delta);
     groupRef.current.rotation.order = 'YXZ';
     groupRef.current.rotation.x = damp(groupRef.current.rotation.x, pose.pitch, response, delta);
+    // Physical broadside salvo recoil impulse (ship heels away from firing cannons)
+    if (isSelf && store.cameraShake && store.cameraShake.timestamp !== lastShakeTime.current) {
+      lastShakeTime.current = store.cameraShake.timestamp;
+      if (store.cameraShake.direction === 'left') {
+        // Salvo left: ship heels to starboard (positive Z roll)
+        recoilRoll.current = 0.07;
+      } else if (store.cameraShake.direction === 'right') {
+        // Salvo right: ship heels to port (negative Z roll)
+        recoilRoll.current = -0.07;
+      }
+    }
+    recoilRoll.current = damp(recoilRoll.current, 0, 5.5, delta);
+
     const heel = -curShip.rudder * Math.min(0.075, curShip.speed ** 2 * 0.0007);
-    groupRef.current.rotation.z = damp(groupRef.current.rotation.z, pose.roll + heel, response, delta);
+    groupRef.current.rotation.z = damp(groupRef.current.rotation.z, pose.roll + heel + recoilRoll.current, response, delta);
 
     // Billboard orientation & dynamic distance scaling: orient health bar mesh to face camera
     // and scale smoothly with distance so ship name & health remain crisp and legible across the sea

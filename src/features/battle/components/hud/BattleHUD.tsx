@@ -278,6 +278,26 @@ const DamageHitVignette: React.FC = React.memo(() => {
   );
 });
 
+const SalvoFlashVignette: React.FC = React.memo(() => {
+  const cameraShake = useGameStore((s) => s.cameraShake);
+
+  if (!cameraShake || (cameraShake.direction !== 'left' && cameraShake.direction !== 'right')) return null;
+
+  const isLeft = cameraShake.direction === 'left';
+
+  return (
+    <div
+      key={cameraShake.timestamp}
+      className="pointer-events-none fixed inset-0 z-20 animate-salvo-flash"
+      style={{
+        boxShadow: isLeft
+          ? 'inset 80px 0 100px -15px rgba(249, 115, 22, 0.45), inset 0 0 50px 10px rgba(254, 240, 138, 0.2)'
+          : 'inset -80px 0 100px -15px rgba(249, 115, 22, 0.45), inset 0 0 50px 10px rgba(254, 240, 138, 0.2)',
+      }}
+    />
+  );
+});
+
 /**
  * Pirate Vintage Battle HUD
  * Isolated leaf architecture prevents DOM churn while delivering
@@ -339,6 +359,9 @@ export const BattleHUD: React.FC = () => {
 
       {/* Red damage impact flash vignette */}
       <DamageHitVignette />
+
+      {/* Fiery golden salvo discharge vignette */}
+      <SalvoFlashVignette />
 
       {/* Tactical Live Scoreboard Modal */}
       <ScoreboardModal

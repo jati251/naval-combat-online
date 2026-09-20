@@ -68,7 +68,7 @@ export function useShipActions(): ShipActions {
       if (selfShip) {
         store.triggerFireEvent(selfShip.id, side);
       }
-      store.triggerCameraShake(0.48, side);
+      store.triggerCameraShake(0.72, side);
       // networkClient.fireBroadside internally dispatches FIRE_BROADSIDE packet and triggers cooldown
       networkClient.fireBroadside(side);
     }

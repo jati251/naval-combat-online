@@ -1,15 +1,15 @@
 import { navalAudio } from '../../../services/navalAudio';
 
-export const MAX_FLASH = 80;
-export const MAX_SMOKE = 360;
-export const MAX_SPARKS = 160;
-export const MAX_WATER_PLUMES = 60;
+export const MAX_FLASH = 120;
+export const MAX_SMOKE = 480;
+export const MAX_SPARKS = 240;
+export const MAX_WATER_PLUMES = 80;
 
 // Mobile-optimized pool sizes: lightweight for 60-120 FPS
-export const MAX_FLASH_MOBILE = 30;
-export const MAX_SMOKE_MOBILE = 140;
-export const MAX_SPARKS_MOBILE = 60;
-export const MAX_WATER_PLUMES_MOBILE = 25;
+export const MAX_FLASH_MOBILE = 45;
+export const MAX_SMOKE_MOBILE = 200;
+export const MAX_SPARKS_MOBILE = 100;
+export const MAX_WATER_PLUMES_MOBILE = 35;
 
 export interface FXParticle {
   x: number;
@@ -231,3 +231,57 @@ export function spawnWaterImpact(
 
   navalAudio.playWaterSplash({ worldPos: { x, z } });
 }
+
+export function spawnHullImpactDebris(
+  flashPool: FXParticle[],
+  sparkPool: FXParticle[],
+  smokePool: FXParticle[],
+  x: number,
+  y: number,
+  z: number
+): void {
+  // 1. Violent kinetic impact flash
+  spawnFlash(flashPool, x, y, z, 5.5);
+
+  // 2. High-speed flying sparks and hot splinters
+  const sparkLen = sparkPool.length;
+  if (sparkLen > 0) {
+    const count = 8 + Math.floor(Math.random() * 6);
+    for (let s = 0; s < count; s++) {
+      const slot = sparkCursor;
+      sparkCursor = (sparkCursor + 1) % sparkLen;
+      const p = sparkPool[slot];
+      if (!p) continue;
+      p.x = x;
+      p.y = y;
+      p.z = z;
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 12.0 + Math.random() * 16.0;
+      p.vx = Math.cos(angle) * speed;
+      p.vy = 4.0 + Math.random() * 10.0;
+      p.vz = Math.sin(angle) * speed;
+      p.maxLife = 0.5 + Math.random() * 0.4;
+      p.life = p.maxLife;
+      p.size = 1.0 + Math.random() * 0.8;
+      p.growth = -0.3;
+      p.opacity = 1.0;
+    }
+  }
+
+  // 3. Dense charcoal hull-damage smoke blast
+  for (let sm = 0; sm < 3; sm++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 2.0 + Math.random() * 4.0;
+    spawnSmoke(
+      smokePool,
+      x,
+      y,
+      z,
+      Math.cos(angle) * speed,
+      2.0 + Math.random() * 3.5,
+      Math.sin(angle) * speed,
+      2.8 + Math.random() * 1.5
+    );
+  }
+}
+

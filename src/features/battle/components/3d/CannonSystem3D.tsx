@@ -6,43 +6,13 @@ import { findShip } from '@/stores/selectors/shipLookup';
 import type { CannonballSnapshot } from '@/types/game';
 import { getBroadsideTransform } from '../../utils/navalCombatMath';
 
+import {
+  createMoltenCannonballTexture,
+  createCannonballFlareTexture,
+} from './cannon';
+
 interface CannonSystem3DProps {
   cannonballs?: CannonballSnapshot[];
-}
-
-// Procedural 2D Cast-Iron Black Roundshot Billboard Texture (Ultra Lightweight & Crisp)
-function createBlackRoundShotTexture(): THREE.CanvasTexture {
-  const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 128;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return new THREE.CanvasTexture(canvas);
-
-  // Deep pitch-black cast iron with sharp metallic sun glint
-  const grad = ctx.createRadialGradient(46, 46, 3, 64, 64, 58);
-  grad.addColorStop(0, '#f8fafc'); // Specular highlight
-  grad.addColorStop(0.12, '#94a3b8');
-  grad.addColorStop(0.32, '#334155');
-  grad.addColorStop(0.65, '#0f172a');
-  grad.addColorStop(0.92, '#020617');
-  grad.addColorStop(1, 'rgba(0, 0, 0, 0)'); // Clean anti-aliased edge
-
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.arc(64, 64, 58, 0, Math.PI * 2);
-  ctx.fill();
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.needsUpdate = true;
-  return texture;
-}
-
-let cachedRoundShotTex: THREE.CanvasTexture | null = null;
-function getRoundShotTex(): THREE.CanvasTexture {
-  if (!cachedRoundShotTex) {
-    cachedRoundShotTex = createBlackRoundShotTexture();
-  }
-  return cachedRoundShotTex;
 }
 
 const MAX_RENDER_BALLS = 250;
@@ -74,9 +44,11 @@ export const CannonSystem3D: React.FC<CannonSystem3DProps> = React.memo(({ canno
   const isAiming = useGameStore((s) => s.isAiming);
   const aimDirection = useGameStore((s) => s.aimDirection);
 
-  const roundShotTexture = useMemo(() => getRoundShotTex(), []);
+  const moltenTexture = useMemo(() => createMoltenCannonballTexture(), []);
+  const flareTexture = useMemo(() => createCannonballFlareTexture(), []);
 
   const pointsRef = useRef<THREE.Points>(null);
+  const flarePointsRef = useRef<THREE.Points>(null);
   const lineGeoRef = useRef<THREE.BufferGeometry>(null);
   const ballPositions = useMemo(() => new Float32Array(MAX_RENDER_BALLS * 3), []);
   const trajectoryPositions = useMemo(() => new Float32Array(MAX_TRAJECTORY_STEPS * 3), []);
@@ -202,11 +174,44 @@ export const CannonSystem3D: React.FC<CannonSystem3DProps> = React.memo(({ canno
         }
       }
     }
+
+    if (flarePointsRef.current) {
+      const geo = flarePointsRef.current.geometry;
+      geo.setDrawRange(0, count);
+      if (count > 0) {
+        const posAttr = geo.attributes.position as THREE.BufferAttribute;
+        if (posAttr) {
+          posAttr.clearUpdateRanges();
+          posAttr.addUpdateRange(0, count * 3);
+          posAttr.needsUpdate = true;
+        }
+      }
+    }
   });
 
   return (
     <group>
-      {/* High-Performance 2D Black Roundshot Billboard Points (Always Visible, Zero Stutter) */}
+      {/* Layer 1: Incandescent Radiant Heat Flare Halo (High Contrast Ballistic Glow) */}
+      <points ref={flarePointsRef} frustumCulled={false}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            args={[ballPositions, 3]}
+            usage={THREE.DynamicDrawUsage}
+          />
+        </bufferGeometry>
+        <pointsMaterial
+          map={flareTexture}
+          transparent
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          size={5.8}
+          opacity={0.88}
+          sizeAttenuation
+        />
+      </points>
+
+      {/* Layer 2: Superheated Molten Roundshot Kinetic Core */}
       <points ref={pointsRef} frustumCulled={false}>
         <bufferGeometry>
           <bufferAttribute
@@ -216,11 +221,11 @@ export const CannonSystem3D: React.FC<CannonSystem3DProps> = React.memo(({ canno
           />
         </bufferGeometry>
         <pointsMaterial
-          map={roundShotTexture}
+          map={moltenTexture}
           transparent
           alphaTest={0.01}
           depthWrite={false}
-          size={3.2}
+          size={3.8}
           sizeAttenuation
         />
       </points>

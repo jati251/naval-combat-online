@@ -71,9 +71,9 @@ export function updateChaseCamera(params: CameraUpdateParams): void {
   // Lateral salvo recoil impulse (recoil kicks ship away from firing battery)
   let recoilOffset = 0;
   if (cameraState.lastRecoilDir === 'left') {
-    recoilOffset = -traumaSq * 1.5; // left salvo pushes camera/ship rightward
+    recoilOffset = -traumaSq * 2.2; // left salvo pushes camera/ship rightward
   } else if (cameraState.lastRecoilDir === 'right') {
-    recoilOffset = traumaSq * 1.5; // right salvo pushes camera/ship leftward
+    recoilOffset = traumaSq * 2.2; // right salvo pushes camera/ship leftward
   }
 
   // 2. Dynamic Speed Sensation & Camera Heave
@@ -83,7 +83,7 @@ export function updateChaseCamera(params: CameraUpdateParams): void {
   // Camera trauma impulse (recoil / damage kick only; FOV remains stable during speed transitions)
   const perspCamera = camera as THREE.PerspectiveCamera;
   if (perspCamera.isPerspectiveCamera) {
-    const targetFov = 55 + (cameraState.lastRecoilDir === 'hit' ? traumaSq * 4.5 : traumaSq * 2.0);
+    const targetFov = 55 + (cameraState.lastRecoilDir === 'hit' ? traumaSq * 5.0 : traumaSq * 3.2);
     if (Math.abs(targetFov - perspCamera.fov) > 0.08) {
       perspCamera.fov = damp(perspCamera.fov, targetFov, 9, delta);
       perspCamera.updateProjectionMatrix();
