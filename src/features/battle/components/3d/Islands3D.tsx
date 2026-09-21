@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect } from 'react';
 import { type IslandDefinition, ARENA_ISLANDS, IslandEntity, type IslandMaterials } from './islands';
-import { constructionMaterial } from './textures/constructionMaterials';
+import { islandSurfaceMaterial } from './textures/islandSurfaceMaterial';
 import { useGameStore } from '@/stores/useGameStore';
 import { getMapConfig } from '../../maps';
 
@@ -11,9 +11,7 @@ export const Islands3D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobil
   const currentMapId = useGameStore((s) => s.currentMapId || s.currentRoom?.mapId || 'caribbean');
   const activeMap = useMemo(() => getMapConfig(currentMapId), [currentMapId]);
   const materials: IslandMaterials = useMemo(() => {
-    const rock = constructionMaterial('rock', '#ffffff', 8);
-    rock.vertexColors = true;
-    rock.bumpScale = 0.12;
+    const rock = islandSurfaceMaterial();
     return { rock };
   }, []);
   useEffect(() => () => materials.rock.dispose(), [materials]);

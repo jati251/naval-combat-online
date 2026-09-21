@@ -386,7 +386,7 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
 
   return (
     <group ref={groupRef}>
-      <ShipWakeSplash3D shipId={targetId} shipLength={shipLen} shipWidth={shipConfig.width} isEnemy={!isSelf} isMobile={isMobile} />
+      <ShipWakeSplash3D hullRef={groupRef} shipId={targetId} shipLength={shipLen} shipWidth={shipConfig.width} isEnemy={!isSelf} isMobile={isMobile} />
       <ShipModel3D
         shipClass={shipClass}
         sailState={currentSail}

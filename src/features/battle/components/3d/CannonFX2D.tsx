@@ -1,3 +1,4 @@
+import { compileParticleAppearance, writeParticleAppearance } from './cannon/particleAppearance';
 import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
@@ -58,9 +59,13 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
   const flashLightRef = useRef<THREE.PointLight>(null);
   const flashLightIntensity = useRef(0);
 
+  const flashStyle = useMemo(() => new Float32Array(maxFlash * 2), [maxFlash]);
   const flashPos = useMemo(() => new Float32Array(maxFlash * 3), [maxFlash]);
+  const smokeStyle = useMemo(() => new Float32Array(maxSmoke * 2), [maxSmoke]);
   const smokePos = useMemo(() => new Float32Array(maxSmoke * 3), [maxSmoke]);
+  const sparkStyle = useMemo(() => new Float32Array(maxSparks * 2), [maxSparks]);
   const sparkPos = useMemo(() => new Float32Array(maxSparks * 3), [maxSparks]);
+  const plumeStyle = useMemo(() => new Float32Array(maxPlumes * 2), [maxPlumes]);
   const plumePos = useMemo(() => new Float32Array(maxPlumes * 3), [maxPlumes]);
 
   const knownBallIds = useRef<Map<string, { x: number; y: number; z: number }>>(new Map());
@@ -125,6 +130,7 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
   const frameCounter = useRef(0);
 
   useFrame((_, delta) => {
+    delta = Math.min(delta, 0.1);
     frameCounter.current++;
     const { cannonballs } = useGameStore.getState();
 
@@ -239,16 +245,21 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
           p.x += p.vx * delta;
           p.y += p.vy * delta;
           p.z += p.vz * delta;
-          p.vx *= 0.94;
-          p.vz *= 0.94;
-          p.vy = Math.max(0.15, p.vy * 0.96);
+          p.vx *= Math.exp(-3.7 * delta);
+          p.vz *= Math.exp(-3.7 * delta);
+          p.vy = Math.max(0.15, p.vy * Math.exp(-2.45 * delta));
 
           posArr[activeSmoke * 3] = p.x;
           posArr[activeSmoke * 3 + 1] = Math.max(0.2, p.y);
           posArr[activeSmoke * 3 + 2] = p.z;
+          writeParticleAppearance(geo.attributes.particleStyle as THREE.BufferAttribute, activeSmoke, p, 'Smoke');
           activeSmoke++;
         }
       }
+      const styleAttr = geo.attributes.particleStyle as THREE.BufferAttribute;
+      styleAttr.clearUpdateRanges();
+      if (activeSmoke) styleAttr.addUpdateRange(0, activeSmoke * 2);
+      styleAttr.needsUpdate = true;
       geo.setDrawRange(0, activeSmoke);
       if (activeSmoke > 0) {
         posAttr.clearUpdateRanges();
@@ -271,9 +282,14 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
           posArr[activeFlash * 3] = p.x;
           posArr[activeFlash * 3 + 1] = p.y;
           posArr[activeFlash * 3 + 2] = p.z;
+          writeParticleAppearance(geo.attributes.particleStyle as THREE.BufferAttribute, activeFlash, p, 'Flash');
           activeFlash++;
         }
       }
+      const styleAttr = geo.attributes.particleStyle as THREE.BufferAttribute;
+      styleAttr.clearUpdateRanges();
+      if (activeFlash) styleAttr.addUpdateRange(0, activeFlash * 2);
+      styleAttr.needsUpdate = true;
       geo.setDrawRange(0, activeFlash);
       if (activeFlash > 0) {
         posAttr.clearUpdateRanges();
@@ -301,9 +317,14 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
           posArr[activeSparks * 3] = p.x;
           posArr[activeSparks * 3 + 1] = Math.max(0.1, p.y);
           posArr[activeSparks * 3 + 2] = p.z;
+          writeParticleAppearance(geo.attributes.particleStyle as THREE.BufferAttribute, activeSparks, p, 'Sparks');
           activeSparks++;
         }
       }
+      const styleAttr = geo.attributes.particleStyle as THREE.BufferAttribute;
+      styleAttr.clearUpdateRanges();
+      if (activeSparks) styleAttr.addUpdateRange(0, activeSparks * 2);
+      styleAttr.needsUpdate = true;
       geo.setDrawRange(0, activeSparks);
       if (activeSparks > 0) {
         posAttr.clearUpdateRanges();
@@ -323,15 +344,22 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
         const p = plumePool.current[i];
         if (p.life > 0) {
           p.life -= delta;
+          p.x += p.vx * delta;
+          p.z += p.vz * delta;
           p.y += p.vy * delta;
-          p.vy -= 4.0 * delta;
+          p.vy -= 9.81 * delta;
 
           posArr[activePlumes * 3] = p.x;
           posArr[activePlumes * 3 + 1] = Math.max(0.4, p.y);
           posArr[activePlumes * 3 + 2] = p.z;
+          writeParticleAppearance(geo.attributes.particleStyle as THREE.BufferAttribute, activePlumes, p, 'Plumes');
           activePlumes++;
         }
       }
+      const styleAttr = geo.attributes.particleStyle as THREE.BufferAttribute;
+      styleAttr.clearUpdateRanges();
+      if (activePlumes) styleAttr.addUpdateRange(0, activePlumes * 2);
+      styleAttr.needsUpdate = true;
       geo.setDrawRange(0, activePlumes);
       if (activePlumes > 0) {
         posAttr.clearUpdateRanges();
@@ -356,8 +384,10 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
       <points ref={smokePointsRef} frustumCulled={false}>
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[smokePos, 3]} usage={THREE.DynamicDrawUsage} />
+          <bufferAttribute attach="attributes-particleStyle" args={[smokeStyle, 2]} usage={THREE.DynamicDrawUsage} />
         </bufferGeometry>
         <pointsMaterial
+          onBeforeCompile={compileParticleAppearance}
           map={smokeTex}
           transparent
           depthWrite={false}
@@ -373,8 +403,10 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
       <points ref={flashPointsRef} frustumCulled={false}>
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[flashPos, 3]} usage={THREE.DynamicDrawUsage} />
+          <bufferAttribute attach="attributes-particleStyle" args={[flashStyle, 2]} usage={THREE.DynamicDrawUsage} />
         </bufferGeometry>
         <pointsMaterial
+          onBeforeCompile={compileParticleAppearance}
           map={flashTex}
           transparent
           depthWrite={false}
@@ -390,8 +422,10 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
       <points ref={sparkPointsRef} frustumCulled={false}>
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[sparkPos, 3]} usage={THREE.DynamicDrawUsage} />
+          <bufferAttribute attach="attributes-particleStyle" args={[sparkStyle, 2]} usage={THREE.DynamicDrawUsage} />
         </bufferGeometry>
         <pointsMaterial
+          onBeforeCompile={compileParticleAppearance}
           map={sparkTex}
           transparent
           depthWrite={false}
@@ -407,8 +441,10 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
       <points ref={plumePointsRef} frustumCulled={false}>
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[plumePos, 3]} usage={THREE.DynamicDrawUsage} />
+          <bufferAttribute attach="attributes-particleStyle" args={[plumeStyle, 2]} usage={THREE.DynamicDrawUsage} />
         </bufferGeometry>
         <pointsMaterial
+          onBeforeCompile={compileParticleAppearance}
           map={plumeTex}
           transparent
           depthWrite={false}

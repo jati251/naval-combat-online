@@ -34,9 +34,13 @@ function relief(x: number, z: number, seed: number) {
 
 function surface(island: IslandDefinition, x: number, z: number): number {
   const { radius, height, seed, type } = island;
-  const nx = x / radius, nz = z / radius;
+  const rawX = x / radius, rawZ = z / radius;
+  const warp = type === 'atoll' ? 0 : type === 'volcanic' ? 0.12 * smooth(0.2, 0.6, Math.hypot(rawX + 0.13, rawZ - 0.08)) : 0.12;
+  const nx = rawX + noise(rawX * 2.2 + seed, rawZ * 2.2) * warp;
+  const nz = rawZ + noise(rawX * 2.2, rawZ * 2.2 - seed) * warp;
   const angle = Math.atan2(nz, nx);
-  const coast = 1 + 0.08 * Math.sin(angle * 3 + seed) + 0.045 * Math.cos(angle * 7 - seed);
+  const coast = type === 'atoll' ? 1 + 0.08 * Math.sin(angle * 3 + seed) + 0.045 * Math.cos(angle * 7 - seed) : 0.96 + 0.11 * Math.sin(angle * 3 + seed) + 0.065 * Math.cos(angle * 7 - seed)
+    + 0.035 * Math.sin(angle * 13 + seed * 0.7);
   const r = Math.hypot(nx, nz) / coast;
   const beachEnd = Math.max(1.13, island.sandRadius / radius);
   const shore = 1.65 - smooth(0.92, beachEnd * 1.13, r) * 5.65;
@@ -44,7 +48,7 @@ function surface(island: IslandDefinition, x: number, z: number): number {
   const n = relief(nx, nz, seed);
   let peak: number;
   if (type === 'volcanic') {
-    const crater = Math.hypot(nx + 0.13, nz - 0.08);
+    const crater = Math.hypot(rawX + 0.13, rawZ - 0.08);
     peak = Math.exp(-crater * crater * 2.8) * (0.86 + n * 0.16)
       - Math.exp(-crater * crater * 65) * 0.48;
   } else if (type === 'sea-stack') {
@@ -65,6 +69,19 @@ function surface(island: IslandDefinition, x: number, z: number): number {
   const erosion = type === 'lush-flat' || type === 'atoll' ? 0.015 : 0.045;
   y += (gullies - 0.55) * height * erosion * envelope * smooth(2, 7, y);
   y += n * 0.28 * envelope;
+  if (type !== 'atoll' && type !== 'lush-flat') {
+    const ridgeNoise = 1 - Math.abs(noise(nx * 4.3 + seed * 0.3, nz * 4.3 - seed));
+    const ridge = ridgeNoise * ridgeNoise;
+    const ravine = Math.pow(1 - Math.abs(noise(nx * 3.2 - seed, nz * 6.5 + seed)), 7);
+    const land = envelope * smooth(2, 8, y) * (type === 'volcanic' ? smooth(0.2, 0.4, Math.hypot(rawX + 0.13, rawZ - 0.08)) : 1);
+    y += (ridge * 0.20 - ravine * 0.16 - 0.035) * height * land;
+    // Narrow transitions between geological shelves, instead of a uniformly rounded dome.
+    const ledgeHeight = type === 'sea-stack' ? 4.2 : 3.1;
+    const band = y / ledgeHeight;
+    const ledge = (Math.floor(band) + smooth(0.3, 0.55, band - Math.floor(band))) * ledgeHeight;
+    const exposure = smooth(0.25, 0.65, noise(nx * 3 + seed, nz * 3 - seed));
+    y = THREE.MathUtils.lerp(y, ledge, exposure * land * 0.7);
+  }
 
   const s = island.settlement;
   if (s && s.type !== 'sea-arch') {

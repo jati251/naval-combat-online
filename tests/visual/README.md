@@ -32,3 +32,5 @@ The server storm tests cover the removed physical boundary, grace period, escala
 Run `node --import tsx tests/performance/ocean.bench.ts` for seven-run median CPU timings. Terrain height queries use the rendered grid cache; coastal masking uses one 2 MiB texture. Water detail textures replace repeated fragment noise calculations, particles upload active buffer ranges, and fog conceals distant terrain before its draw calls are culled.
 
 Local reference run: 100,000 terrain queries fell from approximately 123 ms before caching to 3.61 ms after; final wave sampling was 74.86 ms/100,000 and hull sampling 36.45 ms/10,000. Storm waves now differ outside the safe area, so wave checksums are not directly comparable to the earlier calm-only implementation. These are CPU microbenchmarks, not an overall FPS improvement claim.
+
+`/tests/visual/effects.html` runs a vessel around a circle, stops it for eight seconds, and fires salvos every five seconds. Check that existing foam stays on the curved path, follows wave height, and dissipates on stopping; smoke expands and fades, while sparks and splash particles fall. This fixture does not connect to the multiplayer server.

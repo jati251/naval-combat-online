@@ -91,7 +91,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size: request
     const maxCapDist = profile?.waterShader.capillaryDist ?? (qualityTier === 'fast' ? 70.0 : qualityTier === 'performance' ? 320.0 : 200.0);
     const maxSSSDist = profile?.waterShader.sssDist ?? (qualityTier === 'fast' ? 60.0 : qualityTier === 'performance' ? 320.0 : 220.0);
     const maxFoamDist = profile?.waterShader.foamDist ?? (qualityTier === 'fast' ? 70.0 : qualityTier === 'performance' ? 280.0 : 180.0);
-    const wakesEnabled = profile ? (profile.waterShader.wakesEnabled ? 1.0 : 0.0) : (isMobile ? 0.0 : 1.0);
+    const wakesEnabled = 0; // Persistent world-space wake patches are rendered by each vessel.
 
     return new THREE.ShaderMaterial({
       uniforms: {

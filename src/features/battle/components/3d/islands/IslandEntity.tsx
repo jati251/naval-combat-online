@@ -9,6 +9,7 @@ import { CoastalSettlement } from './CoastalSettlement';
 import { KingstonCity } from './KingstonCity';
 import { MayanPyramid } from './MayanPyramid';
 import { SeaArch } from './SeaArch';
+import { ShoreDetails } from './ShoreDetails';
 
 export interface IslandMaterials {
   rock: THREE.Material;
@@ -102,6 +103,7 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
       {!isSeaArch && (
         <group ref={detailRef}>
           <IslandRocks island={island} isMobile={isMobile} />
+          <ShoreDetails island={island} isMobile={isMobile} />
         </group>
       )}
 

@@ -37,13 +37,13 @@ export const CoastalSettlement: React.FC<CoastalSettlementProps> = React.memo(({
   // Shared optimized materials
   const mats = useMemo(() => {
     return {
-      woodDark: constructionMaterial('wood', '#3e2723', 4),
-      woodDeck: constructionMaterial('wood', '#5d4037', 4),
-      woodPost: constructionMaterial('wood', '#271c19', 4),
+      woodDark: constructionMaterial('wood', '#6c5c48', 4),
+      woodDeck: constructionMaterial('wood', '#89785e', 4),
+      woodPost: constructionMaterial('wood', '#514735', 4),
       stoneWall: constructionMaterial('stone', isPirate ? '#78716c' : '#a8a29e', 4),
-      roofTile: constructionMaterial('tile', isPirate ? '#7c2d12' : '#991b1b', 4),
+      roofTile: constructionMaterial('tile', isPirate ? '#986044' : '#a46c50', 4),
       thatchRoof: constructionMaterial('wood', '#854d0e', 4),
-      whitewash: constructionMaterial('plaster', '#e2e8f0', 4),
+      whitewash: constructionMaterial('plaster', '#d4ccad', 4),
       cannonBrass: new THREE.MeshStandardMaterial({ color: '#ca8a04', metalness: 0.6, roughness: 0.4 }),
       lanternGlow: new THREE.MeshStandardMaterial({
         color: '#fef08a',

@@ -35,7 +35,12 @@ export const IslandFoliage = memo(function IslandFoliage({ island, isMobile }: {
 
     function cross(target: InstanceTransform[], x: number, y: number, z: number, scale: number, angle: number, planes: number) {
       if (y < 0.8) return;
-      if (target === jungle) solidJungle.push({ position: [x, y, z], rotation: [0, angle, 0], scale: [scale, scale, scale] });
+      if (target === palms) solidPalms.push({ position: [x,y,z], rotation: [0,angle,0], scale: [scale,scale,scale] });
+      if (target === jungle) {
+        const variation = Math.sin(x * 1.7 + z * 2.3 + island.seed);
+        solidJungle.push({ position: [x, y, z], rotation: [variation * 0.035, angle, variation * 0.045],
+          scale: [scale * (0.88 + variation * 0.1), scale * (1.0 + variation * 0.18), scale * (0.92 - variation * 0.08)] });
+      }
       for (let i = 0; i < planes; i++) {
         target.push({
           position: [x, y, z],
@@ -49,7 +54,6 @@ export const IslandFoliage = memo(function IslandFoliage({ island, isMobile }: {
     island.palms.forEach(([x, z, scale], i) => {
       const y = getTerrainSurfaceY(island, x, z);
       if (y < 0.8) return;
-      solidPalms.push({ position: [x, y, z], rotation: [0, (i + island.seed) * 1.618, 0], scale: [scale, scale, scale] });
       cross(palms, x, y, z, scale, (i + island.seed) * 1.618, 3);
       cross(bushes, x + 0.5 * scale, y - 0.1, z + 0.4 * scale, scale * 0.55, (i * 7 + 3) * 2.11, 3);
       cross(smallBushes, x - 0.4 * scale, y - 0.05, z - 0.3 * scale, scale * 0.7, (i * 9 + 5) * 1.5, 2);
@@ -144,7 +148,11 @@ export const IslandFoliage = memo(function IslandFoliage({ island, isMobile }: {
           // Only plant above beach waterline
           if (y < 1.4) continue;
 
-          const treeScale = 0.95 + rnd() * 0.45;
+          const slope = Math.hypot(getTerrainSurfaceY(island, jx + 1, jz) - y, getTerrainSurfaceY(island, jx, jz + 1) - y);
+          if (slope > 1.15) continue;
+          const grove = Math.sin(jx * 0.075 + island.seed) * Math.cos(jz * 0.09 - island.seed);
+          if (rnd() < 0.10 + Math.max(0, grove) * 0.30) continue;
+          const treeScale = 0.72 + rnd() * 0.78;
           const angle = rnd() * Math.PI * 2;
 
           if (distSq < 0.65) {
@@ -158,7 +166,6 @@ export const IslandFoliage = memo(function IslandFoliage({ island, isMobile }: {
           } else {
             // Lower slopes & coastal perimeter: coconut palms and tropical fringe trees
             if (rnd() > 0.45) {
-              solidPalms.push({ position: [jx, y, jz], rotation: [0, angle, 0], scale: [treeScale, treeScale, treeScale] });
               cross(palms, jx, y, jz, treeScale, angle, 3);
             } else {
               cross(jungle, jx, y, jz, treeScale * 0.9, angle, isMobile ? 3 : 4);

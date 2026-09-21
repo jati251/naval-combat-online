@@ -29,7 +29,12 @@ function textures(kind: Surface) {
     const medium = noise(x / 32, y / 32, 16);
     const fine = noise(x / 4, y / 4, 128);
     const grain = Math.sin(x * 127.1 + y * 311.7) * 3;
-    const baseTone = 216;
+    const grainFlow = Math.sin(y * 0.035) * 3 + (macro - 0.5) * 6;
+    const woodGrain = Math.sin(x * 0.7 + grainFlow) * 7 + Math.sin(x * 2.3 + grainFlow) * 3;
+    const plasterWear = Math.max(0, 0.44 - medium) * 90 + Math.max(0, 0.35 - macro) * 60;
+    const tileCurve = Math.sin((x % 64) / 64 * Math.PI) * 18;
+    const blockTone = Math.sin(Math.floor(y / 85.333) * 17 + Math.floor(x / 128) * 7) * 9;
+    const baseTone = 216 + (kind === 'wood' ? woodGrain : kind === 'plaster' ? -plasterWear : kind === 'tile' ? tileCurve : blockTone);
     const tone = Math.max(40, Math.min(250, Math.round(baseTone + (macro - 0.5) * 24 + (medium - 0.5) * 18 + (fine - 0.5) * 10 + grain)));
     const i = (y * 512 + x) * 4;
     data.data[i] = tone; data.data[i + 1] = tone; data.data[i + 2] = tone; data.data[i + 3] = 255;
@@ -78,7 +83,11 @@ export function applyTriplanar(material: THREE.MeshStandardMaterial, tileSize = 
     shader.uniforms.surfaceTileSize = { value: tileSize };
     shader.vertexShader = 'varying vec3 surfacePosition;\nvarying vec3 surfaceNormal;\n' + shader.vertexShader;
     shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
-      surfacePosition = position;
+      vec3 metricScale = vec3(length(modelMatrix[0].xyz), length(modelMatrix[1].xyz), length(modelMatrix[2].xyz));
+      #ifdef USE_INSTANCING
+        metricScale *= vec3(length(instanceMatrix[0].xyz), length(instanceMatrix[1].xyz), length(instanceMatrix[2].xyz));
+      #endif
+      surfacePosition = position * metricScale;
       surfaceNormal = normal;`);
     shader.fragmentShader = `varying vec3 surfacePosition;
       varying vec3 surfaceNormal;
@@ -102,6 +111,6 @@ export function applyTriplanar(material: THREE.MeshStandardMaterial, tileSize = 
     }\n`;
     shader.fragmentShader = shader.fragmentShader.replace('vec4 surfaceSample(sampler2D tex)', offsetSampler + 'vec4 surfaceSample(sampler2D tex)');
   };
-  material.customProgramCacheKey = () => 'construction-triplanar-v1';
+  material.customProgramCacheKey = () => 'construction-triplanar-v2';
   return material;
 }

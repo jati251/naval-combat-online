@@ -27,11 +27,11 @@ export function StormWeather3D({ isMobile }: { isMobile: boolean }) {
     return g;
   }, [isMobile]);
   const rainMaterial = useMemo(() => new THREE.ShaderMaterial({
-    uniforms: { uTime:{value:0}, uStrength:{value:0} },
+    uniforms: { uTime:{value:0}, uStrength:{value:0}, uWind:{value:new THREE.Vector2(1,0)} },
     transparent:true, depthWrite:false,
-    vertexShader:`attribute float aEnd; uniform float uTime; varying float vAlpha;
+    vertexShader:`attribute float aEnd; uniform float uTime; uniform vec2 uWind; varying float vAlpha;
       void main(){ vec3 p=position; p.y=mod(p.y-uTime*26.0,44.0)-14.0;
-        p.x+=aEnd*0.6; p.y-=aEnd*1.8;
+        p.xz=mod(p.xz+uWind*uTime*5.0+44.0,88.0)-44.0; p.xz+=uWind*aEnd*0.6; p.y-=aEnd*1.8;
         vAlpha=(1.0-aEnd*0.7)*max(0.0,1.0-length(p.xz)/55.0);
         gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0); }`,
     fragmentShader:`uniform float uStrength; varying float vAlpha;
@@ -60,6 +60,8 @@ export function StormWeather3D({ isMobile }: { isMobile: boolean }) {
       rain.current.position.copy(camera.position);
       rainMaterial.uniforms.uTime.value=time;
       rainMaterial.uniforms.uStrength.value=storm;
+      const wind=useGameStore.getState().windAngle;
+      rainMaterial.uniforms.uWind.value.set(Math.sin(wind),Math.cos(wind));
     }
     if(bolt.current) {
       bolt.current.visible=flash>0.02;

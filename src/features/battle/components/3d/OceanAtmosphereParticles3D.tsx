@@ -44,6 +44,7 @@ function getParticleTexture(): THREE.CanvasTexture {
 export const OceanAtmosphereParticles3D: React.FC<{ isMobile?: boolean; particleCount?: number }> = React.memo(({ isMobile = false, particleCount }) => {
   const texture = useMemo(() => getParticleTexture(), []);
   const pointsRef = useRef<THREE.Points>(null);
+  const previousCamera = useRef<{x:number;z:number}|null>(null);
   const count = particleCount ?? (isMobile ? 80 : 180);
 
   const [positions, initialOffsets] = useMemo(() => {
@@ -52,7 +53,7 @@ export const OceanAtmosphereParticles3D: React.FC<{ isMobile?: boolean; particle
     for (let i = 0; i < count; i++) {
       const idx = i * 3;
       const x = (Math.random() - 0.5) * 120;
-      const y = 1.5 + Math.random() * 22;
+      const y = 1.5 + Math.random() * 8;
       const z = (Math.random() - 0.5) * 120;
       pos[idx] = x;
       pos[idx + 1] = y;
@@ -72,6 +73,11 @@ export const OceanAtmosphereParticles3D: React.FC<{ isMobile?: boolean; particle
     pointsRef.current.position.x = state.camera.position.x;
     pointsRef.current.position.z = state.camera.position.z;
 
+    delta = Math.min(delta, 0.1);
+    const oldCamera = previousCamera.current ?? state.camera.position;
+    const cameraDX = state.camera.position.x - oldCamera.x;
+    const cameraDZ = state.camera.position.z - oldCamera.z;
+    previousCamera.current = {x:state.camera.position.x,z:state.camera.position.z};
     const geo = pointsRef.current.geometry;
     const posAttr = geo.attributes.position as THREE.BufferAttribute;
     const arr = posAttr.array as Float32Array;
@@ -87,15 +93,13 @@ export const OceanAtmosphereParticles3D: React.FC<{ isMobile?: boolean; particle
       const idx = i * 3;
       const speed = speedMult * initialOffsets[idx + 2];
       // Physical wind drift
-      arr[idx] += blowX * speed * delta;
+      arr[idx] += blowX * speed * delta - cameraDX;
       arr[idx + 1] += Math.sin(state.clock.elapsedTime + initialOffsets[idx]) * delta * 1.0;
-      arr[idx + 2] += blowZ * speed * delta;
+      arr[idx + 2] += blowZ * speed * delta - cameraDZ;
 
       // Wrap boundaries around camera
-      if (arr[idx] > 60) arr[idx] -= 120;
-      if (arr[idx] < -60) arr[idx] += 120;
-      if (arr[idx + 2] > 60) arr[idx + 2] -= 120;
-      if (arr[idx + 2] < -60) arr[idx + 2] += 120;
+      arr[idx] = ((arr[idx] + 60) % 120 + 120) % 120 - 60;
+      arr[idx + 2] = ((arr[idx + 2] + 60) % 120 + 120) % 120 - 60;
     }
     posAttr.needsUpdate = true;
   });
@@ -109,6 +113,7 @@ export const OceanAtmosphereParticles3D: React.FC<{ isMobile?: boolean; particle
         <bufferAttribute
           attach="attributes-position"
           args={[positions, 3]}
+          usage={THREE.DynamicDrawUsage}
         />
       </bufferGeometry>
       <pointsMaterial
@@ -117,8 +122,8 @@ export const OceanAtmosphereParticles3D: React.FC<{ isMobile?: boolean; particle
         transparent
         opacity={isNight ? 0.55 : 0.42}
         depthWrite={false}
-        blending={THREE.AdditiveBlending}
-        color={isNight ? '#67e8f9' : '#fffbeb'}
+        blending={THREE.NormalBlending}
+        color={isNight ? '#657c89' : '#d0dbd5'}
         fog={true}
       />
     </points>
