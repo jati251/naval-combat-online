@@ -82,8 +82,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size: request
       ${GERSTNER_WAVES.map(w => makeWaveGLSL(...w.direction, w.steepness, w.wavelength, w.speed)).join(',\n')});`;
   }, []);
 
-  const shaderMaterial = useMemo(() => {
-    const fogDensity = profile
+  const fogDensity = profile
       ? (isNight ? profile.fogDensityNight : profile.fogDensityDay)
       : (isMobile ? (isNight ? 0.0015 : 0.0013) : (isNight ? 0.0011 : 0.0010));
 
@@ -91,6 +90,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size: request
     const maxCapDist = profile?.waterShader.capillaryDist ?? (qualityTier === 'fast' ? 70.0 : qualityTier === 'performance' ? 320.0 : 200.0);
     const maxSSSDist = profile?.waterShader.sssDist ?? (qualityTier === 'fast' ? 60.0 : qualityTier === 'performance' ? 320.0 : 220.0);
     const maxFoamDist = profile?.waterShader.foamDist ?? (qualityTier === 'fast' ? 70.0 : qualityTier === 'performance' ? 280.0 : 180.0);
+  const shaderMaterial = useMemo(() => {
     const wakesEnabled = 0; // Persistent world-space wake patches are rendered by each vessel.
 
     return new THREE.ShaderMaterial({
@@ -135,7 +135,8 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size: request
       transparent: false,
       wireframe: false,
     });
-  }, [isNight, isMobile, activeMap, coastalTexture, coastalField, waveShaderChunk, qualityTier, profile]);
+  }, [isNight, activeMap, coastalTexture, coastalField, waveShaderChunk, qualityTier,
+    fogDensity, horizonCutoff, maxCapDist, maxSSSDist, maxFoamDist]);
 
   useEffect(() => () => shaderMaterial.dispose(), [shaderMaterial]);
   useEffect(() => () => geometry.dispose(), [geometry]);

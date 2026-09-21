@@ -16,6 +16,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useBattleCamera } from "../../hooks/useBattleCamera";
 import { useMobileViewport } from "@/hooks/useMobileViewport";
 import { AdaptiveResolution } from "./rendering/AdaptiveResolution";
+import { FrameTiming } from "./rendering/FrameTiming";
 import { NavigationBuoys3D } from "./props/NavigationBuoys3D";
 import { NavalPostProcessing } from "./rendering/NavalPostProcessing";
 import { setFrameId } from "../../utils/frustumCuller";
@@ -118,6 +119,7 @@ export const NavalCanvas: React.FC = React.memo(() => {
         }}
       >
         <FrustumFrameSync />
+        {new URLSearchParams(window.location.search).has('perf') && <FrameTiming />}
         <AdaptiveResolution isMobile={activeIsMobile} dprRange={profile.dpr} />
         <color attach="background" args={[skyClearColor]} />
         <Environment3D isMobile={activeIsMobile} profile={profile} />

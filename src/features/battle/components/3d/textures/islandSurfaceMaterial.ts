@@ -4,7 +4,7 @@ import { getWeatherNoise } from './oceanTextures';
 /** Height and slope blending keeps the beach attached to the actual terrain. */
 export function islandSurfaceMaterial() {
   const detail = getWeatherNoise();
-  const material = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.92, bumpMap: detail, bumpScale: 0.045 });
+  const material = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.92, bumpMap: detail, bumpScale: 0.16 });
   material.onBeforeCompile = shader => {
     shader.uniforms.groundDetail = { value: detail };
     shader.vertexShader = 'varying vec3 groundPosition; varying vec3 groundNormal;\n' + shader.vertexShader;
@@ -39,7 +39,7 @@ export function islandSurfaceMaterial() {
       beach *= 0.86 + grain * 0.20 + fine * 0.08;
       diffuseColor.rgb *= mix(land * (0.8 + fine * 0.3), beach, sand * (1.0 - cliff * 0.6));
     `);
-    shader.fragmentShader = shader.fragmentShader.replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(0.94, 0.68, wet * sand);');
+    shader.fragmentShader = shader.fragmentShader.replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(0.88 + fine * 0.10, 0.30 + grain * 0.12, wet * sand);');
     shader.fragmentShader = shader.fragmentShader.replace('#include <bumpmap_pars_fragment>', THREE.ShaderChunk.bumpmap_pars_fragment
       .replace('texture2D( bumpMap, vBumpMapUv ).x', 'groundHeight(groundPosition)')
       .replace('texture2D( bumpMap, vBumpMapUv + dSTdx ).x', 'groundHeight(groundPosition + dFdx(groundPosition))')

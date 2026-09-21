@@ -141,10 +141,10 @@ export const getOceanFragmentShader = (waveShaderChunk: string) => `
         vec3 surfaceNormal(vec2 worldXZ) {
           vec3 tangent = vec3(1.0, 0.0, 0.0);
           vec3 binormal = vec3(0.0, 0.0, 1.0);
+          float seaScale = 1.0 + stormAt(worldXZ) * 1.8;
           for (int i = 0; i < NUM_WAVES; i++) {
             Wave w = waves[i];
             float phase = w.k * (dot(w.dir, worldXZ) - w.speed * uTime);
-            float seaScale = 1.0 + stormAt(worldXZ) * 1.8;
             float s = w.steepness * seaScale * sin(phase);
             float c = w.steepness * seaScale * cos(phase);
             tangent += vec3(-w.dir.x * w.dir.x * s, w.dir.x * c, -w.dir.x * w.dir.y * s);
@@ -185,7 +185,7 @@ export const getOceanFragmentShader = (waveShaderChunk: string) => `
           }
           float waveWeight = shoreWaveWeight(seabed);
           vec3 baseNormal = normalize(vNormal);
-          if (camDist < uMaxCapDist) {
+          if (uQualityTier > 0.5 && camDist < uMaxCapDist) {
             vec3 detailedNormal = normalize(mix(vec3(0.0, 1.0, 0.0), surfaceNormal(vSurfaceXZ), waveWeight));
             baseNormal = normalize(mix(detailedNormal, baseNormal, smoothstep(uMaxCapDist * 0.6, uMaxCapDist, camDist)));
           }
@@ -229,7 +229,7 @@ export const getOceanFragmentShader = (waveShaderChunk: string) => `
           }
 
           // 5. Physical Fresnel & Sky Reflection
-          float NdotV = max(dot(viewDir, normal), 0.0);
+          float NdotV = max(dot(viewDir, normal), 0.001);
           float fresnel = 0.02 + 0.98 * pow(1.0 - NdotV, 5.0);
           vec3 reflectionDir = reflect(-viewDir, normal);
           vec3 skyReflection = atmosphereColor(reflectionDir, uSkyHorizonColor, uSunColor, lightDir, uIsNight, uTime, vWorldPosition.xz, false);
@@ -237,13 +237,20 @@ export const getOceanFragmentShader = (waveShaderChunk: string) => `
 
           vec3 baseShaded = mix(waterColor + sss * 0.45, skyReflection, fresnel);
 
-          // Stable, distance-broadened highlights avoid animated hash glitter.
+          // Normal variance broadens unresolved highlights instead of letting them shimmer.
           vec3 halfVector = normalize(lightDir + viewDir);
           float NdotH = max(dot(normal, halfVector), 0.0);
           float roughPatch = texture2D(uWaterDetail, vWorldPosition.xz * 0.009 + uWind * uTime * 0.001).a;
-          float exponent = mix(240.0, 85.0, roughPatch) * mix(1.0, 0.35, smoothstep(25.0, 250.0, camDist));
+          vec3 normalDx = dFdx(normal), normalDy = dFdy(normal);
+          float variance = min(0.12, dot(normalDx, normalDx) + dot(normalDy, normalDy));
+          float alphaSquared = clamp(pow(mix(0.17, 0.29, roughPatch), 4.0) + variance * 0.35, 0.001, 0.15);
+          float denominator = NdotH * NdotH * (alphaSquared - 1.0) + 1.0;
+          float distribution = alphaSquared / (3.14159265 * denominator * denominator);
+          float NdotL = max(dot(normal, lightDir), 0.0);
+          float visibilityV = NdotL * sqrt(NdotV * NdotV * (1.0 - alphaSquared) + alphaSquared);
+          float visibilityL = NdotV * sqrt(NdotL * NdotL * (1.0 - alphaSquared) + alphaSquared);
           float sunFresnel = 0.02 + 0.98 * pow(1.0 - max(dot(viewDir, halfVector), 0.0), 5.0);
-          float specIntensity = pow(NdotH, exponent) * (exponent + 2.0) * 0.125 * sunFresnel;
+          float specIntensity = distribution * (0.5 / max(visibilityV + visibilityL, 0.001)) * sunFresnel * NdotL;
           baseShaded += uSunColor * specIntensity * (uIsNight > 0.5 ? 0.35 : 1.0) * (1.0 - uStorm * 0.95);
 
 

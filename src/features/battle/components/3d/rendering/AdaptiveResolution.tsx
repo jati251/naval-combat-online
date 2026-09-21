@@ -1,25 +1,24 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 
-/**
- * Intelligent Adaptive Resolution Controller
- * - Protects high-DPI desktop displays (Retina Macs) from unwarranted blur/downscaling.
- * - Enforces warm-up period (6s) so shader compilation and asset streaming don't trigger downscaling.
- * - Requires sustained low performance (3 consecutive windows of FPS < 42) before stepping down.
- * - Rate-limits canvas backbuffer resizes to once every 12 seconds to prevent GPU buffer reallocation stalls.
- * - Smoothly recovers toward native DPR when FPS is healthy (>= 56 FPS).
- */
+/** Lower resolution on sustained frame pressure; recover slowly to avoid resize oscillation. */
 export function AdaptiveResolution({ isMobile, dprRange }: { isMobile?: boolean; dprRange?: [number, number] }) {
   const setDpr = useThree((state) => state.setDpr);
 
   const stateRef = useRef({
     seconds: 0,
     frames: 0,
-    warmup: 10.0, // 6s initial warm-up
+    warmup: 6.0,
     cooldown: 0, // Cooldown timer between canvas resizes
     lowFpsStreak: 0,
     highFpsStreak: 0,
   });
+  const lowerDpr = dprRange?.[0];
+  const upperDpr = dprRange?.[1];
+  useEffect(() => {
+    Object.assign(stateRef.current, { seconds: 0, frames: 0, warmup: 6,
+      cooldown: 0, lowFpsStreak: 0, highFpsStreak: 0 });
+  }, [lowerDpr, upperDpr, isMobile]);
 
   useFrame(({ viewport }, delta) => {
     const s = stateRef.current;
@@ -56,14 +55,15 @@ export function AdaptiveResolution({ isMobile, dprRange }: { isMobile?: boolean;
 
     const nativePixelRatio = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
     const maximum = dprRange ? Math.min(nativePixelRatio, dprRange[1]) : Math.min(nativePixelRatio, isMobile ? 1.5 : 2.0);
-    const minimum = Math.min(maximum, dprRange?.[0] ?? (isMobile ? 1.0 : 1.25));
+    // A resolution cap can collapse the profile range. Reserve actual room to adapt.
+    const minimum = Math.min(maximum, Math.max(0.7, Math.min(dprRange?.[0] ?? 1, maximum * 0.75)));
 
     const currentDpr = viewport.dpr;
 
-    if (fps < 32) {
+    if (fps < 52) {
       s.lowFpsStreak++;
       s.highFpsStreak = 0;
-    } else if (fps >= 56) {
+    } else if (fps >= 59) {
       s.highFpsStreak++;
       s.lowFpsStreak = 0;
     } else {
@@ -71,22 +71,20 @@ export function AdaptiveResolution({ isMobile, dprRange }: { isMobile?: boolean;
       s.highFpsStreak = 0;
     }
 
-    // Downscale only after 3 consecutive low-FPS windows (6s of sustained < 42 FPS)
-    // Prevents transient frame dips from thrashing the canvas backbuffer and postprocessing render targets
-    if (s.lowFpsStreak >= 3 && currentDpr > minimum) {
-      const nextDpr = Math.max(minimum, Math.round((currentDpr - 0.25) * 100) / 100);
+    // Two windows ignore isolated compilation stalls while responding to sustained GPU load.
+    if (s.lowFpsStreak >= 2 && currentDpr > minimum) {
+      const nextDpr = Math.max(minimum, Math.round((currentDpr - 0.125) * 100) / 100);
       if (Math.abs(nextDpr - currentDpr) > 0.05) {
         setDpr(nextDpr);
         s.cooldown = 12.0; // Wait 12s before allowing another resize
         s.lowFpsStreak = 0;
       }
     }
-    // Recover towards target DPR if running smoothly (4 consecutive windows >= 56 FPS)
-    else if (s.highFpsStreak >= 4 && currentDpr < maximum) {
-      const nextDpr = Math.min(maximum, Math.round((currentDpr + 0.25) * 100) / 100);
+    else if (s.highFpsStreak >= 6 && currentDpr < maximum) {
+      const nextDpr = Math.min(maximum, Math.round((currentDpr + 0.125) * 100) / 100);
       if (Math.abs(nextDpr - currentDpr) > 0.05) {
         setDpr(nextDpr);
-        s.cooldown = 12.0;
+        s.cooldown = 20.0;
         s.highFpsStreak = 0;
       }
     }

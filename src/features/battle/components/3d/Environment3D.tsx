@@ -9,6 +9,7 @@ import { weatherUniformsGLSL, atmosphereFunctionsGLSL } from './atmosphereShader
 import { getLightning, getLocalStorm } from '../../utils/weather';
 import { getOceanTime } from '../../utils/oceanTime';
 import { StormWeather3D } from './StormWeather3D';
+import { SkyLighting } from './rendering/SkyLighting';
 
 export const FOG_COLOR = '#acbdc4';
 export const NIGHT_FOG_COLOR = '#253847';
@@ -106,16 +107,17 @@ export const Environment3D: React.FC<{ isMobile?: boolean; profile?: GraphicProf
     fog.color.copy(baseFog).lerp(stormFog, blend);
     // Cull only after haze conceals distant geometry; storm visibility closes gradually.
     fog.density = THREE.MathUtils.lerp(2.4 / viewDistance, 0.014, blend);
-    if (ambient.current) ambient.current.intensity = (isNight ? 0.2 : 0.32) * (1 - blend * 0.35);
-    if (hemisphere.current) hemisphere.current.intensity = (isNight ? 0.55 : 1.35) * (1 - blend * 0.55) + material.uniforms.uLightning.value * 0.45;
+    if (ambient.current) ambient.current.intensity = (isNight ? 0.12 : 0.10) * (1 - blend * 0.35);
+    if (hemisphere.current) hemisphere.current.intensity = (isNight ? 0.48 : mobile ? 1.1 : 0.55) * (1 - blend * 0.55) + material.uniforms.uLightning.value * 0.65;
   }, -20);
 
   return <>
+    <SkyLighting isNight={isNight} enabled={!mobile} />
     <primitive attach="fog" object={fog} />
     <mesh material={material} renderOrder={-1000} frustumCulled={false}>
       <sphereGeometry args={[1, 32, 16]} />
     </mesh>
-    <SceneSunLight intensity={isNight ? 0.65 : 2.4} color={isNight ? '#a8c6dd' : '#fff2d5'} shadows={profile?.shadows ?? !mobile} shadowMapSize={profile?.shadowMapSize ?? 1024} />
+    <SceneSunLight intensity={isNight ? 0.85 : 3.1} color={isNight ? '#a8c6dd' : '#fff2d5'} shadows={profile?.shadows ?? !mobile} shadowMapSize={profile?.shadowMapSize ?? 1024} />
     <ambientLight ref={ambient} color={isNight ? '#6c879c' : '#d0d8db'} intensity={0.32} />
     <hemisphereLight ref={hemisphere} args={[isNight ? '#657d92' : '#bdccd1', '#343b35', 1.35]} />
     <StormWeather3D isMobile={mobile} />
