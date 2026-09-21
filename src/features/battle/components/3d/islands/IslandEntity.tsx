@@ -46,8 +46,10 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
     if (dist - boundsRadius >= hiddenDistance) return;
 
     // 3. Tree Canopy Foliage Staging (Visible across entire battle sea, smooth vertical emergence at far horizon)
-    const treeFar = (isMobile ? 400 : 780) + islandRadius * 0.6;
-    const treeNear = (isMobile ? 260 : 520) + islandRadius * 0.6;
+    const treeFarBase = quality === 'performance' ? 1120 : quality === 'balanced' ? 780 : 400;
+    const treeNearBase = quality === 'performance' ? 700 : quality === 'balanced' ? 520 : 260;
+    const treeFar = treeFarBase + islandRadius * 0.6;
+    const treeNear = treeNearBase + islandRadius * 0.6;
     if (treesRef.current) {
       const isVisible = dist < treeFar;
       if (treesRef.current.visible !== isVisible) treesRef.current.visible = isVisible;
@@ -62,8 +64,10 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
     }
 
     // 4. Coastal Boulders, Rocks & Undergrowth Bushes Staging
-    const detailFar = (isMobile ? 180 : 420) + islandRadius * 0.4;
-    const detailNear = (isMobile ? 110 : 260) + islandRadius * 0.4;
+    const detailFarBase = quality === 'performance' ? 620 : quality === 'balanced' ? 420 : 180;
+    const detailNearBase = quality === 'performance' ? 360 : quality === 'balanced' ? 260 : 110;
+    const detailFar = detailFarBase + islandRadius * 0.4;
+    const detailNear = detailNearBase + islandRadius * 0.4;
     if (detailRef.current) {
       const isVisible = dist < detailFar;
       if (detailRef.current.visible !== isVisible) detailRef.current.visible = isVisible;

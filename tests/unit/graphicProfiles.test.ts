@@ -25,12 +25,12 @@ test('graphic profiles define fast, balanced, and performance modes correctly', 
 
   // Performance (Ultra photorealism)
   assert.equal(performance.shadows, true);
-  assert.equal(performance.shadowMapSize, 1024);
-  assert.equal(performance.waveCount, 6);
-  assert.equal(performance.waterSegments, 140);
-  assert.equal(performance.atmosphereParticles, 180);
+  assert.equal(performance.shadowMapSize, 2048);
+  assert.equal(performance.waveCount, 8);
+  assert.equal(performance.waterSegments, 220);
+  assert.equal(performance.atmosphereParticles, 260);
   assert.equal(performance.waterShader.glitterEnabled, true);
-  assert.equal(performance.waterShader.capillaryHarmonics, 5);
+  assert.equal(performance.waterShader.capillaryHarmonics, 7);
 });
 
 test('useSettingsStore updates graphicQuality and modal state', () => {
