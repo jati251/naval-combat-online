@@ -53,7 +53,7 @@ if (import.meta.hot) import.meta.hot.dispose(() => root.unmount());
 root.render(<>
   <Canvas camera={{position:camera,fov:48,near:0.2,far:1800}} gl={{toneMapping:THREE.NoToneMapping}} dpr={1} shadows={profile.shadows}>
     <Environment3D profile={profile} />
-    <Islands3D isMobile={profile.id==='fast'} />
+    <Islands3D isMobile={profile.id==='fast'} profile={profile} />
     <OceanWater profile={profile} />
     <OrbitControls target={target} />
     {params.has('motion') && <CameraMotion />}

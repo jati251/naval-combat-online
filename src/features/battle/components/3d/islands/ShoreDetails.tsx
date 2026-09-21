@@ -19,13 +19,14 @@ grassParts.forEach(g => g.dispose());
 const wood = new THREE.MeshStandardMaterial({color:'#8b806a',roughness:0.97});
 const blades = new THREE.MeshStandardMaterial({color:'#777546',roughness:0.95,side:THREE.DoubleSide});
 
-export const ShoreDetails = memo(function ShoreDetails({island,isMobile}: {island:IslandDefinition;isMobile:boolean}) {
+export const ShoreDetails = memo(function ShoreDetails({island,isMobile,quality='balanced'}: {island:IslandDefinition;isMobile:boolean;quality?:'fast'|'balanced'|'performance'}) {
   const placements = useMemo(() => {
     const logs: InstanceTransform[] = [], tufts: InstanceTransform[] = [];
     const sx = island.elongation?.scaleX ?? 1, sz = island.elongation?.scaleZ ?? 1;
     let seed = island.seed + 1729;
     const random = () => { seed = (Math.imul(seed,1664525)+1013904223)>>>0; return seed/4294967296; };
-    for(let i=0;i<(isMobile?160:360);i++) {
+    const budget = quality === 'fast' ? 100 : quality === 'performance' ? 520 : 300;
+    for(let i=0;i<budget;i++) {
       const a=random()*Math.PI*2, r=island.sandRadius*(0.65+random()*0.55);
       const x=Math.cos(a)*r*sx,z=Math.sin(a)*r*sz,y=getTerrainSurfaceY(island,x,z);
       if(y<0.55 || y>3.1) continue;
@@ -37,7 +38,7 @@ export const ShoreDetails = memo(function ShoreDetails({island,isMobile}: {islan
       else if(y>1.35) tufts.push({position:[x,y-0.02,z],rotation,scale:[1,0.7+random()*0.7,1]});
     }
     return {logs,tufts};
-  },[island,isMobile]);
+  },[island,isMobile,quality]);
   return <>
     <StaticInstances geometry={log} material={wood} instances={placements.logs} castShadow={!isMobile} />
     <StaticInstances geometry={grass} material={blades} instances={placements.tufts} />

@@ -19,8 +19,8 @@ import { palmTrunkGeometry, palmCrownGeometry, palmTrunkMaterial, palmCrownMater
  * Combines authored landmark groves with dense procedural rainforest canopy
  * and optimized small sprite bushes batched into instanced draw calls.
  */
-export const IslandFoliage = memo(function IslandFoliage({ island, isMobile }: {
-  island: IslandDefinition; isMobile: boolean;
+export const IslandFoliage = memo(function IslandFoliage({ island, isMobile, quality = 'balanced' }: {
+  island: IslandDefinition; isMobile: boolean; quality?: 'fast' | 'balanced' | 'performance';
 }) {
   const nearPalms = useRef<Group>(null);
   const farPalms = useRef<Group>(null);
@@ -119,7 +119,7 @@ export const IslandFoliage = memo(function IslandFoliage({ island, isMobile }: {
     const isSeaArch = island.settlement?.type === 'sea-arch';
 
     if (!isSeaArch) {
-      const step = isMobile ? 6.8 : 5.0;
+      const step = quality === 'fast' ? 7.4 : quality === 'performance' ? 4.2 : 5.2;
       const maxBoundX = islandRadius * scaleX * 0.88;
       const maxBoundZ = islandRadius * scaleZ * 0.88;
 
@@ -160,7 +160,7 @@ export const IslandFoliage = memo(function IslandFoliage({ island, isMobile }: {
             cross(jungle, jx, y, jz, treeScale, angle, isMobile ? 3 : 4);
             // Dense undergrowth small bush cluster at trunk base
             cross(smallBushes, jx + (rnd() - 0.5) * 1.8, y - 0.05, jz + (rnd() - 0.5) * 1.8, 0.75 + rnd() * 0.35, angle + 1.1, 2);
-            if (!isMobile && rnd() > 0.4) {
+            if (quality === 'performance' && rnd() > 0.4) {
               cross(smallBushes, jx + (rnd() - 0.5) * 2.4, y - 0.05, jz + (rnd() - 0.5) * 2.4, 0.65 + rnd() * 0.35, angle + 2.4, 2);
             }
           } else {
@@ -176,10 +176,10 @@ export const IslandFoliage = memo(function IslandFoliage({ island, isMobile }: {
       }
 
       // 5. Standalone Small Sprite Bush Carpet across hillside ledges and clearings
-      const bushStep = isMobile ? 5.2 : 3.6;
+      const bushStep = quality === 'fast' ? 6.4 : quality === 'performance' ? 3.0 : 4.2;
       for (let bx = -maxBoundX * 0.95; bx <= maxBoundX * 0.95; bx += bushStep) {
         for (let bz = -maxBoundZ * 0.95; bz <= maxBoundZ * 0.95; bz += bushStep) {
-          if (rnd() > (isMobile ? 0.42 : 0.62)) continue;
+          if (rnd() > (quality === 'fast' ? 0.42 : quality === 'performance' ? 0.70 : 0.58)) continue;
           const jx = bx + (rnd() - 0.5) * (bushStep * 0.9);
           const jz = bz + (rnd() - 0.5) * (bushStep * 0.9);
           const nx = jx / (islandRadius * scaleX);
@@ -205,7 +205,7 @@ export const IslandFoliage = memo(function IslandFoliage({ island, isMobile }: {
     }
 
     return { palms, solidPalms, solidJungle, jungle, bushes, smallBushes };
-  }, [island, isMobile]);
+  }, [island, isMobile, quality]);
 
   useFrame(({ camera }) => {
     if (!nearPalms.current || !farPalms.current) return;

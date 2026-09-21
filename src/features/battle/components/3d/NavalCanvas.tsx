@@ -122,7 +122,7 @@ export const NavalCanvas: React.FC = React.memo(() => {
         <color attach="background" args={[skyClearColor]} />
         <Environment3D isMobile={activeIsMobile} profile={profile} />
         <OceanWater isMobile={activeIsMobile} profile={profile} />
-        <Islands3D isMobile={activeIsMobile} />
+        <Islands3D isMobile={activeIsMobile} profile={profile} />
         <Shipwrecks3D isMobile={activeIsMobile} />
         <NavigationBuoys3D isMobile={activeIsMobile} />
         <JumpingFish3D />

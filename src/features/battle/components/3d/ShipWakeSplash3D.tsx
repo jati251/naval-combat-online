@@ -39,7 +39,7 @@ export const ShipWakeSplash3D = memo(function ShipWakeSplash3D({shipId,shipLengt
         world.y=wave(p).y+0.085;gl_Position=projectionMatrix*viewMatrix*world;}`,
     fragmentShader:`uniform sampler2D uDetail;uniform vec3 uTint; varying float vAlpha;varying vec2 vUv;
       void main(){vec2 p=vUv*2.0-1.0;float edge=1.0-smoothstep(0.35,1.0,dot(p,p));
-        float lace=texture2D(uDetail,vUv*0.43).b;float alpha=edge*vAlpha*(0.2+lace*0.8);
+        float lace=texture2D(uDetail,vUv*0.43).b;float alpha=edge*vAlpha*0.32*(0.38+lace*0.62);
         if(alpha<0.005)discard;gl_FragColor=vec4(uTint,alpha);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -72,7 +72,7 @@ export const ShipWakeSplash3D = memo(function ShipWakeSplash3D({shipId,shipLengt
       const side=(Math.random()-0.5)*shipWidth*0.45;
       p.x=THREE.MathUtils.lerp(old.x,x,t)-Math.sin(heading)*shipLength*0.48+Math.cos(heading)*side;
       p.z=THREE.MathUtils.lerp(old.z,z,t)-Math.cos(heading)*shipLength*0.48-Math.sin(heading)*side;
-      p.heading=heading+(Math.random()-0.5)*0.5;p.age=0;p.lifetime=3.5+Math.random()*1.5;p.width=shipWidth*(0.22+Math.random()*0.18);
+      p.heading=heading+(Math.random()-0.5)*0.5;p.age=0;p.lifetime=2.8+Math.random()*1.0;p.width=shipWidth*(0.12+Math.random()*0.10);
     }
     previous.current={x,z};
     const alpha=geometry.attributes.wakeAlpha as THREE.InstancedBufferAttribute;
@@ -81,9 +81,9 @@ export const ShipWakeSplash3D = memo(function ShipWakeSplash3D({shipId,shipLengt
       p.age+=delta;if(p.age>=p.lifetime)continue;
       const life=p.age/p.lifetime;
       transform.position.set(p.x,0,p.z);transform.rotation.set(0,p.heading,0);
-      transform.scale.set(p.width*(1+life*1.8),1,p.width*(1.5+life));transform.updateMatrix();
+      transform.scale.set(p.width*(1+life*0.9),1,p.width*(1.1+life*0.8));transform.updateMatrix();
       mesh.current.setMatrixAt(active,transform.matrix);
-      alpha.setX(active,Math.min(1,p.age/0.18)*(1-life)*(1-life)*0.62);active++;
+      alpha.setX(active,Math.min(1,p.age/0.18)*(1-life)*(1-life)*0.42);active++;
     }
     mesh.current.count=active;mesh.current.instanceMatrix.needsUpdate=true;
     alpha.clearUpdateRanges();if(active)alpha.addUpdateRange(0,active);alpha.needsUpdate=true;

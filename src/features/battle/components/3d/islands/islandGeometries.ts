@@ -74,13 +74,9 @@ function surface(island: IslandDefinition, x: number, z: number): number {
     const ridge = ridgeNoise * ridgeNoise;
     const ravine = Math.pow(1 - Math.abs(noise(nx * 3.2 - seed, nz * 6.5 + seed)), 7);
     const land = envelope * smooth(2, 8, y) * (type === 'volcanic' ? smooth(0.2, 0.4, Math.hypot(rawX + 0.13, rawZ - 0.08)) : 1);
-    y += (ridge * 0.20 - ravine * 0.16 - 0.035) * height * land;
-    // Narrow transitions between geological shelves, instead of a uniformly rounded dome.
-    const ledgeHeight = type === 'sea-stack' ? 4.2 : 3.1;
-    const band = y / ledgeHeight;
-    const ledge = (Math.floor(band) + smooth(0.3, 0.55, band - Math.floor(band))) * ledgeHeight;
-    const exposure = smooth(0.25, 0.65, noise(nx * 3 + seed, nz * 3 - seed));
-    y = THREE.MathUtils.lerp(y, ledge, exposure * land * 0.7);
+    // Erosion cuts broad gullies into the main forms. Keep the relief proportional to
+    // the island height so it reads as geology instead of a quantized staircase.
+    y += (ridge * 0.14 - ravine * 0.10 - 0.02) * height * land;
   }
 
   const s = island.settlement;

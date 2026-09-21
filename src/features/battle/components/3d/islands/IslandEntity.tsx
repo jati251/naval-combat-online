@@ -19,9 +19,10 @@ interface IslandEntityProps {
   island: IslandDefinition;
   materials: IslandMaterials;
   isMobile?: boolean;
+  quality?: 'fast' | 'balanced' | 'performance';
 }
 
-export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, materials, isMobile = false }) => {
+export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, materials, isMobile = false, quality = 'balanced' }) => {
   const rootRef = useRef<THREE.Group>(null);
   const treesRef = useRef<THREE.Group>(null);
   const detailRef = useRef<THREE.Group>(null);
@@ -103,14 +104,14 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
       {!isSeaArch && (
         <group ref={detailRef}>
           <IslandRocks island={island} isMobile={isMobile} />
-          <ShoreDetails island={island} isMobile={isMobile} />
+          <ShoreDetails island={island} isMobile={isMobile} quality={quality} />
         </group>
       )}
 
       {/* Scattered Coconut Palms & Jungle Canopy Trees - Skipped for sea-arch */}
       {!isSeaArch && (
         <group ref={treesRef}>
-          <IslandFoliage island={island} isMobile={isMobile} />
+          <IslandFoliage island={island} isMobile={isMobile} quality={quality} />
         </group>
       )}
 
