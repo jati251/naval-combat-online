@@ -26,6 +26,15 @@ export class CombatSystem {
     const numWaves = count <= 3 ? 1 : count <= 6 ? 2 : count <= 10 ? 3 : 4;
     const waveDelayMs = 60;
 
+    // Broadcast CANNON_FIRED once per broadside salvo with total cannon count (cuts websocket traffic by 75%)
+    room.broadcastToRoom({
+      type: 'CANNON_FIRED',
+      ownerId: ship.id,
+      side,
+      origin: [ship.x, ship.y + 1.8, ship.z],
+      count,
+    });
+
     for (let wave = 0; wave < numWaves; wave++) {
       const startIndex = Math.floor((wave * count) / numWaves) + 1;
       const endIndex = Math.floor(((wave + 1) * count) / numWaves);
@@ -61,14 +70,6 @@ export class CombatSystem {
             maxLife: 3.5,
           });
         }
-
-        room.broadcastToRoom({
-          type: 'CANNON_FIRED',
-          ownerId: ship.id,
-          side,
-          origin: [ship.x, ship.y + 1.8, ship.z],
-          count: endIndex - startIndex + 1,
-        });
       };
 
       if (wave === 0) {

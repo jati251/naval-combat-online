@@ -20,10 +20,16 @@ export class GameLoop {
       const serverTime = (now - room.getStartTime()) / 1000;
 
       if (simulatedSteps === 1) {
+        let botIndex = 0;
+        const tickMod = room.tickSeq % 3;
         for (const ship of room.ships.values()) {
           const player = room.players.get(ship.id);
           if (player?.isBot && !ship.isSunk) {
-            BotAI.update(ship, room);
+            // Stagger bot updates at 10Hz (every 3rd tick per bot, dividing CPU evenly)
+            if (botIndex % 3 === tickMod) {
+              BotAI.update(ship, room);
+            }
+            botIndex++;
           }
         }
       }
@@ -52,14 +58,37 @@ export class GameLoop {
         (ball, hitShip) => {
           hitShip.health = Math.max(0, hitShip.health - ball.damage);
 
-          room.broadcastToRoom({
-            type: 'HIT_EVENT',
-            targetId: hitShip.id,
-            attackerId: ball.ownerId,
-            damage: ball.damage,
-            hitPos: [Math.round(ball.x * 100) / 100, Math.round(ball.y * 100) / 100, Math.round(ball.z * 100) / 100],
-            remainingHp: Math.round(hitShip.health * 10) / 10,
-          });
+          // Distance cull HIT_EVENT: omit distant bot-on-bot hits (> 180m from all human players)
+          const isHumanInvolved = Boolean(
+            !room.players.get(hitShip.id)?.isBot ||
+            !room.players.get(ball.ownerId)?.isBot
+          );
+
+          let isNearHuman = isHumanInvolved;
+          if (!isNearHuman) {
+            for (const otherShip of room.ships.values()) {
+              const otherPlayer = room.players.get(otherShip.id);
+              if (otherPlayer && !otherPlayer.isBot && !otherShip.isSunk) {
+                const dx = otherShip.x - hitShip.x;
+                const dz = otherShip.z - hitShip.z;
+                if (dx * dx + dz * dz <= 32400) { // 180m * 180m
+                  isNearHuman = true;
+                  break;
+                }
+              }
+            }
+          }
+
+          if (isNearHuman) {
+            room.broadcastToRoom({
+              type: 'HIT_EVENT',
+              targetId: hitShip.id,
+              attackerId: ball.ownerId,
+              damage: ball.damage,
+              hitPos: [Math.round(ball.x * 100) / 100, Math.round(ball.y * 100) / 100, Math.round(ball.z * 100) / 100],
+              remainingHp: Math.round(hitShip.health * 10) / 10,
+            });
+          }
 
           if (hitShip.health <= 0 && !hitShip.isSunk) {
             hitShip.isSunk = true;

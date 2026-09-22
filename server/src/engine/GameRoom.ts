@@ -591,19 +591,60 @@ export class GameRoom {
       });
     }
 
+    const humanPositions: Array<{ x: number; z: number }> = [];
+    for (const ship of this.ships.values()) {
+      const player = this.players.get(ship.id);
+      if (player && !player.isBot && !ship.isSunk) {
+        humanPositions.push({ x: ship.x, z: ship.z });
+      }
+    }
+
     const cannonballsPayload: Array<{ id: string; ownerId: string; x: number; y: number; z: number; vx: number; vy: number; vz: number }> = [];
-    for (let i = 0; i < this.cannonballs.length; i++) {
-      const b = this.cannonballs[i];
-      cannonballsPayload.push({
-        id: b.id,
-        ownerId: b.ownerId,
-        x: Math.round(b.x * 100) / 100,
-        y: Math.round(b.y * 100) / 100,
-        z: Math.round(b.z * 100) / 100,
-        vx: Math.round(b.vx * 100) / 100,
-        vy: Math.round(b.vy * 100) / 100,
-        vz: Math.round(b.vz * 100) / 100,
-      });
+    const maxSnapshotBalls = 45;
+    const maxVisualDistSq = 240 * 240; // 240m combat/visual horizon
+
+    if (humanPositions.length > 0) {
+      for (let i = 0; i < this.cannonballs.length; i++) {
+        const b = this.cannonballs[i];
+        let isVisible = false;
+        for (let j = 0; j < humanPositions.length; j++) {
+          const hp = humanPositions[j];
+          const dx = b.x - hp.x;
+          const dz = b.z - hp.z;
+          if (dx * dx + dz * dz <= maxVisualDistSq) {
+            isVisible = true;
+            break;
+          }
+        }
+        if (isVisible) {
+          cannonballsPayload.push({
+            id: b.id,
+            ownerId: b.ownerId,
+            x: Math.round(b.x * 10) / 10,
+            y: Math.round(b.y * 10) / 10,
+            z: Math.round(b.z * 10) / 10,
+            vx: Math.round(b.vx * 10) / 10,
+            vy: Math.round(b.vy * 10) / 10,
+            vz: Math.round(b.vz * 10) / 10,
+          });
+          if (cannonballsPayload.length >= maxSnapshotBalls) break;
+        }
+      }
+    } else {
+      const limit = Math.min(this.cannonballs.length, maxSnapshotBalls);
+      for (let i = 0; i < limit; i++) {
+        const b = this.cannonballs[i];
+        cannonballsPayload.push({
+          id: b.id,
+          ownerId: b.ownerId,
+          x: Math.round(b.x * 10) / 10,
+          y: Math.round(b.y * 10) / 10,
+          z: Math.round(b.z * 10) / 10,
+          vx: Math.round(b.vx * 10) / 10,
+          vy: Math.round(b.vy * 10) / 10,
+          vz: Math.round(b.vz * 10) / 10,
+        });
+      }
     }
 
     this.broadcast(this.id, {

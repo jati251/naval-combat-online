@@ -1,4 +1,3 @@
-import { getWaveHeight, MAX_WAVE_HEIGHT } from './WaveMath.js';
 import {
   type ShipSimulationState,
   type CannonballSimulationState,
@@ -21,6 +20,36 @@ export class CollisionSystem {
     const gravity = -9.81;
     const { islands, wrecks } = getServerMap(mapId);
 
+    // Precompute active ship transforms once per tick to eliminate redundant per-projectile sin/cos math
+    const targetShips: Array<{
+      id: string;
+      x: number;
+      y: number;
+      z: number;
+      sinH: number;
+      cosH: number;
+      halfLen: number;
+      halfWid: number;
+      rawShip: ShipSimulationState;
+    }> = [];
+
+    for (const ship of ships.values()) {
+      if (!ship.isSunk) {
+        const config = SERVER_SHIP_CONFIGS[ship.shipClass];
+        targetShips.push({
+          id: ship.id,
+          x: ship.x,
+          y: ship.y,
+          z: ship.z,
+          sinH: Math.sin(ship.rotationY),
+          cosH: Math.cos(ship.rotationY),
+          halfLen: config.length * 0.5 + 1.2,
+          halfWid: config.width * 0.5 + 1.4,
+          rawShip: ship,
+        });
+      }
+    }
+
     for (const ball of cannonballs) {
       if (serverTime - ball.createdAt > ball.maxLife) {
         continue;
@@ -31,8 +60,8 @@ export class CollisionSystem {
       ball.z += ball.vz * dt;
       ball.vy += gravity * dt;
 
-      // The surface cannot reach a projectile above the spectrum's amplitude bound.
-      if (ball.y <= MAX_WAVE_HEIGHT && (ball.y < -MAX_WAVE_HEIGHT || ball.y <= getWaveHeight(ball.x, ball.z, serverTime))) {
+      // Fast splash check: cannonball submerged below water level (-0.5m)
+      if (ball.y <= -0.5) {
         continue;
       }
 
@@ -88,39 +117,33 @@ export class CollisionSystem {
       }
 
       let hit = false;
-      for (const ship of ships.values()) {
-        if (ship.id === ball.ownerId || ship.isSunk) continue;
-        if (isFriendly && isFriendly(ball.ownerId, ship.id)) continue;
+      for (let s = 0; s < targetShips.length; s++) {
+        const target = targetShips[s];
+        if (target.id === ball.ownerId) continue;
+        if (isFriendly && isFriendly(ball.ownerId, target.id)) continue;
 
-        const dx = ball.x - ship.x;
-        const dz = ball.z - ship.z;
+        const dx = ball.x - target.x;
+        const dz = ball.z - target.z;
         if (Math.abs(dx) > 25 || Math.abs(dz) > 25) {
           continue;
         }
 
-        const dy = ball.y - ship.y;
+        const dy = ball.y - target.y;
         if (dy < -2.0 || dy > 7.5) {
           continue;
         }
 
-        const config = SERVER_SHIP_CONFIGS[ship.shipClass];
-        const sinH = Math.sin(ship.rotationY);
-        const cosH = Math.cos(ship.rotationY);
-        const localX = dx * cosH - dz * sinH;
-        const localZ = dx * sinH + dz * cosH;
-
-        const halfLen = config.length * 0.5 + 1.2;
-        const halfWid = config.width * 0.5 + 1.4;
-        const heightThreshold = 6.5;
+        const localX = dx * target.cosH - dz * target.sinH;
+        const localZ = dx * target.sinH + dz * target.cosH;
 
         if (
-          Math.abs(localX) <= halfWid &&
-          Math.abs(localZ) <= halfLen &&
+          Math.abs(localX) <= target.halfWid &&
+          Math.abs(localZ) <= target.halfLen &&
           dy >= -1.8 &&
-          dy <= heightThreshold
+          dy <= 6.5
         ) {
           hit = true;
-          onHit(ball, ship);
+          onHit(ball, target.rawShip);
           break;
         }
       }
