@@ -21,6 +21,7 @@ import { getOceanTime } from '../../utils/oceanTime';
 import { useGameStore } from '@/stores/useGameStore';
 import { findShip } from '@/stores/selectors/shipLookup';
 import { navalAudio } from '../../services/navalAudio';
+import { localShipTelemetry } from '../../services/localShipTelemetry';
 import { isSeaEntityInFrustum, updateFrustum } from '../../utils/frustumCuller';
 
 const _tempParentQuat = new THREE.Quaternion();
@@ -129,6 +130,14 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
     };
   }, [nameTexture]);
 
+  useEffect(() => {
+    return () => {
+      if (isSelf) {
+        localShipTelemetry.reset();
+      }
+    };
+  }, [isSelf]);
+
   // Smooth interpolation with dead reckoning, distance culling, and 100% lockstep camera
   useFrame((state, delta) => {
     const { camera, clock } = state;
@@ -141,6 +150,9 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
 
     // 1. Sunk ship handling: immediately hide overhead status bar, and smoothly animate ship capsizing & sinking
     if (curShip.isSunk) {
+      if (isSelf) {
+        localShipTelemetry.reset();
+      }
       if (nameplateRef.current) {
         nameplateRef.current.visible = false;
       }
@@ -388,6 +400,14 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
 
     // 100% Lockstep Chase Camera: camera follows the visual ship transform directly
     if (isSelf && !curShip.isSunk) {
+      localShipTelemetry.update(
+        groupRef.current.position.x,
+        groupRef.current.position.y,
+        groupRef.current.position.z,
+        groupRef.current.rotation.y,
+        curShip.speed ?? 0
+      );
+
       navalAudio.updateListener(
         groupRef.current.position.x,
         groupRef.current.position.z,

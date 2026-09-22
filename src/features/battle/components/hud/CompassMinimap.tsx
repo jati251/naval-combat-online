@@ -4,6 +4,7 @@ import type { ShipSnapshot } from '@/types';
 import { getMapConfig } from '../../maps';
 import { useGameStore } from '@/stores/useGameStore';
 import { mapTextureService, type MapTextureSource } from '../../services/mapTextureService';
+import { localShipTelemetry } from '../../services/localShipTelemetry';
 
 interface CompassMinimapProps {
   selfShip?: ShipSnapshot | undefined;
@@ -96,16 +97,15 @@ function drawCartographicGrid(
   ctx.lineWidth = 0.75;
   const gridStep = 80 * scale;
   const maxGrid = mapRadius * scale;
+
+  ctx.beginPath();
   for (let g = -maxGrid; g <= maxGrid; g += gridStep) {
-    ctx.beginPath();
     ctx.moveTo(g, -maxGrid);
     ctx.lineTo(g, maxGrid);
-    ctx.stroke();
-    ctx.beginPath();
     ctx.moveTo(-maxGrid, g);
     ctx.lineTo(maxGrid, g);
-    ctx.stroke();
   }
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -181,19 +181,20 @@ function drawIslandLabels(
   cy: number,
   canvasSize: number
 ): void {
-  ctx.fillStyle = '#fef3c7';
   ctx.font = 'bold 7.5px serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#fef3c7';
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+  ctx.lineWidth = 2;
 
   for (let i = 0; i < islands.length; i++) {
     const isl = islands[i];
     const pt = projectToMinimap(isl.x, isl.z, selfX, selfZ, sinH, cosH, scale, cx, cy);
     if (pt.x >= 10 && pt.x <= canvasSize - 10 && pt.y >= 10 && pt.y <= canvasSize - 10) {
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
-      ctx.shadowBlur = 4;
-      ctx.fillText(isl.name.slice(0, 4).toUpperCase(), pt.x, pt.y);
-      ctx.shadowBlur = 0;
+      const text = isl.name.slice(0, 4).toUpperCase();
+      ctx.strokeText(text, pt.x, pt.y);
+      ctx.fillText(text, pt.x, pt.y);
     }
   }
 }
@@ -250,8 +251,7 @@ function drawFleetWarships(
   heading: number,
   canvasSize: number
 ): void {
-  ctx.lineWidth = 0.8;
-  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 1.0;
 
   for (let i = 0; i < ships.length; i++) {
     const s = ships[i];
@@ -278,8 +278,7 @@ function drawFleetWarships(
     ctx.closePath();
 
     ctx.fillStyle = isTeammate ? '#38bdf8' : '#ef4444';
-    ctx.shadowColor = isTeammate ? 'rgba(56, 189, 248, 0.6)' : 'rgba(239, 68, 68, 0.6)';
-    ctx.shadowBlur = isClamped ? 5 : 2;
+    ctx.strokeStyle = isClamped ? '#fbbf24' : '#0f172a';
     ctx.fill();
     ctx.stroke();
     ctx.restore();
@@ -299,10 +298,8 @@ function drawPlayerVessel(ctx: CanvasRenderingContext2D, cx: number, cy: number)
   ctx.lineTo(-5.5, 6.5);
   ctx.closePath();
   ctx.fillStyle = '#fbbf24';
-  ctx.shadowColor = '#d97706';
-  ctx.shadowBlur = 8;
   ctx.fill();
-  ctx.strokeStyle = '#1c1917';
+  ctx.strokeStyle = '#0f172a';
   ctx.lineWidth = 1.4;
   ctx.stroke();
   ctx.restore();
@@ -425,13 +422,6 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({ hideW
     const render = () => {
       frameCount++;
 
-      // Frame throttle: skips alternate frame (~30fps) for fluid tactical chart rendering
-      const skipInterval = 2;
-      if (frameCount % skipInterval !== 0) {
-        animId = requestAnimationFrame(render);
-        return;
-      }
-
       const {
         selfId: curId,
         ships: curShips,
@@ -453,9 +443,15 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({ hideW
       const activeIslands = cachedMapConfig.islands;
       const activeWrecks = cachedMapConfig.shipwrecks;
 
-      // Telemetry updates (throttled to ~4Hz)
-      if (curSelf && frameCount % 15 === 0) {
-        const shipHeading = curSelf.rotationY || 0;
+      // Real-time smooth transform from client-side prediction, fallback to server snapshot
+      const telemetry = localShipTelemetry.hasData() ? localShipTelemetry.get() : null;
+      const selfX = telemetry ? telemetry.x : (curSelf?.x ?? 0);
+      const selfZ = telemetry ? telemetry.z : (curSelf?.z ?? 0);
+      const heading = telemetry ? telemetry.heading : (curSelf?.rotationY ?? 0);
+
+      // Telemetry updates (throttled to ~6Hz)
+      if (curSelf && frameCount % 10 === 0) {
+        const shipHeading = heading;
         if (headingReadoutRef.current) {
           const deg = Math.round((((shipHeading * 180) / Math.PI) % 360 + 360) % 360);
           headingReadoutRef.current.textContent = `${deg.toString().padStart(3, '0')}°`;
@@ -480,7 +476,6 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({ hideW
         return;
       }
 
-      const heading = curSelf.rotationY;
       const sinH = Math.sin(heading);
       const cosH = Math.cos(heading);
 
@@ -489,7 +484,7 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({ hideW
       ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
       // 2. High-Definition Baked Ocean & Islands Texture
-      const originPt = projectToMinimap(0, 0, curSelf.x, curSelf.z, sinH, cosH, SCALE, cx, cy);
+      const originPt = projectToMinimap(0, 0, selfX, selfZ, sinH, cosH, SCALE, cx, cy);
       const mapCenterScreenX = originPt.x;
       const mapCenterScreenY = originPt.y;
       const mapPixelSize = mapRadius * 2 * SCALE;
@@ -498,7 +493,7 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({ hideW
       if (mapTexture) {
         drawMapTexture(ctx, mapTexture, mapCenterScreenX, mapCenterScreenY, heading, mapPixelSize, mapRadius, SCALE);
       } else {
-        drawProceduralFallbackIslands(ctx, activeIslands, curSelf.x, curSelf.z, sinH, cosH, SCALE, cx, cy);
+        drawProceduralFallbackIslands(ctx, activeIslands, selfX, selfZ, sinH, cosH, SCALE, cx, cy);
       }
 
       // 3. Cartographic Lat/Long Gridlines
@@ -508,10 +503,10 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({ hideW
       drawTacticalOverlays(ctx, cx, cy, SCALE);
 
       // 5. Island Inscriptions
-      drawIslandLabels(ctx, activeIslands, curSelf.x, curSelf.z, sinH, cosH, SCALE, cx, cy, CANVAS_SIZE);
+      drawIslandLabels(ctx, activeIslands, selfX, selfZ, sinH, cosH, SCALE, cx, cy, CANVAS_SIZE);
 
       // 6. Shipwrecks
-      drawShipwrecks(ctx, activeWrecks, curSelf.x, curSelf.z, sinH, cosH, SCALE, cx, cy, CANVAS_SIZE);
+      drawShipwrecks(ctx, activeWrecks, selfX, selfZ, sinH, cosH, SCALE, cx, cy, CANVAS_SIZE);
 
       // 7. Other Warships (Cache teamMap to avoid allocating Map every frame)
       const isTeamMode = currentRoom?.gameMode === 'TEAM';
@@ -533,8 +528,8 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({ hideW
         isTeamMode,
         selfTeam,
         cachedTeamMap.current,
-        curSelf.x,
-        curSelf.z,
+        selfX,
+        selfZ,
         sinH,
         cosH,
         SCALE,
