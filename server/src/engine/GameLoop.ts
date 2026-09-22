@@ -141,7 +141,10 @@ export class GameLoop {
       );
     }
 
-    if (simulatedSteps > 0) {
+    // Decouple network broadcast from physics step: broadcast at 15Hz (every 2nd tick / ~66.6ms)
+    // This cuts network packet volume and bandwidth by 50% while client dead reckoning smoothly interpolates
+    if (simulatedSteps > 0 && room.tickSeq - room.lastBroadcastTick >= 2) {
+      room.lastBroadcastTick = room.tickSeq;
       room.broadcastSnapshot();
     }
   }

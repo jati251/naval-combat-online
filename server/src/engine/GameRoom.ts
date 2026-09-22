@@ -54,6 +54,7 @@ export class GameRoom {
   private startTime: number = 0;
   public lastTickTime: number = 0;
   public tickAccumulator: number = 0;
+  public lastBroadcastTick: number = 0;
   public readonly FIXED_DT: number = 1 / 30; // 33.333ms deterministic timestep
   public wasMultiplayer: boolean = false;
 

@@ -56,8 +56,8 @@ export function pushSnapshot(
   const now = performance.now();
   const dt = Math.max(0.015, (now - buffer.packetTime) / 1000);
 
-  // Smooth angular velocity tracking from heading delta (shortest arc)
-  if (buffer.packetTime > 0 && dt < 0.25) {
+  // Smooth angular velocity tracking from heading delta (shortest arc, up to 550ms jitter tolerance)
+  if (buffer.packetTime > 0 && dt < 0.55) {
     const twoPi = Math.PI * 2;
     const diff = ((newHeading - buffer.snapHeading) % twoPi + twoPi + Math.PI) % twoPi - Math.PI;
     buffer.turnRate = Math.max(-2.5, Math.min(2.5, diff / dt));
@@ -79,8 +79,8 @@ export function pushSnapshot(
  * Reuses internal object to ensure 0 GC heap allocations in the render loop.
  *
  * Utilizes a two-phase continuous kinematic model:
- * 1. Nominal Phase (0 to 35ms): Linear extrapolation matching server tick period (~33.3ms).
- * 2. Momentum Bleed Phase (35ms to 160ms): Exponential velocity falloff prevents hard-stops
+ * 1. Nominal Phase (0 to ~68ms): Linear extrapolation matching server 15Hz snapshot period.
+ * 2. Momentum Bleed Phase (~68ms to 520ms): Smooth exponential velocity falloff prevents hard-stops
  *    during network jitter or packet stalls without overshooting or rubber-banding.
  */
 export function extrapolatePosition(
@@ -90,14 +90,15 @@ export function extrapolatePosition(
   const now = performance.now();
   const elapsed = Math.max(0, (now - buffer.packetTime) / 1000);
 
-  const NOMINAL_TICK_SEC = 0.035;
+  // 15Hz nominal snapshot interval (~66.6ms) with 2ms padding
+  const NOMINAL_TICK_SEC = 0.068;
   let effectiveTime = elapsed;
 
   if (elapsed > NOMINAL_TICK_SEC) {
-    // Bleed off excess momentum smoothly over the next ~125ms (up to 160ms total)
-    // Integral of v0 * exp(-6.0 * t) dt = (1 - exp(-6.0 * t)) / 6.0
-    const extraTime = Math.min(0.125, elapsed - NOMINAL_TICK_SEC);
-    const decayedDistance = (1.0 - Math.exp(-6.0 * extraTime)) / 6.0;
+    // Bleed off excess momentum smoothly over the next ~450ms (up to ~518ms total jitter buffer)
+    // Integral of v0 * exp(-3.5 * t) dt = (1 - exp(-3.5 * t)) / 3.5
+    const extraTime = Math.min(0.450, elapsed - NOMINAL_TICK_SEC);
+    const decayedDistance = (1.0 - Math.exp(-3.5 * extraTime)) / 3.5;
     effectiveTime = NOMINAL_TICK_SEC + decayedDistance;
   }
 
@@ -107,8 +108,8 @@ export function extrapolatePosition(
 
   let effectiveTurnTime = elapsed;
   if (elapsed > NOMINAL_TICK_SEC) {
-    const extraTime = Math.min(0.125, elapsed - NOMINAL_TICK_SEC);
-    const decayedTurnDistance = (1.0 - Math.exp(-9.0 * extraTime)) / 9.0;
+    const extraTime = Math.min(0.450, elapsed - NOMINAL_TICK_SEC);
+    const decayedTurnDistance = (1.0 - Math.exp(-4.5 * extraTime)) / 4.5;
     effectiveTurnTime = NOMINAL_TICK_SEC + decayedTurnDistance;
   }
   const targetHeading = buffer.snapHeading + buffer.turnRate * effectiveTurnTime;

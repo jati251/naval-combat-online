@@ -62,9 +62,9 @@ const roomManager = new RoomManager(
   }
 );
 
-// Setup WebSocket endpoint
+// Setup WebSocket endpoint with permessage-deflate compression
 app.ws<SocketUserData>('/ws', {
-  compression: uWS.DISABLED,
+  compression: uWS.SHARED_COMPRESSOR,
   maxPayloadLength: 128 * 1024,
   idleTimeout: 60,
 
