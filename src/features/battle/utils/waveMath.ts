@@ -1,1 +1,1 @@
-export { getWaveDisplacement, getWaveHeight, getHullWaterPose } from '../../../../server/src/engine/WaveMath';
+export { getWaveDisplacement, getWaveHeight, getHullWaterPose, getFastWaveHeight, getFastHullWaterPose } from '../../../../server/src/engine/WaveMath';

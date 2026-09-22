@@ -90,8 +90,15 @@ export const ShipFlag: React.FC<ShipFlagProps> = React.memo(({
     };
   }, [isTeamMode, team, isGhost, isEnemy]);
 
+  const flagFrame = useRef(Math.floor(Math.random() * 3));
+
   useFrame((state) => {
-    if (flagRef.current && isObjectVisible(flagRef.current)) {
+    if (!flagRef.current) return;
+    if (isEnemy) {
+      flagFrame.current++;
+      if (flagFrame.current % 3 !== 0) return;
+    }
+    if (isObjectVisible(flagRef.current)) {
       const t = state.clock.elapsedTime;
       flagRef.current.parent?.getWorldQuaternion(orientation);
       const parentRotY = heading.setFromQuaternion(orientation, 'YXZ').y;

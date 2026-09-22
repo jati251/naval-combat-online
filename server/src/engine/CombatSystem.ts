@@ -26,14 +26,33 @@ export class CombatSystem {
     const numWaves = count <= 3 ? 1 : count <= 6 ? 2 : count <= 10 ? 3 : 4;
     const waveDelayMs = 60;
 
+    // Distance cull CANNON_FIRED: if fired by a bot and > 220m from all human players, skip broadcast
+    const isBot = Boolean(room.players.get(ship.id)?.isBot);
+    let shouldBroadcast = !isBot;
+    if (!shouldBroadcast) {
+      for (const otherShip of room.ships.values()) {
+        const otherPlayer = room.players.get(otherShip.id);
+        if (otherPlayer && !otherPlayer.isBot && !otherShip.isSunk) {
+          const dx = otherShip.x - ship.x;
+          const dz = otherShip.z - ship.z;
+          if (dx * dx + dz * dz <= 48400) { // 220m * 220m
+            shouldBroadcast = true;
+            break;
+          }
+        }
+      }
+    }
+
     // Broadcast CANNON_FIRED once per broadside salvo with total cannon count (cuts websocket traffic by 75%)
-    room.broadcastToRoom({
-      type: 'CANNON_FIRED',
-      ownerId: ship.id,
-      side,
-      origin: [ship.x, ship.y + 1.8, ship.z],
-      count,
-    });
+    if (shouldBroadcast) {
+      room.broadcastToRoom({
+        type: 'CANNON_FIRED',
+        ownerId: ship.id,
+        side,
+        origin: [ship.x, ship.y + 1.8, ship.z],
+        count,
+      });
+    }
 
     for (let wave = 0; wave < numWaves; wave++) {
       const startIndex = Math.floor((wave * count) / numWaves) + 1;

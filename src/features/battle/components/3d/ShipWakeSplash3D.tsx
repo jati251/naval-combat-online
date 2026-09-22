@@ -7,6 +7,7 @@ import { GERSTNER_WAVES } from '@/types';
 import { getOceanTime } from '../../utils/oceanTime';
 import { getOceanDetail } from './textures/oceanTextures';
 import { stormMathGLSL } from './atmosphereShaders';
+import { isSeaEntityInFrustum } from '../../utils/frustumCuller';
 
 const waveHeightGLSL = GERSTNER_WAVES.map(w => {
   const k = 2 * Math.PI / w.wavelength;
@@ -21,7 +22,7 @@ export const ShipWakeSplash3D = memo(function ShipWakeSplash3D({shipId,shipLengt
   const mesh=useRef<THREE.InstancedMesh>(null);
   const cursor=useRef(0), emission=useRef(0);
   const previous=useRef<{x:number;z:number}|null>(null);
-  const count=isMobile?48:isEnemy?64:120;
+  const count=isMobile?32:isEnemy?36:120;
   const particles=useMemo(()=>Array.from({length:count},()=>({x:0,z:0,heading:0,age:10,lifetime:4,width:1})),[count]);
   const geometry=useMemo(()=>{
     const g=new THREE.PlaneGeometry(1,1,2,2).rotateX(-Math.PI/2);
@@ -54,8 +55,9 @@ export const ShipWakeSplash3D = memo(function ShipWakeSplash3D({shipId,shipLengt
     const delta=Math.min(dt,0.1);
     const x=hullRef?.current?.position.x??ship?.x??0,z=hullRef?.current?.position.z??ship?.z??0;
     const heading=hullRef?.current?.rotation.y??ship?.rotationY??0;
-    const visible=!!ship&&!ship.isSunk&&Math.hypot(state.camera.position.x-x,state.camera.position.z-z)<(isEnemy?110:220);
-    mesh.current.visible=visible;
+    const inFrustum = !isEnemy || isSeaEntityInFrustum(state.camera, x, z, shipLength * 0.75, 8, 20);
+    const visible = !!ship && !ship.isSunk && inFrustum && Math.hypot(state.camera.position.x - x, state.camera.position.z - z) < (isEnemy ? 110 : 220);
+    mesh.current.visible = visible;
     if(!visible || (previous.current&&Math.hypot(x-previous.current.x,z-previous.current.z)>30)) {
       particles.forEach(p=>p.age=p.lifetime);emission.current=0;previous.current=null;
       if(!visible)return;

@@ -600,8 +600,8 @@ export class GameRoom {
     }
 
     const cannonballsPayload: Array<{ id: string; ownerId: string; x: number; y: number; z: number; vx: number; vy: number; vz: number }> = [];
-    const maxSnapshotBalls = 45;
-    const maxVisualDistSq = 240 * 240; // 240m combat/visual horizon
+    const maxSnapshotBalls = 32;
+    const maxVisualDistSq = 180 * 180; // 180m combat/visual horizon (consistent with audio & hit event horizon)
 
     if (humanPositions.length > 0) {
       for (let i = 0; i < this.cannonballs.length; i++) {

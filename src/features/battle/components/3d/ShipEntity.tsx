@@ -16,7 +16,7 @@ import {
 } from '../../utils/deadReckoning';
 import { createInitialCameraState, updateChaseCamera } from '../../utils/cameraController';
 import { dampAngle, damp } from '../../utils/math';
-import { getHullWaterPose } from '../../utils/waveMath';
+import { getHullWaterPose, getFastHullWaterPose } from '../../utils/waveMath';
 import { getOceanTime } from '../../utils/oceanTime';
 import { useGameStore } from '@/stores/useGameStore';
 import { findShip } from '@/stores/selectors/shipLookup';
@@ -253,8 +253,20 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
       groupRef.current.position.x = damp(groupRef.current.position.x, target.x, 24, delta);
       groupRef.current.position.z = damp(groupRef.current.position.z, target.z, 24, delta);
 
-      // Shortest-arc angle wrapping with exponential decay
-      groupRef.current.rotation.y = dampAngle(groupRef.current.rotation.y, target.heading, 20, delta);
+      if (isSelf && !curShip.isSunk) {
+        // Client-Side Input Prediction: Instant 0ms steering response (Source / Unreal Netcode pattern)
+        // The player's own ship steers on Frame 0 immediately upon input without waiting for server round-trip latency
+        const steerage = Math.min(1, Math.max(0, curShip.speed ?? 0) / Math.max(1, shipConfig.topSpeed * 0.55));
+        const effectiveTurnSpeed = shipConfig.turnSpeed * steerage;
+        // Inverted sign matching the physics engine (-store.localRudder)
+        const localTurnDelta = -store.localRudder * effectiveTurnSpeed * delta;
+        groupRef.current.rotation.y += localTurnDelta;
+        // Soft reconciliation gently absorbs minute drift towards authoritative server heading
+        groupRef.current.rotation.y = dampAngle(groupRef.current.rotation.y, target.heading, 10, delta);
+      } else {
+        // Remote ships & bots: pure authoritative network dead reckoning interpolation
+        groupRef.current.rotation.y = dampAngle(groupRef.current.rotation.y, target.heading, 20, delta);
+      }
     }
 
 
@@ -287,9 +299,9 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
           groupRef.current.visible = inFrustum;
         }
 
-        // 3. Nameplate toggling (hide if sunk)
+        // 3. Nameplate toggling (hide if sunk or beyond 140m)
         if (nameplateRef.current) {
-          const shouldShow = inFrustum && !curShip.isSunk;
+          const shouldShow = inFrustum && !curShip.isSunk && distSq <= 19600;
           if (nameplateRef.current.visible !== shouldShow) {
             nameplateRef.current.visible = shouldShow;
           }
@@ -299,8 +311,35 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
 
     if (!groupRef.current.visible) return;
 
-    const pose = getHullWaterPose(groupRef.current.position.x, groupRef.current.position.z,
-      groupRef.current.rotation.y, shipLen, shipConfig.width, getOceanTime(store, clock.elapsedTime), waterPose.current);
+    // Wave Pose: High-precision 5-point probe for local player; ultra-fast 2-point probe for remote vessels
+    const dxFromCam = camera.position.x - groupRef.current.position.x;
+    const dzFromCam = camera.position.z - groupRef.current.position.z;
+    const isClose = isSelf || (dxFromCam * dxFromCam + dzFromCam * dzFromCam < 2025); // < 45m
+
+    // Stagger wave evaluation on alternate frames for remote ships (damp provides smooth continuous motion)
+    if (isSelf || isClose || frameCount.current % 2 === 0) {
+      if (isClose) {
+        getHullWaterPose(
+          groupRef.current.position.x,
+          groupRef.current.position.z,
+          groupRef.current.rotation.y,
+          shipLen,
+          shipConfig.width,
+          getOceanTime(store, clock.elapsedTime),
+          waterPose.current
+        );
+      } else {
+        getFastHullWaterPose(
+          groupRef.current.position.x,
+          groupRef.current.position.z,
+          groupRef.current.rotation.y,
+          shipLen,
+          getOceanTime(store, clock.elapsedTime),
+          waterPose.current
+        );
+      }
+    }
+    const pose = waterPose.current;
     const response = Math.max(2.5, 7 - shipLen * 0.09);
     groupRef.current.position.y = damp(groupRef.current.position.y, pose.y - draft, response, delta);
     groupRef.current.rotation.order = 'YXZ';
@@ -325,7 +364,7 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
     // and scale smoothly with distance so ship name & health remain crisp and legible across the sea
     if (nameplateRef.current && nameplateRef.current.visible) {
       // Counteract parent ship pitch/yaw/roll so billboard strictly faces camera screen
-      groupRef.current.getWorldQuaternion(_tempParentQuat);
+      _tempParentQuat.copy(groupRef.current.quaternion);
       nameplateRef.current.quaternion.copy(_tempParentQuat).invert().multiply(camera.quaternion);
 
       // Distance from camera to ship

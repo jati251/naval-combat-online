@@ -61,27 +61,32 @@ export const ShipSail: React.FC<ShipSailProps> = React.memo(({
   };
 
   const currentProgress = useRef(getTargetProgress(sailState));
+  const initialApplied = useRef(false);
 
   useFrame((state, delta) => {
     if (!meshRef.current || !isObjectVisible(meshRef.current)) return;
 
-    const dt = Math.min(delta, 0.1);
     const target = getTargetProgress(sailState);
+    const isTransitioning = Math.abs(currentProgress.current - target) > 0.005;
+
+    // For enemy vessels, only calculate and update transforms during sail transitions
+    if (isEnemy && !isTransitioning && initialApplied.current) {
+      return;
+    }
+
+    const dt = Math.min(delta, 0.1);
 
     // Smooth exponential damping transition (~0.8 to 1.1s natural easing)
-    currentProgress.current = THREE.MathUtils.damp(
-      currentProgress.current,
-      target,
-      4.2,
-      dt
-    );
+    currentProgress.current = isTransitioning
+      ? THREE.MathUtils.damp(currentProgress.current, target, 4.2, dt)
+      : target;
 
     const progress = currentProgress.current;
     const time = state.clock.elapsedTime;
 
-    // Organic wind breathing & fluttering
-    const windBreeze = Math.sin(time * 2.2 + mastIndex * 1.3) * 0.05 * progress;
-    const windFlutter = Math.sin(time * 3.8 + mastIndex * 1.7) * 0.025 * progress;
+    // Organic wind breathing & fluttering (skip for enemy vessels to save CPU/GPU draw time)
+    const windBreeze = isEnemy ? 0 : Math.sin(time * 2.2 + mastIndex * 1.3) * 0.05 * progress;
+    const windFlutter = isEnemy ? 0 : Math.sin(time * 3.8 + mastIndex * 1.7) * 0.025 * progress;
 
     if (type === 'square') {
       // Scale: X flutters slightly, Y scales with reefing, Z billows with wind
@@ -137,6 +142,7 @@ export const ShipSail: React.FC<ShipSailProps> = React.memo(({
         baseRotation ? baseRotation[2] : 0
       );
     }
+    initialApplied.current = true;
   });
 
   return (

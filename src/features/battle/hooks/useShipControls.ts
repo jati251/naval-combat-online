@@ -37,28 +37,28 @@ export function useShipControls() {
       if (keys.current["a"] || keys.current["arrowleft"]) steerTarget -= 1.0;
       if (keys.current["d"] || keys.current["arrowright"]) steerTarget += 1.0;
 
-      // Smooth interpolation towards steer target
+      // Snappy, realistic wheel interpolation (fast 20.0 response rate)
       currentRudder.current = THREE.MathUtils.lerp(
         currentRudder.current,
         steerTarget,
-        dt * 8.0,
+        dt * 20.0,
       );
 
       // Quantized update to local store prevents high-frequency React state thrashing during steering
-      const quantizedRudder = Math.round(currentRudder.current * 18) / 18;
-      if (Math.abs(quantizedRudder - lastStoreRudder.current) >= 0.05 || (quantizedRudder === 0 && lastStoreRudder.current !== 0)) {
+      const quantizedRudder = Math.round(currentRudder.current * 20) / 20;
+      if (Math.abs(quantizedRudder - lastStoreRudder.current) >= 0.04 || (quantizedRudder === 0 && lastStoreRudder.current !== 0)) {
         lastStoreRudder.current = quantizedRudder;
         setLocalRudder(quantizedRudder);
       }
 
-      // Continuous, rock-solid network sync (~20Hz) when steering with periodic heartbeat
+      // 30Hz network sync (matching server 30Hz physics tick rate)
       const timeSinceLastSync = now - lastNetworkSync.current;
-      if (timeSinceLastSync >= 50) {
+      if (timeSinceLastSync >= 33) {
         const isActivelySteering =
           steerTarget !== 0 || Math.abs(currentRudder.current) > 0.005;
         const rudderChanged =
           Math.abs(currentRudder.current - lastSentRudder.current) > 0.003;
-        const heartbeatDue = isActivelySteering && timeSinceLastSync >= 160;
+        const heartbeatDue = isActivelySteering && timeSinceLastSync >= 130;
 
         if (isActivelySteering && (rudderChanged || heartbeatDue)) {
           lastNetworkSync.current = now;
@@ -96,6 +96,19 @@ export function useShipControls() {
       // Unlock Audio context on first interaction
       navalAudio.init();
 
+      // Steering (A / D / Arrows) - Instant 0ms input dispatch
+      if (key === "a" || key === "arrowleft" || key === "d" || key === "arrowright") {
+        let steerTarget = 0;
+        if (keys.current["a"] || keys.current["arrowleft"]) steerTarget -= 1.0;
+        if (keys.current["d"] || keys.current["arrowright"]) steerTarget += 1.0;
+        currentRudder.current = steerTarget;
+        setLocalRudder(steerTarget);
+        lastStoreRudder.current = steerTarget;
+        lastSentRudder.current = steerTarget;
+        lastNetworkSync.current = performance.now();
+        networkClient.sendInput(-steerTarget, useGameStore.getState().localSail);
+      }
+
       // Sail Rigging changes (W / S)
       if (key === "w" || e.key === "ArrowUp") {
         actions.cycleSail("up");
@@ -127,6 +140,19 @@ export function useShipControls() {
     const handleKeyUp = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase();
       keys.current[key] = false;
+
+      // Immediate steering centering on release
+      if (key === "a" || key === "arrowleft" || key === "d" || key === "arrowright") {
+        let steerTarget = 0;
+        if (keys.current["a"] || keys.current["arrowleft"]) steerTarget -= 1.0;
+        if (keys.current["d"] || keys.current["arrowright"]) steerTarget += 1.0;
+        currentRudder.current = steerTarget;
+        setLocalRudder(steerTarget);
+        lastStoreRudder.current = steerTarget;
+        lastSentRudder.current = steerTarget;
+        lastNetworkSync.current = performance.now();
+        networkClient.sendInput(-steerTarget, useGameStore.getState().localSail);
+      }
 
       // Disengage aim on Q or E release (aiming only; never fires)
       if (key === "q" || key === "e") {

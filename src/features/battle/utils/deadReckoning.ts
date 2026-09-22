@@ -94,8 +94,8 @@ export function extrapolatePosition(
   const now = performance.now();
   const elapsed = Math.max(0, (now - buffer.packetTime) / 1000);
 
-  // 15Hz nominal snapshot interval (~66.6ms) with 2ms padding
-  const NOMINAL_TICK_SEC = 0.068;
+  // 30Hz nominal snapshot interval (~33.3ms) with 7ms network jitter padding
+  const NOMINAL_TICK_SEC = 0.040;
   let effectiveTime = elapsed;
 
   if (elapsed > NOMINAL_TICK_SEC) {

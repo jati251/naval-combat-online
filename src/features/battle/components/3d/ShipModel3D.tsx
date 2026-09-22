@@ -53,6 +53,7 @@ export const ShipModel3D: React.FC<ShipModelProps> = React.memo(({
   const Model = shipModels[id] ?? shipModels.brig;
   const lodDetailsRef = useRef<THREE.Group>(null);
   const mainGroupRef = useRef<THREE.Group>(null);
+  const lodFrame = useRef(Math.floor(Math.random() * 6));
 
   // LOD (Level of Detail): Hide small high-draw-call details when ship is far away (Zero GC allocation)
   useFrame(({ camera }) => {
@@ -61,6 +62,9 @@ export const ShipModel3D: React.FC<ShipModelProps> = React.memo(({
       if (lodDetailsRef.current && !lodDetailsRef.current.visible) lodDetailsRef.current.visible = true;
       return;
     }
+
+    lodFrame.current++;
+    if (lodFrame.current % 6 !== 0) return;
     
     // Calculate distance reusing module-level vector
     mainGroupRef.current.getWorldPosition(_tempShipPos);
