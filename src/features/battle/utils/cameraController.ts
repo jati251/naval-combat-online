@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { CONTROL_CONFIG } from './controls';
 import type { CameraState } from '../types/camera';
 import type { SailState } from '@/types/game';
-import { damp } from './math';
+import { damp, dampAngle } from './math';
 
 export interface CameraUpdateParams {
   camera: THREE.Camera;
@@ -31,6 +31,7 @@ export function createInitialCameraState(): CameraState {
     currentSailDistOffset: 0,
     currentSailHeightOffset: 0,
     lastTargetFov: 55,
+    currentHeading: undefined,
   };
 }
 
@@ -138,8 +139,16 @@ export function updateChaseCamera(params: CameraUpdateParams): void {
   const sOffset = cameraState.currentAimSide + recoilOffset;
   const fOffset = cameraState.currentAimFwd;
 
-  const sinH = Math.sin(shipHeading);
-  const cosH = Math.cos(shipHeading);
+  if (cameraState.currentHeading === undefined) {
+    cameraState.currentHeading = shipHeading;
+  } else {
+    // Cinematic shortest-arc angular damping: completely absorbs high-frequency packet & interpolation jitter during turns
+    cameraState.currentHeading = dampAngle(cameraState.currentHeading, shipHeading, 11, delta);
+  }
+
+  const camHeading = cameraState.currentHeading;
+  const sinH = Math.sin(camHeading);
+  const cosH = Math.cos(camHeading);
 
   // Frame the hull consistently; vertical motion comes from its water response.
   const hullScale = Math.max(0.72, (params.shipLength ?? 18) / 18);

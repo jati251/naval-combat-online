@@ -254,18 +254,7 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
       groupRef.current.position.z = damp(groupRef.current.position.z, target.z, 24, delta);
 
       // Shortest-arc angle wrapping with exponential decay
-      if (isSelf && !curShip.isSunk) {
-        // Player's ship: augment heading with immediate local rudder input so steering feels instantaneous
-        const localRudder = store.localRudder || 0;
-        const curSpeed = curShip.speed || 0;
-        const targetClass = curShip.shipClass || shipClass;
-        const cfg = SHIP_PRESETS[targetClass] || SHIP_PRESETS.brig;
-        const steerage = Math.min(1, curSpeed / Math.max(1, cfg.topSpeed * 0.55));
-        const yawBias = -localRudder * cfg.turnSpeed * steerage * 0.14;
-        groupRef.current.rotation.y = dampAngle(groupRef.current.rotation.y, target.heading + yawBias, 24, delta);
-      } else {
-        groupRef.current.rotation.y = dampAngle(groupRef.current.rotation.y, target.heading, 20, delta);
-      }
+      groupRef.current.rotation.y = dampAngle(groupRef.current.rotation.y, target.heading, 20, delta);
     }
 
 

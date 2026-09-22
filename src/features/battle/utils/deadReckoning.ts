@@ -56,11 +56,15 @@ export function pushSnapshot(
   const now = performance.now();
   const dt = Math.max(0.015, (now - buffer.packetTime) / 1000);
 
-  // Smooth angular velocity tracking from heading delta (shortest arc, up to 550ms jitter tolerance)
+  // Smooth angular velocity tracking from heading delta (shortest arc) with EMA filter to absorb packet arrival jitter
   if (buffer.packetTime > 0 && dt < 0.55) {
     const twoPi = Math.PI * 2;
     const diff = ((newHeading - buffer.snapHeading) % twoPi + twoPi + Math.PI) % twoPi - Math.PI;
-    buffer.turnRate = Math.max(-2.5, Math.min(2.5, diff / dt));
+    const instantTurnRate = Math.max(-2.5, Math.min(2.5, diff / dt));
+    // Exponential Moving Average filter: absorbs packet arrival jitter so turning is buttery smooth
+    buffer.turnRate = buffer.turnRate === 0
+      ? instantTurnRate
+      : buffer.turnRate * 0.45 + instantTurnRate * 0.55;
   } else {
     buffer.turnRate = 0;
   }
@@ -102,16 +106,28 @@ export function extrapolatePosition(
     effectiveTime = NOMINAL_TICK_SEC + decayedDistance;
   }
 
-  const targetX = buffer.snapX + buffer.vx * effectiveTime;
-  const targetZ = buffer.snapZ + buffer.vz * effectiveTime;
-  const targetY = isSunk ? buffer.snapY : buffer.snapY + 0.85;
-
   let effectiveTurnTime = elapsed;
   if (elapsed > NOMINAL_TICK_SEC) {
     const extraTime = Math.min(0.450, elapsed - NOMINAL_TICK_SEC);
     const decayedTurnDistance = (1.0 - Math.exp(-4.5 * extraTime)) / 4.5;
     effectiveTurnTime = NOMINAL_TICK_SEC + decayedTurnDistance;
   }
+
+  // Arc velocity rotation: when ship is turning, rotate velocity vector along the chord of the turning circle
+  // to prevent straight-line tangent overshoot and snap-back on snapshot arrival
+  let effVx = buffer.vx;
+  let effVz = buffer.vz;
+  if (Math.abs(buffer.turnRate) > 0.015) {
+    const halfTurn = buffer.turnRate * effectiveTurnTime * 0.5;
+    const cosHalf = Math.cos(halfTurn);
+    const sinHalf = Math.sin(halfTurn);
+    effVx = buffer.vx * cosHalf - buffer.vz * sinHalf;
+    effVz = buffer.vx * sinHalf + buffer.vz * cosHalf;
+  }
+
+  const targetX = buffer.snapX + effVx * effectiveTime;
+  const targetZ = buffer.snapZ + effVz * effectiveTime;
+  const targetY = isSunk ? buffer.snapY : buffer.snapY + 0.85;
   const targetHeading = buffer.snapHeading + buffer.turnRate * effectiveTurnTime;
 
   const res = buffer.targetResult;
