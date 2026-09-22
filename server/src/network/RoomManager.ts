@@ -347,11 +347,17 @@ export class RoomManager {
     }
   }
 
+  private lobbyUpdateTimer: NodeJS.Timeout | null = null;
+
   public broadcastLobbyUpdate(): void {
-    this.broadcastToTopic('lobby', {
-      type: 'ROOM_LIST',
-      rooms: this.getRoomList(),
-    });
+    if (this.lobbyUpdateTimer) return;
+    this.lobbyUpdateTimer = setTimeout(() => {
+      this.lobbyUpdateTimer = null;
+      this.broadcastToTopic('lobby', {
+        type: 'ROOM_LIST',
+        rooms: this.getRoomList(),
+      });
+    }, 120);
   }
 
   public handleClientDisconnect(clientId: string, isExplicitLeave: boolean = false): void {

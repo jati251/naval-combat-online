@@ -358,8 +358,14 @@ class NetworkClient {
       }
       case 'PONG': {
         const now = performance.now();
-        const latency = Math.max(1, Math.round((now - (msg.clientTime as number)) * 0.5));
-        store.setPing(latency);
+        const sampleLatency = Math.max(1, Math.round((now - (msg.clientTime as number)) * 0.5));
+        const currentPing = store.ping;
+        // Exponential moving average filter (70% weight on smoothed history, 30% on new sample)
+        // Eliminates single-packet micro-jitter spikes on the HUD while remaining responsive to true sustained shifts
+        const smoothedLatency = currentPing > 0
+          ? Math.round(currentPing * 0.7 + sampleLatency * 0.3)
+          : sampleLatency;
+        store.setPing(smoothedLatency);
         break;
       }
       case 'ERROR': {
