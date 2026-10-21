@@ -111,7 +111,7 @@ export const SloopModel: React.FC<SubModelProps> = React.memo(({
       />
 
       {/* Bowsprit with Martingale (Dolphin Striker) */}
-      <mesh position={[0, hullDepth + sheerBow + 0.2, length * 0.5 + 2.2]} rotation={[Math.PI / 2 - 0.28, 0, 0]} castShadow>
+      <mesh position={[0, hullDepth + sheerBow + 0.2, length * 0.5 + 2.2]} rotation={[Math.PI / 2 - 0.28, 0, 0]} castShadow={!isEnemy}>
         <cylinderGeometry args={[0.08, 0.16, 5.0, 8]} />
         <meshStandardMaterial color="#382013" roughness={0.8} />
       </mesh>
@@ -129,6 +129,7 @@ export const SloopModel: React.FC<SubModelProps> = React.memo(({
           sailState={sailState}
           height={mastHeight * 0.34}
           type="jib"
+          isEnemy={isEnemy}
         />
       </group>
 
@@ -192,6 +193,7 @@ export const SloopModel: React.FC<SubModelProps> = React.memo(({
             depthOffset={0.2}
             type="square"
             mastIndex={1}
+            isEnemy={isEnemy}
           />
         </group>
         {/* Square Topsail */}
@@ -208,6 +210,7 @@ export const SloopModel: React.FC<SubModelProps> = React.memo(({
             depthOffset={0.15}
             type="square"
             mastIndex={2}
+            isEnemy={isEnemy}
           />
         </group>
         {/* Mast Top / Crow's Nest Platform */}

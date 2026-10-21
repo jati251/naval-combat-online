@@ -81,20 +81,26 @@ export function constructionMaterial(kind: Surface, color: string, tileSize = 4)
 export function applyTriplanar(material: THREE.MeshStandardMaterial, tileSize = 8) {
   material.onBeforeCompile = (shader) => {
     shader.uniforms.surfaceTileSize = { value: tileSize };
-    shader.vertexShader = 'varying vec3 surfacePosition;\nvarying vec3 surfaceNormal;\n' + shader.vertexShader;
+    shader.vertexShader = 'varying vec3 surfacePosition;\nvarying vec3 surfaceWeights;\n' + shader.vertexShader;
     shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
       vec3 metricScale = vec3(length(modelMatrix[0].xyz), length(modelMatrix[1].xyz), length(modelMatrix[2].xyz));
       #ifdef USE_INSTANCING
         metricScale *= vec3(length(instanceMatrix[0].xyz), length(instanceMatrix[1].xyz), length(instanceMatrix[2].xyz));
       #endif
       surfacePosition = position * metricScale;
-      surfaceNormal = normal;`);
+      vec3 n2 = normal * normal;
+      vec3 w = n2 * n2 * n2;
+      surfaceWeights = w / max(w.x + w.y + w.z, 0.0001);`);
     shader.fragmentShader = `varying vec3 surfacePosition;
-      varying vec3 surfaceNormal;
+      varying vec3 surfaceWeights;
       uniform float surfaceTileSize;
+      vec4 surfaceSampleOffset(sampler2D tex, vec3 offset) {
+        vec3 w = surfaceWeights / max(surfaceWeights.x + surfaceWeights.y + surfaceWeights.z, 0.0001);
+        vec3 p = (surfacePosition + offset) / surfaceTileSize;
+        return texture2D(tex, p.zy) * w.x + texture2D(tex, p.xz) * w.y + texture2D(tex, p.xy) * w.z;
+      }
       vec4 surfaceSample(sampler2D tex) {
-        vec3 w = pow(abs(normalize(surfaceNormal)), vec3(6.0));
-        w /= max(w.x + w.y + w.z, 0.0001);
+        vec3 w = surfaceWeights / max(surfaceWeights.x + surfaceWeights.y + surfaceWeights.z, 0.0001);
         vec3 p = surfacePosition / surfaceTileSize;
         return texture2D(tex, p.zy) * w.x + texture2D(tex, p.xz) * w.y + texture2D(tex, p.xy) * w.z;
       }\n` + shader.fragmentShader;
@@ -103,14 +109,7 @@ export function applyTriplanar(material: THREE.MeshStandardMaterial, tileSize = 
       .replace('texture2D( bumpMap, vBumpMapUv ).x', 'surfaceSample( bumpMap ).x')
       .replace('texture2D( bumpMap, vBumpMapUv + dSTdx ).x', 'surfaceSampleOffset( bumpMap, dFdx(surfacePosition) ).x')
       .replace('texture2D( bumpMap, vBumpMapUv + dSTdy ).x', 'surfaceSampleOffset( bumpMap, dFdy(surfacePosition) ).x'));
-    const offsetSampler = `vec4 surfaceSampleOffset(sampler2D tex, vec3 offset) {
-      vec3 w = pow(abs(normalize(surfaceNormal)), vec3(6.0));
-      w /= max(w.x + w.y + w.z, 0.0001);
-      vec3 p = (surfacePosition + offset) / surfaceTileSize;
-      return texture2D(tex, p.zy) * w.x + texture2D(tex, p.xz) * w.y + texture2D(tex, p.xy) * w.z;
-    }\n`;
-    shader.fragmentShader = shader.fragmentShader.replace('vec4 surfaceSample(sampler2D tex)', offsetSampler + 'vec4 surfaceSample(sampler2D tex)');
   };
-  material.customProgramCacheKey = () => 'construction-triplanar-v2';
+  material.customProgramCacheKey = () => 'construction-triplanar-v3';
   return material;
 }

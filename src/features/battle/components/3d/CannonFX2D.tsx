@@ -128,6 +128,10 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
 
   const currentBallIds = useRef<Set<string>>(new Set());
   const frameCounter = useRef(0);
+  const hadActiveSmoke = useRef(false);
+  const hadActiveFlash = useRef(false);
+  const hadActiveSparks = useRef(false);
+  const hadActivePlumes = useRef(false);
 
   useFrame((_, delta) => {
     delta = Math.min(delta, 0.1);
@@ -236,6 +240,9 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
       const geo = smokePointsRef.current.geometry;
       const posAttr = geo.attributes.position as THREE.BufferAttribute;
       const posArr = posAttr.array as Float32Array;
+      const styleAttr = geo.attributes.particleStyle as THREE.BufferAttribute;
+      const dragXZ = Math.exp(-3.7 * delta);
+      const dragY = Math.exp(-2.45 * delta);
 
       let activeSmoke = 0;
       for (let i = 0; i < maxSmoke; i++) {
@@ -245,26 +252,28 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
           p.x += p.vx * delta;
           p.y += p.vy * delta;
           p.z += p.vz * delta;
-          p.vx *= Math.exp(-3.7 * delta);
-          p.vz *= Math.exp(-3.7 * delta);
-          p.vy = Math.max(0.15, p.vy * Math.exp(-2.45 * delta));
+          p.vx *= dragXZ;
+          p.vz *= dragXZ;
+          p.vy = Math.max(0.15, p.vy * dragY);
 
           posArr[activeSmoke * 3] = p.x;
           posArr[activeSmoke * 3 + 1] = Math.max(0.2, p.y);
           posArr[activeSmoke * 3 + 2] = p.z;
-          writeParticleAppearance(geo.attributes.particleStyle as THREE.BufferAttribute, activeSmoke, p, 'Smoke');
+          writeParticleAppearance(styleAttr, activeSmoke, p, 'Smoke');
           activeSmoke++;
         }
       }
-      const styleAttr = geo.attributes.particleStyle as THREE.BufferAttribute;
-      styleAttr.clearUpdateRanges();
-      if (activeSmoke) styleAttr.addUpdateRange(0, activeSmoke * 2);
-      styleAttr.needsUpdate = true;
-      geo.setDrawRange(0, activeSmoke);
-      if (activeSmoke > 0) {
-        posAttr.clearUpdateRanges();
-        posAttr.addUpdateRange(0, activeSmoke * 3);
-        posAttr.needsUpdate = true;
+      if (activeSmoke > 0 || hadActiveSmoke.current) {
+        geo.setDrawRange(0, activeSmoke);
+        if (activeSmoke > 0) {
+          styleAttr.clearUpdateRanges();
+          styleAttr.addUpdateRange(0, activeSmoke * 2);
+          styleAttr.needsUpdate = true;
+          posAttr.clearUpdateRanges();
+          posAttr.addUpdateRange(0, activeSmoke * 3);
+          posAttr.needsUpdate = true;
+        }
+        hadActiveSmoke.current = activeSmoke > 0;
       }
     }
 
@@ -273,6 +282,7 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
       const geo = flashPointsRef.current.geometry;
       const posAttr = geo.attributes.position as THREE.BufferAttribute;
       const posArr = posAttr.array as Float32Array;
+      const styleAttr = geo.attributes.particleStyle as THREE.BufferAttribute;
 
       let activeFlash = 0;
       for (let i = 0; i < maxFlash; i++) {
@@ -282,19 +292,21 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
           posArr[activeFlash * 3] = p.x;
           posArr[activeFlash * 3 + 1] = p.y;
           posArr[activeFlash * 3 + 2] = p.z;
-          writeParticleAppearance(geo.attributes.particleStyle as THREE.BufferAttribute, activeFlash, p, 'Flash');
+          writeParticleAppearance(styleAttr, activeFlash, p, 'Flash');
           activeFlash++;
         }
       }
-      const styleAttr = geo.attributes.particleStyle as THREE.BufferAttribute;
-      styleAttr.clearUpdateRanges();
-      if (activeFlash) styleAttr.addUpdateRange(0, activeFlash * 2);
-      styleAttr.needsUpdate = true;
-      geo.setDrawRange(0, activeFlash);
-      if (activeFlash > 0) {
-        posAttr.clearUpdateRanges();
-        posAttr.addUpdateRange(0, activeFlash * 3);
-        posAttr.needsUpdate = true;
+      if (activeFlash > 0 || hadActiveFlash.current) {
+        geo.setDrawRange(0, activeFlash);
+        if (activeFlash > 0) {
+          styleAttr.clearUpdateRanges();
+          styleAttr.addUpdateRange(0, activeFlash * 2);
+          styleAttr.needsUpdate = true;
+          posAttr.clearUpdateRanges();
+          posAttr.addUpdateRange(0, activeFlash * 3);
+          posAttr.needsUpdate = true;
+        }
+        hadActiveFlash.current = activeFlash > 0;
       }
     }
 
@@ -303,6 +315,8 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
       const geo = sparkPointsRef.current.geometry;
       const posAttr = geo.attributes.position as THREE.BufferAttribute;
       const posArr = posAttr.array as Float32Array;
+      const styleAttr = geo.attributes.particleStyle as THREE.BufferAttribute;
+      const gravityStep = 9.8 * delta;
 
       let activeSparks = 0;
       for (let i = 0; i < maxSparks; i++) {
@@ -312,24 +326,26 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
           p.x += p.vx * delta;
           p.y += p.vy * delta;
           p.z += p.vz * delta;
-          p.vy -= 9.8 * delta;
+          p.vy -= gravityStep;
 
           posArr[activeSparks * 3] = p.x;
           posArr[activeSparks * 3 + 1] = Math.max(0.1, p.y);
           posArr[activeSparks * 3 + 2] = p.z;
-          writeParticleAppearance(geo.attributes.particleStyle as THREE.BufferAttribute, activeSparks, p, 'Sparks');
+          writeParticleAppearance(styleAttr, activeSparks, p, 'Sparks');
           activeSparks++;
         }
       }
-      const styleAttr = geo.attributes.particleStyle as THREE.BufferAttribute;
-      styleAttr.clearUpdateRanges();
-      if (activeSparks) styleAttr.addUpdateRange(0, activeSparks * 2);
-      styleAttr.needsUpdate = true;
-      geo.setDrawRange(0, activeSparks);
-      if (activeSparks > 0) {
-        posAttr.clearUpdateRanges();
-        posAttr.addUpdateRange(0, activeSparks * 3);
-        posAttr.needsUpdate = true;
+      if (activeSparks > 0 || hadActiveSparks.current) {
+        geo.setDrawRange(0, activeSparks);
+        if (activeSparks > 0) {
+          styleAttr.clearUpdateRanges();
+          styleAttr.addUpdateRange(0, activeSparks * 2);
+          styleAttr.needsUpdate = true;
+          posAttr.clearUpdateRanges();
+          posAttr.addUpdateRange(0, activeSparks * 3);
+          posAttr.needsUpdate = true;
+        }
+        hadActiveSparks.current = activeSparks > 0;
       }
     }
 
@@ -338,6 +354,8 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
       const geo = plumePointsRef.current.geometry;
       const posAttr = geo.attributes.position as THREE.BufferAttribute;
       const posArr = posAttr.array as Float32Array;
+      const styleAttr = geo.attributes.particleStyle as THREE.BufferAttribute;
+      const gravityStep = 9.81 * delta;
 
       let activePlumes = 0;
       for (let i = 0; i < maxPlumes; i++) {
@@ -347,24 +365,26 @@ export const CannonFX2D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobi
           p.x += p.vx * delta;
           p.z += p.vz * delta;
           p.y += p.vy * delta;
-          p.vy -= 9.81 * delta;
+          p.vy -= gravityStep;
 
           posArr[activePlumes * 3] = p.x;
           posArr[activePlumes * 3 + 1] = Math.max(0.4, p.y);
           posArr[activePlumes * 3 + 2] = p.z;
-          writeParticleAppearance(geo.attributes.particleStyle as THREE.BufferAttribute, activePlumes, p, 'Plumes');
+          writeParticleAppearance(styleAttr, activePlumes, p, 'Plumes');
           activePlumes++;
         }
       }
-      const styleAttr = geo.attributes.particleStyle as THREE.BufferAttribute;
-      styleAttr.clearUpdateRanges();
-      if (activePlumes) styleAttr.addUpdateRange(0, activePlumes * 2);
-      styleAttr.needsUpdate = true;
-      geo.setDrawRange(0, activePlumes);
-      if (activePlumes > 0) {
-        posAttr.clearUpdateRanges();
-        posAttr.addUpdateRange(0, activePlumes * 3);
-        posAttr.needsUpdate = true;
+      if (activePlumes > 0 || hadActivePlumes.current) {
+        geo.setDrawRange(0, activePlumes);
+        if (activePlumes > 0) {
+          styleAttr.clearUpdateRanges();
+          styleAttr.addUpdateRange(0, activePlumes * 2);
+          styleAttr.needsUpdate = true;
+          posAttr.clearUpdateRanges();
+          posAttr.addUpdateRange(0, activePlumes * 3);
+          posAttr.needsUpdate = true;
+        }
+        hadActivePlumes.current = activePlumes > 0;
       }
     }
   });

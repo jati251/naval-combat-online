@@ -184,6 +184,7 @@ export class CombatAudioSynth {
           echo.disconnect();
           echoFilter.disconnect();
           echoGain.disconnect();
+          voice.disconnect();
         } catch {
           // Disconnected
         }
@@ -196,7 +197,9 @@ export class CombatAudioSynth {
         subOsc.disconnect();
         subGain.disconnect();
         shaper.disconnect();
-        voice.disconnect();
+        if (!brownBuffer) {
+          voice.disconnect();
+        }
       } catch {
         // Disconnected
       }

@@ -1,4 +1,4 @@
-import { getHullWaterPose } from './WaveMath.js';
+import { getHullWaterPose, getFastHullWaterPose } from './WaveMath.js';
 import {
   type ShipSimulationState,
   type MapId,
@@ -384,7 +384,9 @@ export class PhysicsEngine {
     ship.vx = (ship.x - prevX) / dt;
     ship.vz = (ship.z - prevZ) / dt;
 
-    const pose = getHullWaterPose(ship.x, ship.z, ship.rotationY, config.length, config.width, serverTime, PhysicsEngine.waterPose);
+    const pose = ship.id.startsWith('bot-')
+      ? getFastHullWaterPose(ship.x, ship.z, ship.rotationY, config.length, serverTime, PhysicsEngine.waterPose)
+      : getHullWaterPose(ship.x, ship.z, ship.rotationY, config.length, config.width, serverTime, PhysicsEngine.waterPose);
     const response = 1 - Math.exp(-Math.max(2.5, 7 - config.length * 0.09) * dt);
     ship.y += (pose.y - ship.y) * response;
     ship.pitch += (pose.pitch - ship.pitch) * response;

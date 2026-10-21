@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Volume2, VolumeX, LogOut, Swords, Skull, Smartphone, Trophy, Sliders } from 'lucide-react';
-import { useGameStore } from '@/stores/useGameStore';
+import { useGameStore, findShip } from '@/stores/useGameStore';
 import { useModalStore } from '@/stores/useModalStore';
 import { useSettingsStore } from '@/features/settings';
 import { networkClient } from '@/services/networkClient';
@@ -125,12 +125,12 @@ const DeathmatchObjectiveBar: React.FC<{ onOpenScoreboard: () => void; isTouch?:
 
 const ShipStatusContainer: React.FC<{ hasMinimap?: boolean }> = React.memo(({ hasMinimap = false }) => {
   const roomName = useGameStore((s) => s.currentRoom?.name);
-  const shipClass = useGameStore((s) => s.ships.find((ship) => ship.id === s.selfId)?.shipClass ?? 'brig');
-  const shipName = useGameStore((s) => s.ships.find((ship) => ship.id === s.selfId)?.name ?? roomName ?? 'Flagship Vessel');
+  const shipClass = useGameStore((s) => findShip(s.ships, s.selfId)?.shipClass ?? 'brig');
+  const shipName = useGameStore((s) => findShip(s.ships, s.selfId)?.name ?? roomName ?? 'Flagship Vessel');
   const currentHp = useGameStore((s) => {
-    const ship = s.ships.find((ship) => ship.id === s.selfId);
+    const ship = findShip(s.ships, s.selfId);
     if (!ship) return SHIP_PRESETS.brig.maxHealth;
-    return Math.max(0, ship.health);
+    return Math.round(Math.max(0, ship.health));
   });
 
   const config = SHIP_PRESETS[shipClass] || SHIP_PRESETS.brig;
@@ -152,10 +152,11 @@ const SpeedRudderContainer: React.FC = React.memo(() => {
   const { changeSail, setRudder } = useShipActions();
   const localSail = useGameStore((s) => s.localSail);
   const localRudder = useGameStore((s) => s.localRudder);
-  const speedKnots = useGameStore((s) => {
-    const ship = s.ships.find((ship) => ship.id === s.selfId);
-    return (Math.round((ship?.speed ?? 0) * 10) / 10).toFixed(1);
+  const speedTenths = useGameStore((s) => {
+    const ship = findShip(s.ships, s.selfId);
+    return Math.round((ship?.speed ?? 0) * 5) * 2;
   });
+  const speedKnots = (speedTenths / 10).toFixed(1);
 
   return (
     <SpeedRudderControl
@@ -253,7 +254,7 @@ const SunkCountdownContent: React.FC<{ onOpenScoreboard: () => void }> = React.m
 
 const SunkNoticeOverlay: React.FC<{ onOpenScoreboard: () => void }> = React.memo(({ onOpenScoreboard }) => {
   const isSunk = useGameStore((s) => {
-    const selfShip = s.ships.find((ship) => ship.id === s.selfId);
+    const selfShip = findShip(s.ships, s.selfId);
     return selfShip?.isSunk ?? false;
   });
 
@@ -270,10 +271,7 @@ const DamageHitVignette: React.FC = React.memo(() => {
   return (
     <div
       key={cameraShake.timestamp}
-      className="pointer-events-none fixed inset-0 z-30 animate-hit-pulse"
-      style={{
-        boxShadow: 'inset 0 0 85px 30px rgba(185, 28, 28, 0.55)',
-      }}
+      className="pointer-events-none fixed inset-0 z-30 animate-hit-pulse shadow-[inset_0_0_85px_30px_rgba(185,28,28,0.55)]"
     />
   );
 });
@@ -288,12 +286,11 @@ const SalvoFlashVignette: React.FC = React.memo(() => {
   return (
     <div
       key={cameraShake.timestamp}
-      className="pointer-events-none fixed inset-0 z-20 animate-salvo-flash"
-      style={{
-        boxShadow: isLeft
-          ? 'inset 80px 0 100px -15px rgba(249, 115, 22, 0.45), inset 0 0 50px 10px rgba(254, 240, 138, 0.2)'
-          : 'inset -80px 0 100px -15px rgba(249, 115, 22, 0.45), inset 0 0 50px 10px rgba(254, 240, 138, 0.2)',
-      }}
+      className={`pointer-events-none fixed inset-0 z-20 animate-salvo-flash ${
+        isLeft
+          ? 'shadow-[inset_80px_0_100px_-15px_rgba(249,115,22,0.45),inset_0_0_50px_10px_rgba(254,240,138,0.2)]'
+          : 'shadow-[inset_-80px_0_100px_-15px_rgba(249,115,22,0.45),inset_0_0_50px_10px_rgba(254,240,138,0.2)]'
+      }`}
     />
   );
 });

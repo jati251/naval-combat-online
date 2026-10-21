@@ -240,6 +240,7 @@ export const CarrackModel: React.FC<SubModelProps> = React.memo(({
             type="lateen"
             rotation={[0, Math.PI / 2, 0]}
             mastIndex={4}
+            isEnemy={isEnemy}
           />
         </group>
       </group>

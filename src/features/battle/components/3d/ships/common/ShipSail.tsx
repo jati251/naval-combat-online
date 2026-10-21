@@ -1,9 +1,27 @@
-import React, { useRef } from 'react';
+import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import type { SailState } from '@/types/game';
 import { getSurfaceBump } from '../../textures/surfaceTextures';
 import { isObjectVisible } from '../../shared/visibility';
+
+const sailMaterialCache = new WeakMap<THREE.CanvasTexture, THREE.MeshStandardMaterial>();
+
+function getOrCreateSailMaterial(texture: THREE.CanvasTexture): THREE.MeshStandardMaterial {
+  let mat = sailMaterialCache.get(texture);
+  if (!mat) {
+    mat = new THREE.MeshStandardMaterial({
+      map: texture,
+      bumpMap: getSurfaceBump('cloth'),
+      bumpScale: 0.035,
+      side: THREE.DoubleSide,
+      roughness: 0.78,
+      metalness: 0.01,
+    });
+    sailMaterialCache.set(texture, mat);
+  }
+  return mat;
+}
 
 export interface ShipSailProps {
   geometry: THREE.BufferGeometry;
@@ -46,6 +64,7 @@ export const ShipSail: React.FC<ShipSailProps> = React.memo(({
   isEnemy = false,
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
+  const sailMaterial = useMemo(() => getOrCreateSailMaterial(texture), [texture]);
 
   // Determine target scale based on sail speed mode
   const getTargetProgress = (state: SailState) => {
@@ -64,15 +83,16 @@ export const ShipSail: React.FC<ShipSailProps> = React.memo(({
   const initialApplied = useRef(false);
 
   useFrame((state, delta) => {
-    if (!meshRef.current || !isObjectVisible(meshRef.current)) return;
+    if (!meshRef.current) return;
 
     const target = getTargetProgress(sailState);
     const isTransitioning = Math.abs(currentProgress.current - target) > 0.005;
 
-    // For enemy vessels, only calculate and update transforms during sail transitions
+    // For enemy vessels, only calculate and update transforms during sail transitions or initial frame
     if (isEnemy && !isTransitioning && initialApplied.current) {
       return;
     }
+    if (initialApplied.current && !isObjectVisible(meshRef.current)) return;
 
     const dt = Math.min(delta, 0.1);
 
@@ -149,17 +169,9 @@ export const ShipSail: React.FC<ShipSailProps> = React.memo(({
     <mesh
       ref={meshRef}
       geometry={geometry}
+      material={sailMaterial}
       castShadow={!isEnemy}
       receiveShadow
-    >
-      <meshStandardMaterial
-        map={texture}
-        bumpMap={getSurfaceBump('cloth')}
-        bumpScale={0.035}
-        side={THREE.DoubleSide}
-        roughness={0.78}
-        metalness={0.01}
-      />
-    </mesh>
+    />
   );
 });

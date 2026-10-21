@@ -1,17 +1,45 @@
 import React, { useEffect } from 'react';
 import { Trophy, Skull, Swords, Shield, X } from 'lucide-react';
-import { useGameStore } from '@/stores/useGameStore';
-import { SHIP_PRESETS } from '@/types';
+import { useGameStore, findShip } from '@/stores/useGameStore';
+import { SHIP_PRESETS, type ShipClass } from '@/types';
 
 interface ScoreboardModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+const PlayerHullStatusBadge: React.FC<{ playerId: string; shipClass: ShipClass }> = React.memo(
+  ({ playerId, shipClass }) => {
+    const hpState = useGameStore((s) => {
+      const liveShip = findShip(s.ships, playerId);
+      if (!liveShip) return 100;
+      if (liveShip.isSunk) return -1;
+      const shipConfig = SHIP_PRESETS[shipClass] || SHIP_PRESETS.brig;
+      const hp = Math.max(0, liveShip.health);
+      return Math.round((hp / shipConfig.maxHealth) * 100);
+    });
+
+    if (hpState < 0) {
+      return (
+        <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1 sm:px-2 py-0.5 rounded text-[8px] sm:text-[10px] font-cinzel font-bold bg-rose-950/80 text-rose-300 border border-rose-700/60 shadow-[0_0_8px_rgba(225,29,72,0.3)]">
+          <Skull className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-rose-400 animate-pulse" />
+          <span>Respawn</span>
+        </span>
+      );
+    }
+
+    return (
+      <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1 sm:px-2 py-0.5 rounded text-[8px] sm:text-[10px] font-mono font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-700/60">
+        <Shield className="w-2 h-2 sm:w-3 sm:h-3 text-emerald-400" />
+        <span>{hpState}%</span>
+      </span>
+    );
+  }
+);
+
 const ScoreboardModalContent: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const currentRoom = useGameStore((s) => s.currentRoom);
   const selfId = useGameStore((s) => s.selfId);
-  const ships = useGameStore((s) => s.ships);
 
   // Close on Escape key
   useEffect(() => {
@@ -184,11 +212,7 @@ const ScoreboardModalContent: React.FC<{ onClose: () => void }> = ({ onClose }) 
             <tbody className="divide-y divide-amber-600/20">
               {sortedPlayers.map((player, idx) => {
                 const isSelf = player.id === selfId;
-                const liveShip = ships.find((s) => s.id === player.id);
                 const shipConfig = SHIP_PRESETS[player.shipClass] || SHIP_PRESETS.brig;
-                const isSunk = liveShip?.isSunk ?? false;
-                const hp = liveShip ? Math.max(0, liveShip.health) : shipConfig.maxHealth;
-                const hpPercent = Math.round((hp / shipConfig.maxHealth) * 100);
 
                 let rankBadge = `${idx + 1}`;
                 if (idx === 0) rankBadge = '🥇 1st';
@@ -267,17 +291,7 @@ const ScoreboardModalContent: React.FC<{ onClose: () => void }> = ({ onClose }) 
 
                     {/* Hull Status */}
                     <td className="py-1 sm:py-2 pr-1.5 sm:pr-2 text-right whitespace-nowrap">
-                      {isSunk ? (
-                        <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1 sm:px-2 py-0.5 rounded text-[8px] sm:text-[10px] font-cinzel font-bold bg-rose-950/80 text-rose-300 border border-rose-700/60 shadow-[0_0_8px_rgba(225,29,72,0.3)]">
-                          <Skull className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-rose-400 animate-pulse" />
-                          <span>Respawn</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1 sm:px-2 py-0.5 rounded text-[8px] sm:text-[10px] font-mono font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-700/60">
-                          <Shield className="w-2 h-2 sm:w-3 sm:h-3 text-emerald-400" />
-                          <span>{hpPercent}%</span>
-                        </span>
-                      )}
+                      <PlayerHullStatusBadge playerId={player.id} shipClass={player.shipClass} />
                     </td>
                   </tr>
                 );

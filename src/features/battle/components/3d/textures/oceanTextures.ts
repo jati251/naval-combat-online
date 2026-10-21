@@ -19,6 +19,7 @@ function texture(data: Uint8Array, size = SIZE) {
   result.wrapS = result.wrapT = THREE.RepeatWrapping;
   result.minFilter = THREE.LinearMipmapLinearFilter;
   result.magFilter = THREE.LinearFilter;
+  result.anisotropy = 4;
   result.generateMipmaps = true;
   result.needsUpdate = true;
   return result;

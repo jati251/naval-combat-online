@@ -24,12 +24,8 @@ export const DevMapBaker: React.FC = () => {
       }
 
       try {
-        const res = await fetch('/__api/save-map', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mapId: mapDef.id, dataUrl }),
-        });
-        if (res.ok) {
+        const ok = await MapBaker.saveBakedMapTexture(mapDef.id, dataUrl);
+        if (ok) {
           done.push(mapDef.id);
           setCompleted([...done]);
         }

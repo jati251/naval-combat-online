@@ -8,7 +8,7 @@ export function AdaptiveResolution({ isMobile, dprRange }: { isMobile?: boolean;
   const stateRef = useRef({
     seconds: 0,
     frames: 0,
-    warmup: 6.0,
+    warmup: 2.5,
     cooldown: 0, // Cooldown timer between canvas resizes
     lowFpsStreak: 0,
     highFpsStreak: 0,
@@ -16,7 +16,7 @@ export function AdaptiveResolution({ isMobile, dprRange }: { isMobile?: boolean;
   const lowerDpr = dprRange?.[0];
   const upperDpr = dprRange?.[1];
   useEffect(() => {
-    Object.assign(stateRef.current, { seconds: 0, frames: 0, warmup: 6,
+    Object.assign(stateRef.current, { seconds: 0, frames: 0, warmup: 2.5,
       cooldown: 0, lowFpsStreak: 0, highFpsStreak: 0 });
   }, [lowerDpr, upperDpr, isMobile]);
 
@@ -27,7 +27,7 @@ export function AdaptiveResolution({ isMobile, dprRange }: { isMobile?: boolean;
     if (document.hidden || delta > 0.25) {
       s.seconds = 0;
       s.frames = 0;
-      s.warmup = Math.max(s.warmup, 4.0);
+      s.warmup = Math.max(s.warmup, 2.0);
       return;
     }
 
@@ -46,8 +46,8 @@ export function AdaptiveResolution({ isMobile, dprRange }: { isMobile?: boolean;
     s.seconds += delta;
     s.frames++;
 
-    // Sample every 2 seconds
-    if (s.seconds < 2.0) return;
+    // Sample every 1.25 seconds
+    if (s.seconds < 1.25) return;
 
     const fps = s.frames / s.seconds;
     s.seconds = 0;
@@ -71,12 +71,13 @@ export function AdaptiveResolution({ isMobile, dprRange }: { isMobile?: boolean;
       s.highFpsStreak = 0;
     }
 
-    // Two windows ignore isolated compilation stalls while responding to sustained GPU load.
-    if (s.lowFpsStreak >= 2 && currentDpr > minimum) {
-      const nextDpr = Math.max(minimum, Math.round((currentDpr - 0.125) * 100) / 100);
+    // Drop quickly on severe frame drops (<42 FPS) or sustained pressure.
+    if ((s.lowFpsStreak >= 2 || fps < 42) && currentDpr > minimum) {
+      const step = fps < 40 ? 0.25 : 0.125;
+      const nextDpr = Math.max(minimum, Math.round((currentDpr - step) * 100) / 100);
       if (Math.abs(nextDpr - currentDpr) > 0.05) {
         setDpr(nextDpr);
-        s.cooldown = 12.0; // Wait 12s before allowing another resize
+        s.cooldown = 4.0;
         s.lowFpsStreak = 0;
       }
     }
@@ -84,7 +85,7 @@ export function AdaptiveResolution({ isMobile, dprRange }: { isMobile?: boolean;
       const nextDpr = Math.min(maximum, Math.round((currentDpr + 0.125) * 100) / 100);
       if (Math.abs(nextDpr - currentDpr) > 0.05) {
         setDpr(nextDpr);
-        s.cooldown = 20.0;
+        s.cooldown = 16.0;
         s.highFpsStreak = 0;
       }
     }

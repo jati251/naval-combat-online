@@ -2,12 +2,10 @@ import React, { useMemo, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
-import { findShip } from '@/stores/selectors/shipLookup';
 import { getMapConfig } from '../../maps';
 import type { GraphicProfile } from '@/features/settings';
 import { getOceanVertexShader, getOceanFragmentShader } from './oceanShaders';
-import { dampAngle } from '../../utils/math';
-import { GERSTNER_WAVES, SHIP_PRESETS } from '@/types';
+import { GERSTNER_WAVES } from '@/types';
 import { getOceanTime } from '../../utils/oceanTime';
 import { createCoastalHeightField } from './islands/coastalHeightField';
 import { getOceanDetail, getWeatherNoise } from './textures/oceanTextures';
@@ -91,8 +89,6 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size: request
     const maxSSSDist = profile?.waterShader.sssDist ?? (qualityTier === 'fast' ? 60.0 : qualityTier === 'performance' ? 320.0 : 220.0);
     const maxFoamDist = profile?.waterShader.foamDist ?? (qualityTier === 'fast' ? 70.0 : qualityTier === 'performance' ? 280.0 : 180.0);
   const shaderMaterial = useMemo(() => {
-    const wakesEnabled = 0; // Persistent world-space wake patches are rendered by each vessel.
-
     return new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
@@ -115,11 +111,6 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size: request
         uCoastalHeight: { value: coastalTexture },
         uCoastalBounds: { value: new THREE.Vector4(coastalField.minX, coastalField.minZ, coastalField.spanX, coastalField.spanZ) },
         uCoastalResolution: { value: coastalField.resolution },
-        uShipPos: { value: new THREE.Vector3(0, 0, 0) },
-        uShipHeading: { value: 0 },
-        uShipSpeed: { value: 0 },
-        uShipLength: { value: 18 },
-        uShipWidth: { value: 6 },
         uIsMobile: { value: qualityTier === 'fast' ? 1.0 : 0.0 },
         uIsNight: { value: isNight ? 1.0 : 0.0 },
         uFogDensity: { value: fogDensity },
@@ -128,7 +119,6 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size: request
         uMaxCapDist: { value: maxCapDist },
         uMaxSSSDist: { value: maxSSSDist },
         uMaxFoamDist: { value: maxFoamDist },
-        uWakesEnabled: { value: wakesEnabled },
       },
       vertexShader: getOceanVertexShader(waveShaderChunk),
       fragmentShader: getOceanFragmentShader(waveShaderChunk),
@@ -141,16 +131,11 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size: request
   useEffect(() => () => shaderMaterial.dispose(), [shaderMaterial]);
   useEffect(() => () => geometry.dispose(), [geometry]);
 
-  // Smoothed real-time ship state refs to prevent 30Hz server-tick wake stutter
-  const smoothShipPos = useRef(new THREE.Vector3(0, 0, 0));
-  const smoothShipHeading = useRef(0);
-  const smoothShipSpeed = useRef(0);
-
   useFrame((state, delta) => {
-    const t = getOceanTime(useGameStore.getState(), state.clock.elapsedTime);
+    const store = useGameStore.getState();
+    const t = getOceanTime(store, state.clock.elapsedTime);
     if (shaderMaterial) {
       shaderMaterial.uniforms.uTime.value = t;
-      const store = useGameStore.getState();
       const storm = getLocalStorm(state.camera.position.x, state.camera.position.z);
       shaderMaterial.uniforms.uStorm.value = THREE.MathUtils.damp(shaderMaterial.uniforms.uStorm.value, storm, 1.5, delta);
       shaderMaterial.uniforms.uLightning.value = getLightning(t, storm);
@@ -160,26 +145,6 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size: request
         shaderMaterial.uniforms.uFogDensity.value = fog.density;
         shaderMaterial.uniforms.uHorizonCutoff.value = Math.min(profile?.waterShader.horizonLODCutoff ?? 950, 2.5 / fog.density);
         shaderMaterial.uniforms.uSkyHorizonColor.value.copy(fog.color);
-      }
-
-      const { ships, selfId } = useGameStore.getState();
-      const selfShip = findShip(ships, selfId);
-      if (selfShip && !selfShip.isSunk) {
-        const hull = SHIP_PRESETS[selfShip.shipClass];
-        shaderMaterial.uniforms.uShipLength.value = hull.length;
-        shaderMaterial.uniforms.uShipWidth.value = hull.width;
-        smoothShipPos.current.x = THREE.MathUtils.damp(smoothShipPos.current.x, selfShip.x, 24, delta);
-        smoothShipPos.current.y = THREE.MathUtils.damp(smoothShipPos.current.y, selfShip.y, 24, delta);
-        smoothShipPos.current.z = THREE.MathUtils.damp(smoothShipPos.current.z, selfShip.z, 24, delta);
-        smoothShipHeading.current = dampAngle(smoothShipHeading.current, selfShip.rotationY, 20, delta);
-        smoothShipSpeed.current = THREE.MathUtils.damp(smoothShipSpeed.current, selfShip.speed ?? 0, 14, delta);
-
-        shaderMaterial.uniforms.uShipPos.value.copy(smoothShipPos.current);
-        shaderMaterial.uniforms.uShipHeading.value = smoothShipHeading.current;
-        shaderMaterial.uniforms.uShipSpeed.value = smoothShipSpeed.current;
-      } else {
-        smoothShipSpeed.current = THREE.MathUtils.damp(smoothShipSpeed.current, 0, 10, delta);
-        shaderMaterial.uniforms.uShipSpeed.value = smoothShipSpeed.current;
       }
     }
 

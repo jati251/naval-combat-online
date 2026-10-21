@@ -1,24 +1,21 @@
 import React from 'react';
 import { AlertTriangle, Compass } from 'lucide-react';
-import { useGameStore } from '@/stores/useGameStore';
+import { useGameStore, findShip } from '@/stores/useGameStore';
 import { STORM_DAMAGE_RADIUS, STORM_WARNING_RADIUS } from '../../../../../server/src/engine/StormSystem';
 
 export const BoundaryWarningAlert: React.FC = React.memo(() => {
-  const boundaryState = useGameStore((s) => {
-    const ship = s.ships.find((sh) => sh.id === s.selfId);
+  const remaining = useGameStore((s) => {
+    const ship = findShip(s.ships, s.selfId);
     if (!ship || ship.isSunk) return null;
     const dist = Math.hypot(ship.x, ship.z);
     if (dist < STORM_WARNING_RADIUS) return null;
-    const remaining = Math.round(STORM_DAMAGE_RADIUS - dist);
-    const isCritical = remaining <= 0;
-    return `${remaining}:${isCritical}`;
+    // Quantize to 2m steps as a primitive integer to prevent 30Hz string allocation & re-renders
+    return Math.round((STORM_DAMAGE_RADIUS - dist) / 2) * 2;
   });
 
-  if (!boundaryState) return null;
+  if (remaining === null) return null;
 
-  const [remStr, critStr] = boundaryState.split(':');
-  const remaining = parseInt(remStr, 10);
-  const isCritical = critStr === 'true';
+  const isCritical = remaining <= 0;
 
   return (
     <div className="absolute top-20 left-1/2 -translate-x-1/2 z-30 pointer-events-none select-none">

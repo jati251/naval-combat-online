@@ -36,6 +36,11 @@ for (const part of shutterParts) {
 const shutters = mergeGeometries(shutterParts)!;
 shutterParts.forEach(g => g.dispose());
 
+const windowGlassGeo = new THREE.BoxGeometry(0.95, 1.4, 0.055);
+const windowSillGeo = new THREE.BoxGeometry(1.3, 0.13, 0.32);
+const windowGlassMat = new THREE.MeshStandardMaterial({ color: '#182321', roughness: 0.65, metalness: 0 });
+const windowSillMat = new THREE.MeshStandardMaterial({ color: '#c8b691' });
+
 let windowMaterials: { trim: THREE.Material; shutter: THREE.Material } | undefined;
 function getWindowMaterials() {
   return windowMaterials ??= { trim: constructionMaterial('wood', '#b6a281', 1.2), shutter: constructionMaterial('wood', '#53604b', 1.0) };
@@ -43,9 +48,9 @@ function getWindowMaterials() {
 export const ShutterWindow = memo(function ShutterWindow({ position }: { position: [number, number, number] }) {
   const materials = getWindowMaterials();
   return <group position={position}>
-    <mesh><boxGeometry args={[0.95, 1.4, 0.055]} /><meshStandardMaterial color="#182321" roughness={0.65} metalness={0} /></mesh>
+    <mesh geometry={windowGlassGeo} material={windowGlassMat} dispose={null} />
     <mesh geometry={frame} material={materials.trim} dispose={null} />
     <mesh geometry={shutters} material={materials.shutter} castShadow dispose={null} />
-    <mesh position={[0, -0.8, 0.08]} castShadow><boxGeometry args={[1.3, 0.13, 0.32]} /><meshStandardMaterial color="#c8b691" /></mesh>
+    <mesh position={[0, -0.8, 0.08]} geometry={windowSillGeo} material={windowSillMat} castShadow dispose={null} />
   </group>;
 });

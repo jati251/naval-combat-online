@@ -3,6 +3,7 @@ import { constructionMaterial } from '../textures/constructionMaterials';
 import React, { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import type { IslandSettlement } from './types';
+import { useGameStore } from '@/stores/useGameStore';
 
 interface MayanPyramidProps {
   settlement: IslandSettlement;
@@ -19,6 +20,7 @@ interface MayanPyramidProps {
  * - Ancient ruined colonnades overgrown with coastal jungle vines
  */
 export const MayanPyramid: React.FC<MayanPyramidProps> = React.memo(({ settlement, isMobile = false }) => {
+  const isNight = useGameStore((s) => s.timeOfDay === 'NIGHT');
   const stairs = useMemo(() => {
     const parts: THREE.BufferGeometry[] = [];
     for (let side = 0; side < 4; side++) for (let step = 0; step < 36; step++) {
@@ -149,7 +151,7 @@ export const MayanPyramid: React.FC<MayanPyramidProps> = React.memo(({ settlemen
           <mesh position={[0, 3.2, 0]} material={mats.fireGlow}>
             <dodecahedronGeometry args={[0.7, 1]} />
           </mesh>
-          {!isMobile && (
+          {isNight && !isMobile && (
             <pointLight color="#f97316" intensity={3.5} distance={22} decay={2} position={[0, 3.4, 0]} />
           )}
         </group>
@@ -160,7 +162,7 @@ export const MayanPyramid: React.FC<MayanPyramidProps> = React.memo(({ settlemen
         <mesh position={[0, 0.8, 0]} material={mats.fireGlow}>
           <dodecahedronGeometry args={[0.6, 1]} />
         </mesh>
-        {!isMobile && (
+        {isNight && !isMobile && (
           <pointLight color="#ea580c" intensity={4.5} distance={30} decay={2} position={[0, 1.2, 0]} />
         )}
       </group>

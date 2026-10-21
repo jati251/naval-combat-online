@@ -160,6 +160,7 @@ export const FrigateModel: React.FC<SubModelProps> = React.memo(({
           sailState={sailState}
           height={length * 0.28}
           type="jib"
+          isEnemy={isEnemy}
         />
       </group>
 

@@ -43,6 +43,8 @@ export const StaticInstances = memo(function StaticInstances({
     return () => mesh?.dispose();
   }, [geometry, material, instances.length]);
 
+  if (instances.length === 0) return null;
+
   return <instancedMesh ref={ref} args={[geometry, material, instances.length]} dispose={null}
     castShadow={castShadow} receiveShadow={receiveShadow} />;
 });

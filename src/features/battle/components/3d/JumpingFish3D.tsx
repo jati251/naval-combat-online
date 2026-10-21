@@ -68,6 +68,7 @@ function createFishSpriteTexture(): THREE.CanvasTexture {
   ctx.fill();
 
   const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
   texture.needsUpdate = true;
   return texture;
 }
@@ -95,12 +96,16 @@ function createSplashRingTexture(): THREE.CanvasTexture {
   ctx.stroke();
 
   const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
   texture.needsUpdate = true;
   return texture;
 }
 
 let cachedFishTex: THREE.CanvasTexture | null = null;
 let cachedRingTex: THREE.CanvasTexture | null = null;
+let cachedFishGeo: THREE.PlaneGeometry | null = null;
+let cachedRingGeo: THREE.PlaneGeometry | null = null;
+let cachedFishMat: THREE.MeshBasicMaterial | null = null;
 
 const MAX_JUMPING_FISH = 3;
 
@@ -135,18 +140,33 @@ interface RingState {
  * - Hard lifecycle timeout guarantees it can never bug out or remain stuck in scene.
  */
 export const JumpingFish3D: React.FC = React.memo(() => {
-  const fishTexture = useMemo(() => {
+  const { fishGeo, ringGeo, fishMat, ringTexture } = useMemo(() => {
     if (!cachedFishTex) cachedFishTex = createFishSpriteTexture();
-    return cachedFishTex;
-  }, []);
-
-  const ringTexture = useMemo(() => {
     if (!cachedRingTex) cachedRingTex = createSplashRingTexture();
-    return cachedRingTex;
+    if (!cachedFishGeo) cachedFishGeo = new THREE.PlaneGeometry(2.4, 1.2);
+    if (!cachedRingGeo) cachedRingGeo = new THREE.PlaneGeometry(2.2, 2.2);
+    if (!cachedFishMat) {
+      cachedFishMat = new THREE.MeshBasicMaterial({
+        map: cachedFishTex,
+        transparent: true,
+        alphaTest: 0.05,
+        depthWrite: false,
+        depthTest: true,
+        side: THREE.DoubleSide,
+      });
+    }
+    return {
+      fishGeo: cachedFishGeo,
+      ringGeo: cachedRingGeo,
+      fishMat: cachedFishMat,
+      ringTexture: cachedRingTex,
+    };
   }, []);
 
   const fishMeshRefs = useRef<(THREE.Mesh | null)[]>([]);
   const ringMeshRefs = useRef<(THREE.Mesh | null)[]>([]);
+  const hasActiveFish = useRef(false);
+  const hasActiveRings = useRef(false);
 
   const fishStates = useRef<FishState[]>(
     Array.from({ length: MAX_JUMPING_FISH }, () => ({
@@ -184,6 +204,7 @@ export const JumpingFish3D: React.FC = React.memo(() => {
     slot.z = z;
     slot.scale = 0.5;
     slot.opacity = 0.85;
+    hasActiveRings.current = true;
   };
 
   useFrame((state, delta) => {
@@ -198,12 +219,13 @@ export const JumpingFish3D: React.FC = React.memo(() => {
       if (freeFish) {
         const { ships, selfId } = useGameStore.getState();
         const selfShip = findShip(ships, selfId);
-        const center = selfShip ? new THREE.Vector3(selfShip.x, 0, selfShip.z) : state.camera.position;
+        const centerX = selfShip ? selfShip.x : state.camera.position.x;
+        const centerZ = selfShip ? selfShip.z : state.camera.position.z;
 
         const angle = Math.random() * Math.PI * 2;
         const dist = 18.0 + Math.random() * 26.0;
-        const sx = center.x + Math.cos(angle) * dist;
-        const sz = center.z + Math.sin(angle) * dist;
+        const sx = centerX + Math.cos(angle) * dist;
+        const sz = centerZ + Math.sin(angle) * dist;
 
         const jumpAngle = angle + (Math.random() - 0.5) * 1.2;
         const jumpDist = 9.0 + Math.random() * 5.0;
@@ -222,18 +244,20 @@ export const JumpingFish3D: React.FC = React.memo(() => {
         freeFish.scale = 1.6 + Math.random() * 0.8;
         freeFish.hasSplashedExit = false;
         freeFish.hasSplashedEntry = false;
+        hasActiveFish.current = true;
 
         spawnRing(sx, sz);
       }
     }
 
     // 2. Update Fish Jumps directly on meshes (bypassing React re-renders)
-    for (let i = 0; i < MAX_JUMPING_FISH; i++) {
-      const fish = fishStates.current[i];
-      const mesh = fishMeshRefs.current[i];
-      if (!mesh) continue;
+    if (hasActiveFish.current) {
+      let anyFishActive = false;
+      for (let i = 0; i < MAX_JUMPING_FISH; i++) {
+        const fish = fishStates.current[i];
+        const mesh = fishMeshRefs.current[i];
+        if (!mesh || !fish.active) continue;
 
-      if (fish.active) {
         fish.elapsed += dt;
         const progress = Math.min(1.0, fish.elapsed / fish.duration);
 
@@ -263,6 +287,7 @@ export const JumpingFish3D: React.FC = React.memo(() => {
           continue;
         }
 
+        anyFishActive = true;
         // Parabolic arc: 4 * h * p * (1 - p)
         const py = 4.0 * fish.peakY * progress * (1.0 - progress);
         const px = THREE.MathUtils.lerp(fish.startX, fish.targetX, progress);
@@ -277,19 +302,18 @@ export const JumpingFish3D: React.FC = React.memo(() => {
         mesh.rotation.set(0, -fish.heading + Math.PI * 0.5, 0);
         mesh.rotateZ(pitch);
         mesh.scale.set(fish.scale, fish.scale, 1);
-      } else {
-        mesh.visible = false;
-        mesh.position.set(0, -100, 0);
       }
+      hasActiveFish.current = anyFishActive;
     }
 
     // 3. Update Splashdown Rings directly on meshes
-    for (let i = 0; i < 6; i++) {
-      const ring = ringStates.current[i];
-      const mesh = ringMeshRefs.current[i];
-      if (!mesh) continue;
+    if (hasActiveRings.current) {
+      let anyRingActive = false;
+      for (let i = 0; i < 6; i++) {
+        const ring = ringStates.current[i];
+        const mesh = ringMeshRefs.current[i];
+        if (!mesh || !ring.active) continue;
 
-      if (ring.active) {
         ring.scale += dt * 3.8;
         ring.opacity -= dt * 1.35;
 
@@ -300,15 +324,14 @@ export const JumpingFish3D: React.FC = React.memo(() => {
           continue;
         }
 
+        anyRingActive = true;
         mesh.visible = true;
         mesh.position.set(ring.x, 0.08, ring.z);
         mesh.scale.set(ring.scale, ring.scale, 1);
         const mat = mesh.material as THREE.MeshBasicMaterial;
         if (mat) mat.opacity = ring.opacity;
-      } else {
-        mesh.visible = false;
-        mesh.position.set(0, -100, 0);
       }
+      hasActiveRings.current = anyRingActive;
     }
   });
 
@@ -321,19 +344,11 @@ export const JumpingFish3D: React.FC = React.memo(() => {
           ref={(el) => {
             fishMeshRefs.current[i] = el;
           }}
+          geometry={fishGeo}
+          material={fishMat}
           visible={false}
           position={[0, -100, 0]}
-        >
-          <planeGeometry args={[2.4, 1.2]} />
-          <meshBasicMaterial
-            map={fishTexture}
-            transparent
-            alphaTest={0.05}
-            depthWrite={false}
-            depthTest={true}
-            side={THREE.DoubleSide}
-          />
-        </mesh>
+        />
       ))}
 
       {/* Ripple Rings */}
@@ -343,11 +358,11 @@ export const JumpingFish3D: React.FC = React.memo(() => {
           ref={(el) => {
             ringMeshRefs.current[i] = el;
           }}
+          geometry={ringGeo}
           visible={false}
           position={[0, -100, 0]}
           rotation={[-Math.PI / 2, 0, 0]}
         >
-          <planeGeometry args={[2.2, 2.2]} />
           <meshBasicMaterial
             map={ringTexture}
             transparent

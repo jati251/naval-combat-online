@@ -1,50 +1,34 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback, useSyncExternalStore } from 'react';
 import { Compass, RotateCw, Maximize } from 'lucide-react';
 import { isMobileDevice } from '@/hooks/useMobileViewport';
 
+const subscribeOrientation = (callback: () => void) => {
+  if (typeof window === 'undefined') return () => {};
+  window.addEventListener('resize', callback);
+  window.addEventListener('orientationchange', callback);
+  return () => {
+    window.removeEventListener('resize', callback);
+    window.removeEventListener('orientationchange', callback);
+  };
+};
+
+const getIsMobilePortraitSnapshot = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const isMobile = isMobileDevice();
+  const isCurrentPortrait =
+    window.matchMedia('(orientation: portrait)').matches ||
+    window.innerHeight > window.innerWidth;
+  return isMobile && isCurrentPortrait;
+};
+
+const getServerSnapshot = (): boolean => false;
+
 export const OrientationLockOverlay: React.FC = () => {
-  const [isPortrait, setIsPortrait] = useState(false);
-
-  useEffect(() => {
-    const checkOrientation = () => {
-      // Check if viewport is an actual mobile/tablet device and in portrait mode
-      const isMobile = isMobileDevice();
-
-
-      const isCurrentPortrait =
-        window.matchMedia('(orientation: portrait)').matches ||
-        window.innerHeight > window.innerWidth;
-
-      setIsPortrait(isMobile && isCurrentPortrait);
-
-    };
-
-    checkOrientation();
-
-    window.addEventListener('resize', checkOrientation);
-    window.addEventListener('orientationchange', checkOrientation);
-
-    // Try auto-locking screen orientation if API is supported
-    const tryAutoLock = async () => {
-      try {
-        const orientation = screen.orientation as ScreenOrientation & {
-          lock?: (orientation: string) => Promise<void>;
-        };
-        if (orientation?.lock) {
-          await orientation.lock('landscape');
-        }
-      } catch {
-        // Many mobile browsers require a user gesture or fullscreen to lock orientation
-      }
-    };
-
-    tryAutoLock();
-
-    return () => {
-      window.removeEventListener('resize', checkOrientation);
-      window.removeEventListener('orientationchange', checkOrientation);
-    };
-  }, []);
+  const isPortrait = useSyncExternalStore(
+    subscribeOrientation,
+    getIsMobilePortraitSnapshot,
+    getServerSnapshot
+  );
 
   const handleRequestFullscreenLock = useCallback(async () => {
     try {

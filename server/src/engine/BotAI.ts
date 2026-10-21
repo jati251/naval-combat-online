@@ -8,7 +8,18 @@ interface BotEvasionMemory {
 
 const botMemory = new Map<string, BotEvasionMemory>();
 
+export function clearBotMemory(botId?: string): void {
+  if (botId) {
+    botMemory.delete(botId);
+  } else {
+    botMemory.clear();
+  }
+}
+
 export class BotAI {
+  public static clearBotMemory(botId?: string): void {
+    clearBotMemory(botId);
+  }
   /**
    * Normalizes an angle to [-PI, PI].
    */
@@ -107,7 +118,10 @@ export class BotAI {
    * 3. Broadside engagement & firing
    */
   public static update(bot: ShipSimulationState, room: GameRoom): void {
-    if (bot.isSunk || room.status !== 'IN_GAME') return;
+    if (bot.isSunk || room.status !== 'IN_GAME') {
+      botMemory.delete(bot.id);
+      return;
+    }
 
     // Grace period at battle start (4.0s) so players finish loading assets before bots engage
     const matchTime = (Date.now() - room.getStartTime()) / 1000;
@@ -170,7 +184,7 @@ export class BotAI {
       const evasionSail: SailState = speedKnots > 11.5 ? 'HALF_SAIL' : (speedKnots < 8.5 ? 'FULL_SAIL' : bot.sail);
       // If the bot already committed to an evasion direction, keep holding it to prevent jitter!
       if (existingMemory && existingMemory.timer > 0) {
-        existingMemory.timer -= 0.033;
+        existingMemory.timer -= 0.1;
         room.handleInput(bot.id, existingMemory.rudder, evasionSail);
         return;
       }
@@ -204,7 +218,7 @@ export class BotAI {
     } else {
       // Path is clear: decay evasion timer smoothly
       if (existingMemory) {
-        existingMemory.timer -= 0.033;
+        existingMemory.timer -= 0.1;
         if (existingMemory.timer <= 0) {
           botMemory.delete(bot.id);
         }

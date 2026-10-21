@@ -12,6 +12,7 @@ import { CaribbeanSeabirds3D } from "./CaribbeanSeabirds3D";
 import { OceanAtmosphereParticles3D } from "./OceanAtmosphereParticles3D";
 import { ShipEntity } from "./ShipEntity";
 import { useGameStore } from "@/stores/useGameStore";
+import { findShip } from "@/stores/selectors/shipLookup";
 import { useShallow } from "zustand/react/shallow";
 import { useBattleCamera } from "../../hooks/useBattleCamera";
 import { useMobileViewport } from "@/hooks/useMobileViewport";
@@ -23,6 +24,10 @@ import { setFrameId } from "../../utils/frustumCuller";
 import { getMapConfig } from "../../maps";
 
 import { useGraphicsQuality } from "@/features/settings";
+
+const IS_PERF_DEBUG =
+  typeof window !== "undefined" &&
+  new URLSearchParams(window.location.search).has("perf");
 
 /**
  * Syncs the frustum culler's frame counter at the very start of each render frame.
@@ -49,7 +54,7 @@ const FleetEntities: React.FC<{ isMobile: boolean }> = React.memo(
     );
     const selfId = useGameStore((s) => s.selfId);
     const isSelfAlive = useGameStore((s) => {
-      const self = s.ships.find((ship) => ship.id === s.selfId);
+      const self = findShip(s.ships, s.selfId);
       return Boolean(self && !self.isSunk);
     });
 
@@ -119,7 +124,7 @@ export const NavalCanvas: React.FC = React.memo(() => {
         }}
       >
         <FrustumFrameSync />
-        {new URLSearchParams(window.location.search).has('perf') && <FrameTiming />}
+        {IS_PERF_DEBUG && <FrameTiming />}
         <AdaptiveResolution isMobile={activeIsMobile} dprRange={profile.dpr} />
         <color attach="background" args={[skyClearColor]} />
         <Environment3D isMobile={activeIsMobile} profile={profile} />

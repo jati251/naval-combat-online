@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { DirectionalLight, Object3D, Vector3 } from "three";
 import { useFrame } from "@react-three/fiber";
 import { getLocalStorm } from '../../../utils/weather';
@@ -14,6 +14,13 @@ export function SceneSunLight({ color, intensity, shadows, shadowMapSize = 1024 
     return { forward, right, up: new Vector3().crossVectors(forward, right), anchor: new Vector3() };
   }, []);
   const halfSpan = shadowMapSize >= 2048 ? 90 : 60;
+
+  useEffect(() => {
+    const currentLight = light.current;
+    return () => {
+      currentLight?.shadow?.map?.dispose();
+    };
+  }, [shadowMapSize]);
 
   useFrame(({ camera }) => {
     if (!light.current) return;
@@ -49,8 +56,8 @@ export function SceneSunLight({ color, intensity, shadows, shadowMapSize = 1024 
         castShadow={shadows}
         shadow-mapSize-width={shadowMapSize}
         shadow-mapSize-height={shadowMapSize}
-        shadow-camera-near={20}
-        shadow-camera-far={340}
+        shadow-camera-near={50}
+        shadow-camera-far={270}
         shadow-camera-left={-halfSpan}
         shadow-camera-right={halfSpan}
         shadow-camera-top={halfSpan}

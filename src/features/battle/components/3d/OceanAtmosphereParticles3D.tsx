@@ -44,7 +44,6 @@ function getParticleTexture(): THREE.CanvasTexture {
 export const OceanAtmosphereParticles3D: React.FC<{ isMobile?: boolean; particleCount?: number }> = React.memo(({ isMobile = false, particleCount }) => {
   const texture = useMemo(() => getParticleTexture(), []);
   const pointsRef = useRef<THREE.Points>(null);
-  const previousCamera = useRef<{x:number;z:number}|null>(null);
   const count = particleCount ?? (isMobile ? 80 : 180);
 
   const [positions, initialOffsets] = useMemo(() => {
@@ -52,12 +51,9 @@ export const OceanAtmosphereParticles3D: React.FC<{ isMobile?: boolean; particle
     const offsets = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
       const idx = i * 3;
-      const x = (Math.random() - 0.5) * 120;
-      const y = 1.5 + Math.random() * 8;
-      const z = (Math.random() - 0.5) * 120;
-      pos[idx] = x;
-      pos[idx + 1] = y;
-      pos[idx + 2] = z;
+      pos[idx] = (Math.random() - 0.5) * 120;
+      pos[idx + 1] = 1.5 + Math.random() * 8;
+      pos[idx + 2] = (Math.random() - 0.5) * 120;
 
       offsets[idx] = Math.random() * Math.PI * 2;
       offsets[idx + 1] = 0.5 + Math.random() * 1.5; // vertical drift speed
@@ -66,57 +62,64 @@ export const OceanAtmosphereParticles3D: React.FC<{ isMobile?: boolean; particle
     return [pos, offsets];
   }, [count]);
 
+  const uniforms = useMemo(() => ({
+    uTime: { value: 0 },
+    uWindDrift: { value: new THREE.Vector2(0, 0) },
+    uCameraXZ: { value: new THREE.Vector2(0, 0) },
+  }), []);
+
+  const compileAtmosphereShader = useMemo(() => (shader: THREE.WebGLProgramParametersWithUniforms) => {
+    shader.uniforms.uTime = uniforms.uTime;
+    shader.uniforms.uWindDrift = uniforms.uWindDrift;
+    shader.uniforms.uCameraXZ = uniforms.uCameraXZ;
+    shader.vertexShader = `attribute vec3 aOffset;\nuniform float uTime;\nuniform vec2 uWindDrift;\nuniform vec2 uCameraXZ;\n` + shader.vertexShader;
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `vec3 transformed = vec3(
+        mod(position.x + uWindDrift.x * aOffset.z - uCameraXZ.x + 60.0, 120.0) - 60.0,
+        position.y + sin(uTime * aOffset.y + aOffset.x) * 0.85,
+        mod(position.z + uWindDrift.y * aOffset.z - uCameraXZ.y + 60.0, 120.0) - 60.0
+      );`
+    );
+  }, [uniforms]);
+
   useFrame((state, delta) => {
     if (!pointsRef.current) return;
 
-    // Follow camera horizontally so particles are always surrounding the player's ship
-    pointsRef.current.position.x = state.camera.position.x;
-    pointsRef.current.position.z = state.camera.position.z;
+    const camX = state.camera.position.x;
+    const camZ = state.camera.position.z;
+    pointsRef.current.position.x = camX;
+    pointsRef.current.position.z = camZ;
 
-    delta = Math.min(delta, 0.1);
-    const oldCamera = previousCamera.current ?? state.camera.position;
-    const cameraDX = state.camera.position.x - oldCamera.x;
-    const cameraDZ = state.camera.position.z - oldCamera.z;
-    previousCamera.current = {x:state.camera.position.x,z:state.camera.position.z};
-    const geo = pointsRef.current.geometry;
-    const posAttr = geo.attributes.position as THREE.BufferAttribute;
-    const arr = posAttr.array as Float32Array;
+    const dt = Math.min(delta, 0.1);
+    const store = useGameStore.getState();
+    const windAngle = store.windAngle;
+    const speedMult = Math.max(2.5, (store.windSpeed || 10) * 0.35);
 
-    const windAngle = useGameStore.getState().windAngle;
-    const windSpeed = useGameStore.getState().windSpeed;
-    // Breeze blows towards (windAngle + Math.PI)
-    const blowX = Math.sin(windAngle + Math.PI);
-    const blowZ = Math.cos(windAngle + Math.PI);
-    const speedMult = Math.max(2.5, (windSpeed || 10) * 0.35);
-
-    for (let i = 0; i < count; i++) {
-      const idx = i * 3;
-      const speed = speedMult * initialOffsets[idx + 2];
-      // Physical wind drift
-      arr[idx] += blowX * speed * delta - cameraDX;
-      arr[idx + 1] += Math.sin(state.clock.elapsedTime + initialOffsets[idx]) * delta * 1.0;
-      arr[idx + 2] += blowZ * speed * delta - cameraDZ;
-
-      // Wrap boundaries around camera
-      arr[idx] = ((arr[idx] + 60) % 120 + 120) % 120 - 60;
-      arr[idx + 2] = ((arr[idx + 2] + 60) % 120 + 120) % 120 - 60;
-    }
-    posAttr.needsUpdate = true;
+    uniforms.uTime.value = state.clock.elapsedTime;
+    uniforms.uWindDrift.value.x -= Math.sin(windAngle) * speedMult * dt;
+    uniforms.uWindDrift.value.y -= Math.cos(windAngle) * speedMult * dt;
+    uniforms.uCameraXZ.value.set(camX, camZ);
   });
 
   const timeOfDay = useGameStore((s) => s.timeOfDay);
   const isNight = timeOfDay === 'NIGHT';
 
   return (
-    <points ref={pointsRef}>
+    <points ref={pointsRef} frustumCulled={false}>
       <bufferGeometry>
         <bufferAttribute
           attach="attributes-position"
           args={[positions, 3]}
-          usage={THREE.DynamicDrawUsage}
+        />
+        <bufferAttribute
+          attach="attributes-aOffset"
+          args={[initialOffsets, 3]}
         />
       </bufferGeometry>
       <pointsMaterial
+        onBeforeCompile={compileAtmosphereShader}
+        customProgramCacheKey={() => 'ocean-atmosphere-particles-v1'}
         map={texture}
         size={isNight ? 0.22 : 0.16}
         transparent

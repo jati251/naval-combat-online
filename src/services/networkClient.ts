@@ -1,4 +1,4 @@
-import { useGameStore } from '@/stores/useGameStore';
+import { useGameStore, findShip } from '@/stores/useGameStore';
 import { useToastStore } from '@/stores/useToastStore';
 import { type ShipClass, type SailState, SHIP_PRESETS } from '@/types/game';
 import type { GameMode, MapId } from '@/types/room';
@@ -230,8 +230,8 @@ class NetworkClient {
       case 'CANNON_FIRED': {
         // Only trigger audio & muzzle burst if fired by ANOTHER ship!
         if (msg.ownerId !== store.selfId) {
-          const firingShip = store.ships.find((s) => s.id === msg.ownerId);
-          const selfShip = store.ships.find((s) => s.id === store.selfId);
+          const firingShip = findShip(store.ships, msg.ownerId as string);
+          const selfShip = findShip(store.ships, store.selfId);
           let distSq = 0;
           if (selfShip && firingShip) {
             const dx = selfShip.x - firingShip.x;
@@ -260,24 +260,18 @@ class NetworkClient {
 
         if (remainingHp !== undefined) {
           const freshStore = useGameStore.getState();
-          if (isSelfTarget) {
-            // For local player: immediately update store snapshot so HUD re-renders in real-time
+          const hitShip = findShip(freshStore.ships, targetId);
+          if (hitShip && hitShip.health !== remainingHp) {
             freshStore.updateWorldSnapshot(
               freshStore.serverTime,
               freshStore.ships.map((s) => (s.id === targetId ? { ...s, health: remainingHp } : s)),
               freshStore.cannonballs
             );
-          } else {
-            // For bot-on-bot hits: update health directly in-place without thrashing Zustand subscribers
-            const hitShip = freshStore.ships.find((s) => s.id === targetId);
-            if (hitShip) {
-              hitShip.health = remainingHp;
-            }
           }
         }
 
-        const targetShip = store.ships.find((s) => s.id === msg.targetId);
-        const selfShip = store.ships.find((s) => s.id === store.selfId);
+        const targetShip = findShip(store.ships, msg.targetId as string);
+        const selfShip = findShip(store.ships, store.selfId);
         let distSq = 0;
         if (selfShip && targetShip) {
           const dx = selfShip.x - targetShip.x;
@@ -300,7 +294,7 @@ class NetworkClient {
       }
       case 'SHIP_SUNK': {
         const shipId = msg.shipId as string;
-        const sunkShip = store.ships.find((s) => s.id === shipId);
+        const sunkShip = findShip(store.ships, shipId);
         const name = sunkShip?.name || 'Vessel';
         navalAudio.playShipSunk({
           isSelf: shipId === store.selfId,

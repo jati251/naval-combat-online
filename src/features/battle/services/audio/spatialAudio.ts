@@ -5,6 +5,7 @@ export class SpatialAudioCalculator {
   private listenerX: number = 0;
   private listenerZ: number = 0;
   private listenerHeading: number = 0;
+  private readonly scratchResult: SpatialResult = { pan: 0, volume: 1, filterFreq: 18000 };
 
   constructor(private audioMgr: AudioContextManager) {}
 
@@ -15,8 +16,12 @@ export class SpatialAudioCalculator {
   }
 
   public calculateSpatial(options?: SpatialAudioOptions): SpatialResult {
+    const out = this.scratchResult;
     if (!options) {
-      return { pan: 0, volume: 1, filterFreq: 18000 };
+      out.pan = 0;
+      out.volume = 1;
+      out.filterFreq = 18000;
+      return out;
     }
 
     let pan = options.pan ?? 0;
@@ -39,7 +44,10 @@ export class SpatialAudioCalculator {
       // Max hearing distance in naval deathmatch arena
       const maxAudibleDist = 220;
       if (dist > maxAudibleDist) {
-        return { pan: 0, volume: 0, filterFreq: 300 };
+        out.pan = 0;
+        out.volume = 0;
+        out.filterFreq = 300;
+        return out;
       }
 
       // Convert world delta into listener's local coordinates
@@ -77,7 +85,10 @@ export class SpatialAudioCalculator {
       filterFreq = Math.max(filterFreq, 14000);
     }
 
-    return { pan, volume, filterFreq };
+    out.pan = pan;
+    out.volume = volume;
+    out.filterFreq = filterFreq;
+    return out;
   }
 
   public createSpatialVoice(spatial: SpatialResult): {

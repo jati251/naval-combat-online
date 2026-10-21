@@ -12,6 +12,14 @@ interface RudderBladeProps {
   isSelf?: boolean;
 }
 
+const sternpostGeo = new THREE.BoxGeometry(0.22, 2.45, 0.2);
+const sternpostMat = new THREE.MeshStandardMaterial({ color: '#382013', roughness: 0.75 });
+const rudderBladeGeo = new THREE.BoxGeometry(0.18, 2.35, 0.9);
+const rudderBladeMat = new THREE.MeshStandardMaterial({ color: '#4a2810', roughness: 0.7 });
+const hingeGeo = new THREE.BoxGeometry(0.24, 0.14, 0.55);
+const hingeMat = new THREE.MeshStandardMaterial({ color: '#18181b', metalness: 0.85, roughness: 0.3 });
+const HINGE_OFFSETS = [-0.7, 0, 0.7] as const;
+
 export const RudderBlade: React.FC<RudderBladeProps> = React.memo(({
   length,
   rudderAngle = 0,
@@ -23,8 +31,8 @@ export const RudderBlade: React.FC<RudderBladeProps> = React.memo(({
   const frameSkip = useRef(0);
 
   useFrame((_, delta) => {
+    if (isEnemy || !meshRef.current) return;
     if (++frameSkip.current % 2 !== 0) return;
-    if (!meshRef.current) return;
 
     const store = useGameStore.getState();
     const targetRudder = isSelf
@@ -36,7 +44,7 @@ export const RudderBlade: React.FC<RudderBladeProps> = React.memo(({
       meshRef.current.rotation.y,
       targetRotY,
       18,
-      delta
+      delta * 2
     );
   });
 
@@ -44,24 +52,15 @@ export const RudderBlade: React.FC<RudderBladeProps> = React.memo(({
     <group position={[0, 0.6, -length * 0.5]}>
       {/* Fixed Sternpost Timber attached to Hull Keel */}
       {!isEnemy && (
-        <mesh position={[0, 0, -0.08]} castShadow={false} receiveShadow>
-          <boxGeometry args={[0.22, 2.45, 0.2]} />
-          <meshStandardMaterial color="#382013" roughness={0.75} />
-        </mesh>
+        <mesh position={[0, 0, -0.08]} geometry={sternpostGeo} material={sternpostMat} castShadow={false} receiveShadow />
       )}
 
       {/* Pivoting Rudder Blade */}
       <group ref={meshRef} position={[0, 0, -0.18]}>
-        <mesh position={[0, 0, -0.45]} castShadow={!isEnemy} receiveShadow>
-          <boxGeometry args={[0.18, 2.35, 0.9]} />
-          <meshStandardMaterial color="#4a2810" roughness={0.7} />
-        </mesh>
+        <mesh position={[0, 0, -0.45]} geometry={rudderBladeGeo} material={rudderBladeMat} castShadow={!isEnemy} receiveShadow />
         {/* 3 Heavy Forged Iron Pintle Hinge Straps (Player only) */}
-        {!isEnemy && [-0.7, 0, 0.7].map((hy, hIdx) => (
-          <mesh key={`hinge-${hIdx}`} position={[0, hy, -0.25]} castShadow={false}>
-            <boxGeometry args={[0.24, 0.14, 0.55]} />
-            <meshStandardMaterial color="#18181b" metalness={0.85} roughness={0.3} />
-          </mesh>
+        {!isEnemy && HINGE_OFFSETS.map((hy, hIdx) => (
+          <mesh key={`hinge-${hIdx}`} position={[0, hy, -0.25]} geometry={hingeGeo} material={hingeMat} castShadow={false} />
         ))}
       </group>
     </group>

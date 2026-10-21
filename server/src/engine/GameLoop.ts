@@ -37,6 +37,7 @@ export class GameLoop {
       for (const ship of room.ships.values()) {
         PhysicsEngine.updateShip(ship, room.FIXED_DT, serverTime, room.windAngle, room.windSpeed, room.mapId);
         if (applyStormDamage(ship, room.FIXED_DT)) {
+          BotAI.clearBotMemory(ship.id);
           const victim = room.players.get(ship.id);
           if (victim) {
             victim.deaths = (victim.deaths || 0) + 1;
@@ -92,6 +93,7 @@ export class GameLoop {
 
           if (hitShip.health <= 0 && !hitShip.isSunk) {
             hitShip.isSunk = true;
+            BotAI.clearBotMemory(hitShip.id);
             const killer = room.players.get(ball.ownerId);
             if (killer) {
               killer.kills = (killer.kills || 0) + 1;

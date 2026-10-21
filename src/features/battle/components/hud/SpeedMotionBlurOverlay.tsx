@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { useGameStore } from '@/stores/useGameStore';
+import { useGameStore, findShip } from '@/stores/useGameStore';
 
 interface Streak {
   angle: number;
@@ -65,8 +65,8 @@ export const SpeedMotionBlurOverlay: React.FC = React.memo(() => {
 
       // Extract current player ship speed
       const { ships, selfId } = useGameStore.getState();
-      const selfShip = ships.find((s) => s.id === selfId && !s.isSunk);
-      const shipSpeed = selfShip ? Math.max(0, selfShip.speed ?? 0) : 0;
+      const selfShip = findShip(ships, selfId);
+      const shipSpeed = selfShip && !selfShip.isSunk ? Math.max(0, selfShip.speed ?? 0) : 0;
 
       // Decay mouse pan velocity
       mouseVelocity.current = Math.max(0, mouseVelocity.current - mouseVelocity.current * 7.0 * dt);

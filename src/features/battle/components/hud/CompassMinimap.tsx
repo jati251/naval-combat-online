@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Wind } from 'lucide-react';
 import type { ShipSnapshot } from '@/types';
 import { getMapConfig } from '../../maps';
-import { useGameStore } from '@/stores/useGameStore';
+import { useGameStore, findShip } from '@/stores/useGameStore';
 import { mapTextureService, type MapTextureSource } from '../../services/mapTextureService';
 import { localShipTelemetry } from '../../services/localShipTelemetry';
 
@@ -431,7 +431,7 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({ hideW
         currentRoom,
       } = useGameStore.getState();
 
-      const curSelf = curShips.find((s) => s.id === curId);
+      const curSelf = findShip(curShips, curId);
 
       const mapIdKey = currentMapId || currentRoom?.mapId || 'caribbean';
       if (cachedMapId !== mapIdKey || !cachedMapConfig) {
@@ -568,7 +568,6 @@ export const CompassMinimap: React.FC<CompassMinimapProps> = React.memo(({ hideW
       >
         <canvas
           ref={canvasRef}
-          style={{ width: '100%', height: '100%' }}
           className="block pointer-events-none w-full h-full"
         />
 

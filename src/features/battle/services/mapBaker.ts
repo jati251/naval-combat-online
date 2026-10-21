@@ -235,4 +235,16 @@ export class MapBaker {
     link.click();
     document.body.removeChild(link);
   }
+
+  /**
+   * Saves a baked map texture DataURL to the dev server (`/__api/save-map`).
+   */
+  public static async saveBakedMapTexture(mapId: string, dataUrl: string): Promise<boolean> {
+    const res = await fetch('/__api/save-map', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mapId, dataUrl }),
+    });
+    return res.ok;
+  }
 }

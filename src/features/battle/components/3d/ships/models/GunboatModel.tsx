@@ -37,23 +37,22 @@ export const GunboatModel: React.FC<SubModelProps> = React.memo(({
   const frameSkip = useRef(0);
 
   useFrame((_, delta) => {
+    if (isEnemy || !tillerRef.current) return;
     if (++frameSkip.current % 2 !== 0) return;
-    if (tillerRef.current) {
-      let targetAngle = rudderAngle;
-      const store = useGameStore.getState();
-      if (isSelf) {
-        targetAngle = store.localRudder;
-      } else if (shipId) {
-        const ship = findShip(store.ships, shipId);
-        if (ship) targetAngle = ship.rudder;
-      }
-      tillerRef.current.rotation.y = THREE.MathUtils.damp(
-        tillerRef.current.rotation.y,
-        targetAngle * 0.75,
-        14,
-        delta
-      );
+    let targetAngle = rudderAngle;
+    const store = useGameStore.getState();
+    if (isSelf) {
+      targetAngle = store.localRudder;
+    } else if (shipId) {
+      const ship = findShip(store.ships, shipId);
+      if (ship) targetAngle = ship.rudder;
     }
+    tillerRef.current.rotation.y = THREE.MathUtils.damp(
+      tillerRef.current.rotation.y,
+      targetAngle * 0.75,
+      14,
+      delta * 2
+    );
   });
 
   const hullDepth = 2.1;
@@ -137,7 +136,7 @@ export const GunboatModel: React.FC<SubModelProps> = React.memo(({
       {/* Raised Centerline Bow Swivel Cannon on Bronze Turntable with Aiming Tiller */}
       <group position={[0, hullDepth + 0.55, length * 0.38]}>
         {/* Swivel Gun Barrel */}
-        <mesh rotation={[0, 0, 0]} castShadow>
+        <mesh rotation={[0, 0, 0]} castShadow={!isEnemy}>
           <cylinderGeometry args={[0.12, 0.18, 1.6, 8]} />
           <meshStandardMaterial color="#18181b" metalness={0.92} roughness={0.2} />
         </mesh>
@@ -188,6 +187,7 @@ export const GunboatModel: React.FC<SubModelProps> = React.memo(({
             depthOffset={0.15}
             type="lateen"
             rotation={[0, Math.PI / 2, 0]}
+            isEnemy={isEnemy}
           />
         </group>
         <ShipFlag

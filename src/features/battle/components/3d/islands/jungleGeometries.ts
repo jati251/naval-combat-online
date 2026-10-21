@@ -39,11 +39,11 @@ for (let branch = 0; branch < 7; branch++) {
   const spread = branch === 0 ? 0 : 1.5 + (branch % 2) * 0.5;
   const tip = new THREE.Vector3(Math.cos(angle) * spread, 4.4 + (branch % 3) * 0.7, Math.sin(angle) * spread);
   trunkParts.push(new THREE.TubeGeometry(new THREE.LineCurve3(new THREE.Vector3(0, 2.4, 0), tip), 1, 0.095, 5, false));
-  for (let i = 0; i < 36; i++) {
+  for (let i = 0; i < 16; i++) {
     const azimuth = i * 2.39996 + branch;
-    const elevation = 1 - 2 * (i + 0.5) / 36;
+    const elevation = 1 - 2 * (i + 0.5) / 16;
     const radius = Math.sqrt(1 - elevation * elevation);
-    const card = new THREE.PlaneGeometry(1.35 + (i % 3) * 0.16, 1.6, 1, 2);
+    const card = new THREE.PlaneGeometry((1.35 + (i % 3) * 0.16) * 1.18, 1.6 * 1.18, 1, 2);
     const p = card.attributes.position;
     for (let j = 0; j < p.count; j++) p.setZ(j, Math.abs(p.getX(j)) * 0.22);
     card.rotateX(elevation * 1.1); card.rotateY(azimuth);

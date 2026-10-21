@@ -4,7 +4,15 @@ import * as THREE from 'three';
  * Procedural 2D Particle Sprite Textures (Generated on Canvas)
  */
 
+let cachedMuzzleFlashTex: THREE.CanvasTexture | null = null;
+let cachedGunpowderSmokeTex: THREE.CanvasTexture | null = null;
+let cachedSparkTex: THREE.CanvasTexture | null = null;
+let cachedWaterPlumeTex: THREE.CanvasTexture | null = null;
+let cachedMoltenCannonballTex: THREE.CanvasTexture | null = null;
+let cachedCannonballFlareTex: THREE.CanvasTexture | null = null;
+
 export function createMuzzleFlashTexture(): THREE.CanvasTexture {
+  if (cachedMuzzleFlashTex) return cachedMuzzleFlashTex;
   const canvas = document.createElement('canvas');
   canvas.width = 128;
   canvas.height = 128;
@@ -49,11 +57,14 @@ export function createMuzzleFlashTexture(): THREE.CanvasTexture {
   ctx.fill();
 
   const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
   texture.needsUpdate = true;
+  cachedMuzzleFlashTex = texture;
   return texture;
 }
 
 export function createGunpowderSmokeTexture(): THREE.CanvasTexture {
+  if (cachedGunpowderSmokeTex) return cachedGunpowderSmokeTex;
   const canvas = document.createElement('canvas');
   canvas.width = 128;
   canvas.height = 128;
@@ -88,11 +99,14 @@ export function createGunpowderSmokeTexture(): THREE.CanvasTexture {
   drawLobe(64, 60, 30, 0.95);
 
   const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
   texture.needsUpdate = true;
+  cachedGunpowderSmokeTex = texture;
   return texture;
 }
 
 export function createSparkTexture(): THREE.CanvasTexture {
+  if (cachedSparkTex) return cachedSparkTex;
   const canvas = document.createElement('canvas');
   canvas.width = 64;
   canvas.height = 64;
@@ -123,11 +137,14 @@ export function createSparkTexture(): THREE.CanvasTexture {
   ctx.stroke();
 
   const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
   texture.needsUpdate = true;
+  cachedSparkTex = texture;
   return texture;
 }
 
 export function createWaterPlumeTexture(): THREE.CanvasTexture {
+  if (cachedWaterPlumeTex) return cachedWaterPlumeTex;
   const canvas = document.createElement('canvas');
   canvas.width = 64;
   canvas.height = 128;
@@ -158,7 +175,9 @@ export function createWaterPlumeTexture(): THREE.CanvasTexture {
   }
 
   const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
   texture.needsUpdate = true;
+  cachedWaterPlumeTex = texture;
   return texture;
 }
 
@@ -168,6 +187,7 @@ export function createWaterPlumeTexture(): THREE.CanvasTexture {
  * with a realistic dark cast-iron silhouette.
  */
 export function createMoltenCannonballTexture(): THREE.CanvasTexture {
+  if (cachedMoltenCannonballTex) return cachedMoltenCannonballTex;
   const canvas = document.createElement('canvas');
   canvas.width = 128;
   canvas.height = 128;
@@ -209,7 +229,9 @@ export function createMoltenCannonballTexture(): THREE.CanvasTexture {
   ctx.fill();
 
   const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
   texture.needsUpdate = true;
+  cachedMoltenCannonballTex = texture;
   return texture;
 }
 
@@ -217,6 +239,7 @@ export function createMoltenCannonballTexture(): THREE.CanvasTexture {
  * Soft radiant bloom flare for flying cannonballs
  */
 export function createCannonballFlareTexture(): THREE.CanvasTexture {
+  if (cachedCannonballFlareTex) return cachedCannonballFlareTex;
   const canvas = document.createElement('canvas');
   canvas.width = 64;
   canvas.height = 64;
@@ -236,7 +259,9 @@ export function createCannonballFlareTexture(): THREE.CanvasTexture {
   ctx.fill();
 
   const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
   texture.needsUpdate = true;
+  cachedCannonballFlareTex = texture;
   return texture;
 }
 

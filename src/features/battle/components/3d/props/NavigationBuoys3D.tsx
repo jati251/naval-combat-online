@@ -65,9 +65,10 @@ const ironCageMat = new THREE.MeshStandardMaterial({
 interface SingleBuoyProps {
   buoy: BuoyDefinition;
   isMobile?: boolean;
+  isNight: boolean;
 }
 
-const SingleBuoy: React.FC<SingleBuoyProps> = React.memo(({ buoy, isMobile = false }) => {
+const SingleBuoy: React.FC<SingleBuoyProps> = React.memo(({ buoy, isMobile = false, isNight }) => {
   const groupRef = useRef<THREE.Group>(null);
   const lanternRef = useRef<THREE.Mesh>(null);
   const lightRef = useRef<THREE.PointLight>(null);
@@ -79,9 +80,9 @@ const SingleBuoy: React.FC<SingleBuoyProps> = React.memo(({ buoy, isMobile = fal
   const lanternMat = useMemo(() => new THREE.MeshStandardMaterial({
     color: glowColor,
     emissive: emissiveColor,
-    emissiveIntensity: 2.5,
+    emissiveIntensity: isNight ? 2.5 : 0.6,
     roughness: 0.2,
-  }), [glowColor, emissiveColor]);
+  }), [glowColor, emissiveColor, isNight]);
   useEffect(() => () => lanternMat.dispose(), [lanternMat]);
 
   useFrame((state) => {
@@ -111,11 +112,13 @@ const SingleBuoy: React.FC<SingleBuoyProps> = React.memo(({ buoy, isMobile = fal
     groupRef.current.rotation.z = rollZ;
     groupRef.current.rotation.x = pitchX;
 
-    // Subtle beacon breathing pulse
-    const pulse = 2.0 + Math.sin(t * 3.0 + buoy.phase) * 0.8;
-    lanternMat.emissiveIntensity = pulse;
-    if (lightRef.current) {
-      lightRef.current.intensity = pulse * 0.8;
+    if (isNight) {
+      // Subtle beacon breathing pulse at night
+      const pulse = 2.0 + Math.sin(t * 3.0 + buoy.phase) * 0.8;
+      lanternMat.emissiveIntensity = pulse;
+      if (lightRef.current) {
+        lightRef.current.intensity = pulse * 0.8;
+      }
     }
   });
 
@@ -135,7 +138,7 @@ const SingleBuoy: React.FC<SingleBuoyProps> = React.memo(({ buoy, isMobile = fal
         <mesh ref={lanternRef} position={[0, 2.2, 0]} geometry={lanternGeo} material={lanternMat} />
 
         {/* Night / Twilight Beacon Glow */}
-        {!isMobile && (
+        {isNight && !isMobile && (
           <pointLight
             ref={lightRef}
             color={emissiveColor}
@@ -152,12 +155,13 @@ const SingleBuoy: React.FC<SingleBuoyProps> = React.memo(({ buoy, isMobile = fal
 
 export const NavigationBuoys3D: React.FC<{ isMobile?: boolean }> = React.memo(({ isMobile = false }) => {
   const currentMapId = useGameStore((s) => s.currentMapId || s.currentRoom?.mapId || 'caribbean');
+  const isNight = useGameStore((s) => s.timeOfDay === 'NIGHT');
   const buoys = useMemo(() => MAP_BUOYS[currentMapId] || MAP_BUOYS.caribbean, [currentMapId]);
 
   return (
     <group>
       {buoys.map((buoy) => (
-        <SingleBuoy key={buoy.id} buoy={buoy} isMobile={isMobile} />
+        <SingleBuoy key={buoy.id} buoy={buoy} isMobile={isMobile} isNight={isNight} />
       ))}
     </group>
   );

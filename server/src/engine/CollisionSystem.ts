@@ -4,7 +4,31 @@ import {
   type MapId,
   SERVER_SHIP_CONFIGS,
 } from '../types/protocol.js';
-import { getServerMap } from '../maps/mapConfigs.js';
+import { getServerMap, type ServerIsland } from '../maps/mapConfigs.js';
+
+interface CachedIslandTrig {
+  cosNegA: number;
+  sinNegA: number;
+  halfRidge: number;
+  thresholdSq: number;
+}
+
+const islandTrigCache = new WeakMap<ServerIsland, CachedIslandTrig>();
+
+function getCachedIslandTrig(isl: ServerIsland): CachedIslandTrig {
+  let cached = islandTrigCache.get(isl);
+  if (!cached && isl.elongation) {
+    const threshold = isl.sandRadius * isl.elongation.scaleX;
+    cached = {
+      cosNegA: Math.cos(-isl.elongation.angle),
+      sinNegA: Math.sin(-isl.elongation.angle),
+      halfRidge: isl.sandRadius * (isl.elongation.scaleZ - isl.elongation.scaleX),
+      thresholdSq: threshold * threshold,
+    };
+    islandTrigCache.set(isl, cached);
+  }
+  return cached!;
+}
 
 export class CollisionSystem {
   public static updateCannonballs(
@@ -74,16 +98,13 @@ export class CollisionSystem {
         if (isl.elongation) {
           const relX = ball.x - isl.x;
           const relZ = ball.z - isl.z;
-          const cosA = Math.cos(-isl.elongation.angle);
-          const sinA = Math.sin(-isl.elongation.angle);
-          const localX = relX * cosA - relZ * sinA;
-          const localZ = relX * sinA + relZ * cosA;
-          const halfRidge = isl.sandRadius * (isl.elongation.scaleZ - isl.elongation.scaleX);
-          const clampedZ = Math.max(-halfRidge, Math.min(halfRidge, localZ));
+          const trig = getCachedIslandTrig(isl);
+          const localX = relX * trig.cosNegA - relZ * trig.sinNegA;
+          const localZ = relX * trig.sinNegA + relZ * trig.cosNegA;
+          const clampedZ = Math.max(-trig.halfRidge, Math.min(trig.halfRidge, localZ));
           const dz = localZ - clampedZ;
           const distSq = localX * localX + dz * dz;
-          const threshold = isl.sandRadius * isl.elongation.scaleX;
-          if (distSq <= threshold * threshold && ball.y <= 22) {
+          if (distSq <= trig.thresholdSq && ball.y <= 22) {
             hitObstacle = true;
             break;
           }

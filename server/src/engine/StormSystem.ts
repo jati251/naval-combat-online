@@ -6,8 +6,15 @@ export const STORM_FULL_RADIUS = 760;
 export const STORM_GRACE_SECONDS = 8;
 export const STORM_KILLER_ID = 'environment:storm';
 
+const STORM_WARNING_RADIUS_SQ = STORM_WARNING_RADIUS * STORM_WARNING_RADIUS;
+const STORM_FULL_RADIUS_SQ = STORM_FULL_RADIUS * STORM_FULL_RADIUS;
+const INV_STORM_SPAN = 1 / (STORM_FULL_RADIUS - STORM_WARNING_RADIUS);
+
 export function getStormIntensity(x: number, z: number): number {
-  const t = Math.max(0, Math.min(1, (Math.hypot(x, z) - STORM_WARNING_RADIUS) / (STORM_FULL_RADIUS - STORM_WARNING_RADIUS)));
+  const distSq = x * x + z * z;
+  if (distSq <= STORM_WARNING_RADIUS_SQ) return 0;
+  if (distSq >= STORM_FULL_RADIUS_SQ) return 1;
+  const t = (Math.sqrt(distSq) - STORM_WARNING_RADIUS) * INV_STORM_SPAN;
   return t * t * (3 - 2 * t);
 }
 

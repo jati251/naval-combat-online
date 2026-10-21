@@ -20,7 +20,11 @@ export function FrameTiming() {
     elapsed.current += delta;
     if (elapsed.current < 3 || !output.current) return;
     const values = samples.current.sort((a, b) => a - b);
-    output.current.textContent = `${(values.length / elapsed.current).toFixed(1)} FPS · p95 ${values[Math.floor(values.length * 0.95)].toFixed(1)}ms · max ${values[values.length - 1].toFixed(1)}ms · >50ms ${values.filter(v => v > 50).length} · DPR ${viewport.dpr.toFixed(2)} · ${gl.domElement.width}×${gl.domElement.height}`;
+    let slowCount = 0;
+    for (let i = 0; i < values.length; i++) {
+      if (values[i] > 50) slowCount++;
+    }
+    output.current.textContent = `${(values.length / elapsed.current).toFixed(1)} FPS · p95 ${values[Math.floor(values.length * 0.95)].toFixed(1)}ms · max ${values[values.length - 1].toFixed(1)}ms · >50ms ${slowCount} · DPR ${viewport.dpr.toFixed(2)} · ${gl.domElement.width}×${gl.domElement.height}`;
     values.length = 0;
     elapsed.current = 0;
   });

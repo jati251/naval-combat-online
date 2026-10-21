@@ -208,48 +208,88 @@ const MIME_TYPES: Record<string, string> = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
+  '.webp': 'image/webp',
   '.ico': 'image/x-icon',
   '.json': 'application/json',
   '.wasm': 'application/wasm',
 };
 
-// Static file fallback router
-app.get('/*', (res, req) => {
-  res.onAborted(() => {
-    (res as unknown as { aborted: boolean }).aborted = true;
-  });
+interface CachedStaticAsset {
+  content: Buffer;
+  contentType: string;
+  isImmutable: boolean;
+}
 
-  const urlPath = req.getUrl();
-  let filePath = path.join(DIST_DIR, urlPath === '/' ? 'index.html' : urlPath);
+const staticAssetCache = new Map<string, CachedStaticAsset>();
 
-  // Check if file exists, else fallback to index.html for SPA
-  if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-    filePath = path.join(DIST_DIR, 'index.html');
-  }
+async function loadStaticAsset(urlPath: string): Promise<CachedStaticAsset | null> {
+  const cached = staticAssetCache.get(urlPath);
+  if (cached) return cached;
 
-  if (!fs.existsSync(filePath)) {
-    res.writeStatus('404 Not Found');
-    res.end('Vite frontend build not found. Please run `npm run build:client`.');
-    return;
+  const relativeTarget = urlPath === '/' ? 'index.html' : urlPath.replace(/^\/+/, '');
+  let resolvedPath = path.resolve(DIST_DIR, relativeTarget);
+
+  // Security: Reject path traversal attempts outside DIST_DIR
+  if (!resolvedPath.startsWith(DIST_DIR + path.sep) && resolvedPath !== DIST_DIR) {
+    return null;
   }
 
   try {
-    const ext = path.extname(filePath).toLowerCase();
-    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-    const content = fs.readFileSync(filePath);
+    const stat = await fs.promises.stat(resolvedPath).catch(() => null);
+    if (!stat || stat.isDirectory()) {
+      resolvedPath = path.resolve(DIST_DIR, 'index.html');
+    }
 
-    res.writeHeader('Content-Type', contentType);
-    // Cache static hashed assets for 1 year
-    if (urlPath.startsWith('/assets/')) {
+    const content = await fs.promises.readFile(resolvedPath);
+    const ext = path.extname(resolvedPath).toLowerCase();
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    const isImmutable = urlPath.startsWith('/assets/');
+    const entry: CachedStaticAsset = { content, contentType, isImmutable };
+
+    if (staticAssetCache.size < 256) {
+      staticAssetCache.set(urlPath, entry);
+    }
+    return entry;
+  } catch {
+    return null;
+  }
+}
+
+// Static file fallback router
+app.get('/*', (res, req) => {
+  let aborted = false;
+  res.onAborted(() => {
+    aborted = true;
+  });
+
+  const urlPath = req.getUrl();
+
+  // Fast path: serve directly from memory cache if already loaded
+  const cached = staticAssetCache.get(urlPath);
+  if (cached) {
+    res.writeHeader('Content-Type', cached.contentType);
+    if (cached.isImmutable) {
       res.writeHeader('Cache-Control', 'public, max-age=31536000, immutable');
     }
-    res.end(content);
-  } catch (e) {
-    if (!(res as unknown as { aborted: boolean }).aborted) {
-      res.writeStatus('500 Internal Server Error');
-      res.end('Failed to read file: ' + (e as Error).message);
-    }
+    res.end(cached.content);
+    return;
   }
+
+  void loadStaticAsset(urlPath).then((asset) => {
+    if (aborted) return;
+    res.cork(() => {
+      if (!asset) {
+        res.writeStatus('404 Not Found');
+        res.end('Vite frontend build not found. Please run `npm run build:client`.');
+        return;
+      }
+      res.writeHeader('Content-Type', asset.contentType);
+      if (asset.isImmutable) {
+        res.writeHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+      res.end(asset.content);
+    });
+  });
 });
 
 // Start listening

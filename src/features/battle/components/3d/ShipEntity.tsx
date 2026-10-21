@@ -26,6 +26,44 @@ import { isSeaEntityInFrustum, updateFrustum } from '../../utils/frustumCuller';
 
 const _tempParentQuat = new THREE.Quaternion();
 
+const nameBadgeGeo = new THREE.PlaneGeometry(3.4, 0.52);
+const healthBackingGeo = new THREE.PlaneGeometry(3.6, 0.38);
+const healthTrackGeo = new THREE.PlaneGeometry(3.44, 0.26);
+const healthFillGeo = new THREE.PlaneGeometry(3.36, 0.20);
+
+const healthBackingMat = new THREE.MeshBasicMaterial({
+  color: '#030712',
+  opacity: 0.92,
+  transparent: true,
+  depthTest: false,
+  depthWrite: false,
+  side: THREE.DoubleSide,
+});
+const healthTrackMat = new THREE.MeshBasicMaterial({
+  color: '#0f172a',
+  transparent: true,
+  opacity: 1.0,
+  depthTest: false,
+  depthWrite: false,
+  side: THREE.DoubleSide,
+});
+const healthFillAllyMat = new THREE.MeshBasicMaterial({
+  color: '#22c55e',
+  transparent: true,
+  opacity: 1.0,
+  depthTest: false,
+  depthWrite: false,
+  side: THREE.DoubleSide,
+});
+const healthFillFoeMat = new THREE.MeshBasicMaterial({
+  color: '#ef4444',
+  transparent: true,
+  opacity: 1.0,
+  depthTest: false,
+  depthWrite: false,
+  side: THREE.DoubleSide,
+});
+
 export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
   ship,
   shipId: propShipId,
@@ -466,8 +504,7 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
         >
           {/* Captain Name Badge */}
           {nameTexture && (
-            <mesh position={[0, 0.44, 0.02]} renderOrder={10004}>
-              <planeGeometry args={[3.4, 0.52]} />
+            <mesh position={[0, 0.44, 0.02]} geometry={nameBadgeGeo} renderOrder={10004}>
               <meshBasicMaterial
                 map={nameTexture}
                 transparent
@@ -479,48 +516,30 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
           )}
 
           {/* Dark Backing Container */}
-          <mesh position={[0, 0, 0]} renderOrder={10001}>
-            <planeGeometry args={[3.6, 0.38]} />
-            <meshBasicMaterial
-              color="#030712"
-              opacity={0.92}
-              transparent
-              depthTest={false}
-              depthWrite={false}
-              side={THREE.DoubleSide}
-            />
-          </mesh>
+          <mesh
+            position={[0, 0, 0]}
+            geometry={healthBackingGeo}
+            material={healthBackingMat}
+            renderOrder={10001}
+          />
 
           {/* Slot Border Track */}
-          <mesh position={[0, 0, 0.01]} renderOrder={10002}>
-            <planeGeometry args={[3.44, 0.26]} />
-            <meshBasicMaterial
-              color="#0f172a"
-              transparent
-              opacity={1.0}
-              depthTest={false}
-              depthWrite={false}
-              side={THREE.DoubleSide}
-            />
-          </mesh>
+          <mesh
+            position={[0, 0, 0.01]}
+            geometry={healthTrackGeo}
+            material={healthTrackMat}
+            renderOrder={10002}
+          />
 
           {/* Real-time 60/120 FPS GPU Health Fill Plane */}
           <mesh
             ref={healthBarMeshRef}
             position={[-1.68 + 1.68 * initialHpPct, 0, 0.02]}
             scale={[initialHpPct, 1, 1]}
+            geometry={healthFillGeo}
+            material={isAllyOrSelf ? healthFillAllyMat : healthFillFoeMat}
             renderOrder={10003}
-          >
-            <planeGeometry args={[3.36, 0.20]} />
-            <meshBasicMaterial
-              color={isAllyOrSelf ? '#22c55e' : '#ef4444'}
-              transparent
-              opacity={1.0}
-              depthTest={false}
-              depthWrite={false}
-              side={THREE.DoubleSide}
-            />
-          </mesh>
+          />
         </group>
       )}
     </group>

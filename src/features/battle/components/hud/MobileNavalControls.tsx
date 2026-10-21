@@ -1,6 +1,6 @@
 import React, { useRef, useCallback } from "react";
 import { Anchor, Flame } from "lucide-react";
-import { useGameStore } from "@/stores/useGameStore";
+import { useGameStore, findShip } from "@/stores/useGameStore";
 import { useShipActions } from "../../hooks/useShipActions";
 
 // --- Constants ---
@@ -9,16 +9,17 @@ const DEADZONE = 4; // px deadzone before registering input
 const NETWORK_THROTTLE_MS = 50; // ~20Hz network sync
 const SPRING_BACK_MS = 180; // CSS transition duration for spring-back
 
-export const MobileNavalControls: React.FC = () => {
+export const MobileNavalControls: React.FC = React.memo(() => {
   const { changeSail, setRudder, fireBattery } = useShipActions();
 
   const localSail = useGameStore((s) => s.localSail);
   const leftProgress = useGameStore((s) => s.leftReloadProgress);
   const rightProgress = useGameStore((s) => s.rightReloadProgress);
-  const speedKnots = useGameStore((s) => {
-    const ship = s.ships.find((ship) => ship.id === s.selfId);
-    return (Math.round((ship?.speed ?? 0) * 10) / 10).toFixed(1);
+  const speedTenths = useGameStore((s) => {
+    const ship = findShip(s.ships, s.selfId);
+    return Math.round((ship?.speed ?? 0) * 5) * 2;
   });
+  const speedKnots = (speedTenths / 10).toFixed(1);
 
   // --- Refs for zero-rerender dragging ---
   const joystickRef = useRef<HTMLDivElement | null>(null);
@@ -234,7 +235,6 @@ export const MobileNavalControls: React.FC = () => {
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerCancel}
             className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-gradient-to-b from-stone-900/90 via-stone-950/95 to-black/95 border-2 border-amber-500/60 shadow-[0_4px_24px_rgba(0,0,0,0.85)] flex items-center justify-center cursor-grab active:cursor-grabbing touch-none select-none shrink-0"
-            style={{ touchAction: "none" }}
           >
             {/* Cardinal Navigation Guides */}
             <div className="absolute inset-1 rounded-full border border-amber-400/20 pointer-events-none" />
@@ -404,4 +404,4 @@ export const MobileNavalControls: React.FC = () => {
       </div>
     </div>
   );
-};
+});

@@ -1,5 +1,5 @@
-import { useCallback } from 'react';
-import { useGameStore } from '@/stores/useGameStore';
+import { useCallback, useMemo } from 'react';
+import { useGameStore, findShip } from '@/stores/useGameStore';
 import { networkClient } from '@/services/networkClient';
 import { navalAudio } from '../services/navalAudio';
 import type { SailState, AimDirection } from '@/types';
@@ -57,7 +57,7 @@ export function useShipActions(): ShipActions {
     if (now - lastFireTimestamps[side] < 300) return;
 
     const store = useGameStore.getState();
-    const selfShip = store.ships.find((s) => s.id === store.selfId);
+    const selfShip = findShip(store.ships, store.selfId);
     if (selfShip?.isSunk) return;
 
     const progress = side === 'left' ? store.leftReloadProgress : store.rightReloadProgress;
@@ -74,11 +74,14 @@ export function useShipActions(): ShipActions {
     }
   }, []);
 
-  return {
-    changeSail,
-    cycleSail,
-    setRudder,
-    fireBattery,
-    setAim,
-  };
+  return useMemo(
+    () => ({
+      changeSail,
+      cycleSail,
+      setRudder,
+      fireBattery,
+      setAim,
+    }),
+    [changeSail, cycleSail, setRudder, fireBattery, setAim]
+  );
 }

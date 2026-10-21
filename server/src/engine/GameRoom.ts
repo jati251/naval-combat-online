@@ -1,6 +1,7 @@
 import { PhysicsEngine } from './PhysicsEngine.js';
 import { CombatSystem } from './CombatSystem.js';
 import { GameLoop } from './GameLoop.js';
+import { BotAI } from './BotAI.js';
 import {
   type ShipClass,
   type SailState,
@@ -258,6 +259,12 @@ export class GameRoom {
       health: config.maxHealth,
     });
 
+    this.sendDirect(id, {
+      type: 'ROOM_STATE',
+      room: this.getRoomInfo(),
+      selfId: id,
+    });
+
     this.broadcastRoomState();
     this.broadcastSnapshot();
   }
@@ -383,6 +390,7 @@ export class GameRoom {
     }
 
     const wasHost = player?.isHost ?? false;
+    BotAI.clearBotMemory(id);
     this.players.delete(id);
     this.ships.delete(id);
 
@@ -491,13 +499,8 @@ export class GameRoom {
       mapId: this.mapId,
     };
 
-    // 1. Broadcast to room pub/sub topic
+    // Broadcast to room pub/sub topic
     this.broadcast(this.id, startMsg);
-
-    // 2. Direct message to EVERY player in room (guarantees host/sender receives it without pub/sub echo suppression)
-    for (const playerId of this.players.keys()) {
-      this.sendDirect(playerId, startMsg);
-    }
 
     return true;
   }
@@ -679,6 +682,9 @@ export class GameRoom {
     this.cannonballs = [];
     // Reset player scores & readiness for next match
     for (const player of this.players.values()) {
+      if (player.isBot) {
+        BotAI.clearBotMemory(player.id);
+      }
       player.isReady = player.isHost;
       player.kills = 0;
       player.deaths = 0;
@@ -712,13 +718,17 @@ export class GameRoom {
       selfId: '',
     });
 
-    // Direct send to each player with their verified selfId
-    for (const playerId of this.players.keys()) {
-      this.sendDirect(playerId, {
-        type: 'ROOM_STATE',
-        room: roomInfo,
-        selfId: playerId,
-      });
+    // Only send direct selfId packets during LOBBY setup (in-game players already have selfId)
+    if (this.status === 'LOBBY') {
+      for (const [playerId, player] of this.players.entries()) {
+        if (!player.isBot) {
+          this.sendDirect(playerId, {
+            type: 'ROOM_STATE',
+            room: roomInfo,
+            selfId: playerId,
+          });
+        }
+      }
     }
   }
 
@@ -726,6 +736,11 @@ export class GameRoom {
     if (this.autoResetTimer) {
       clearTimeout(this.autoResetTimer);
       this.autoResetTimer = null;
+    }
+    for (const player of this.players.values()) {
+      if (player.isBot) {
+        BotAI.clearBotMemory(player.id);
+      }
     }
     this.respawnTimers.forEach((t) => clearTimeout(t));
     this.respawnTimers.clear();

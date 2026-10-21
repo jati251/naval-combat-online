@@ -10,11 +10,6 @@ const subscribeResize = (callback: () => void) => {
   return () => window.removeEventListener('resize', callback);
 };
 
-const getWindowDimensionsSnapshot = () =>
-  typeof window !== 'undefined'
-    ? `${window.innerWidth}x${window.innerHeight}x${window.devicePixelRatio}`
-    : '1920x1080x1';
-
 export function useGraphicsQuality(): {
   quality: GraphicQuality;
   profile: GraphicProfile;
@@ -27,22 +22,29 @@ export function useGraphicsQuality(): {
   const setQuality = useSettingsStore((s) => s.setGraphicQuality);
   const setResolutionLimit = useSettingsStore((s) => s.setResolutionLimit);
 
-  // Subscribe to window geometry changes reactively without useEffect
-  const windowGeometry = useSyncExternalStore(
+  const base = GRAPHIC_PROFILES[quality] || GRAPHIC_PROFILES.balanced;
+
+  // Subscribe to window geometry changes reactively without useEffect.
+  // Returns a primitive key of the clamped DPR so resize events that do not
+  // alter the clamped DPR values never trigger re-renders or new profile objects.
+  const dprKey = useSyncExternalStore(
     subscribeResize,
-    getWindowDimensionsSnapshot,
-    () => '1920x1080x1'
+    () => {
+      const [minDpr, maxDpr] = getClampedDpr(base.dpr, resolutionLimit);
+      return `${minDpr}:${maxDpr}`;
+    },
+    () => `${base.dpr[0]}:${base.dpr[1]}`
   );
 
-  const profile = useMemo(() => {
-    const base = GRAPHIC_PROFILES[quality] || GRAPHIC_PROFILES.balanced;
-    const clampedDpr = getClampedDpr(base.dpr, resolutionLimit);
+  const profile = useMemo<GraphicProfile>(() => {
+    const [minStr, maxStr] = dprKey.split(':');
+    const clampedDpr: [number, number] = [Number(minStr), Number(maxStr)];
 
     return {
       ...base,
       dpr: clampedDpr,
     };
-  }, [quality, resolutionLimit, windowGeometry]);
+  }, [base, dprKey]);
 
   return { quality, profile, resolutionLimit, setQuality, setResolutionLimit };
 }

@@ -34,3 +34,4 @@ export const useGameStore = create<GameStoreState>((set, get, api) => ({
 }));
 
 export type { SessionSlice, LobbySlice, BattleSlice, ControlsSlice };
+export { findShip } from './selectors/shipLookup';

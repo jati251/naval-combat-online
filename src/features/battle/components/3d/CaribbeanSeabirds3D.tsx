@@ -51,6 +51,7 @@ function createSeagullTexture(): THREE.CanvasTexture {
   ctx.fill();
 
   const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
   texture.needsUpdate = true;
   return texture;
 }
@@ -108,16 +109,26 @@ export const CaribbeanSeabirds3D: React.FC = React.memo(() => {
     return list;
   }, []);
 
+  const sharedMaterial = useMemo(
+    () => new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.92, depthWrite: false, fog: true }),
+    [texture]
+  );
+
   const spriteRefs = useRef<(THREE.Sprite | null)[]>([]);
 
   useFrame((state) => {
-    const t = state.clock.elapsedTime;
+    const camX = state.camera.position.x;
+    const camZ = state.camera.position.z;
+    if (camX * camX + camZ * camZ > 650 * 650) return;
 
-    // Native Three.js GPU Frustum Culling:
-    // Sprites have frustumCulled={true} by default, eliminating batch popping.
-    birds.forEach((bird, idx) => {
-      const sprite = spriteRefs.current[idx];
-      if (!sprite) return;
+    const t = state.clock.elapsedTime;
+    const list = birds;
+    const refs = spriteRefs.current;
+
+    for (let idx = 0; idx < list.length; idx++) {
+      const sprite = refs[idx];
+      if (!sprite) continue;
+      const bird = list[idx];
 
       const angle = bird.phase + t * bird.speed;
       const x = bird.orbitCenter[0] + Math.cos(angle) * bird.orbitRadius;
@@ -130,7 +141,7 @@ export const CaribbeanSeabirds3D: React.FC = React.memo(() => {
       const flap = Math.sin(t * bird.flapSpeed + bird.id);
       const flapScaleY = bird.scale * 0.5 * (0.8 + flap * 0.4);
       sprite.scale.set(bird.scale, flapScaleY, 1);
-    });
+    }
   });
 
   return (
@@ -141,11 +152,10 @@ export const CaribbeanSeabirds3D: React.FC = React.memo(() => {
           ref={(el) => {
             spriteRefs.current[idx] = el;
           }}
+          material={sharedMaterial}
           position={[0, 0, 0]}
           scale={[b.scale, b.scale * 0.5, 1]}
-        >
-          <spriteMaterial map={texture} transparent opacity={0.92} depthWrite={false} fog={true} />
-        </sprite>
+        />
       ))}
     </group>
   );

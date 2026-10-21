@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import type { IslandSettlement } from './types';
 import { MaritimeCargo } from '../props/MaritimeCargo';
 import type { InstanceTransform } from '../shared/StaticInstances';
+import { useGameStore } from '@/stores/useGameStore';
 
 const dockCargo: InstanceTransform[] = [
   { position: [-3.6, 1.575, 25.4] },
@@ -30,6 +31,7 @@ interface CoastalSettlementProps {
  * - Rum barrels, cargo crates, and dockside mooring bollards
  */
 export const CoastalSettlement: React.FC<CoastalSettlementProps> = React.memo(({ settlement, isMobile = false }) => {
+  const isNight = useGameStore((s) => s.timeOfDay === 'NIGHT');
   const roofs = useMemo(() => [createGableRoof(9.5, 7.6, 3.2), createGableRoof(5.9, 4.9, 2), createGableRoof(7.9, 5.5, 2.5)], []);
   useEffect(() => () => roofs.forEach(roof => roof.dispose()), [roofs]);
   const isPirate = settlement.type === 'pirate-haven';
@@ -46,14 +48,14 @@ export const CoastalSettlement: React.FC<CoastalSettlementProps> = React.memo(({
       whitewash: constructionMaterial('plaster', '#d4ccad', 4),
       cannonBrass: new THREE.MeshStandardMaterial({ color: '#ca8a04', metalness: 0.6, roughness: 0.4 }),
       lanternGlow: new THREE.MeshStandardMaterial({
-        color: '#fef08a',
+        color: isNight ? '#fef08a' : '#d6c79c',
         emissive: '#f59e0b',
-        emissiveIntensity: 2.2,
+        emissiveIntensity: isNight ? 2.2 : 0.25,
         roughness: 0.2,
       }),
       barrelWood: constructionMaterial('wood', '#451a03', 4),
     };
-  }, [isPirate]);
+  }, [isPirate, isNight]);
   useEffect(() => () => Object.values(mats).forEach((material) => material.dispose()), [mats]);
 
   return (
@@ -102,7 +104,7 @@ export const CoastalSettlement: React.FC<CoastalSettlementProps> = React.memo(({
           <mesh position={[0, 2.5, 0]} material={mats.lanternGlow}>
             <boxGeometry args={[0.3, 0.4, 0.3]} />
           </mesh>
-          {!isMobile && (
+          {isNight && !isMobile && (
             <pointLight color="#f59e0b" intensity={2.5} distance={18} decay={2} position={[0, 2.6, 0]} />
           )}
         </group>
@@ -129,7 +131,7 @@ export const CoastalSettlement: React.FC<CoastalSettlementProps> = React.memo(({
         <mesh position={[0, 7.8, 0]} material={mats.lanternGlow}>
           <cylinderGeometry args={[0.8, 0.8, 1.0, 8]} />
         </mesh>
-        {!isMobile && (
+        {isNight && !isMobile && (
           <pointLight color="#fbbf24" intensity={4} distance={38} decay={2} position={[0, 8.2, 0]} />
         )}
 

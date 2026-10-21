@@ -2,6 +2,7 @@ import type { AudioContextManager } from './audioContext';
 
 export class AmbienceAudioSynth {
   private isAmbienceActive: boolean = false;
+  private lastAppliedSpeed: number = -1;
   private oceanWaveSource: AudioBufferSourceNode | null = null;
   private oceanWaveFilter: BiquadFilterNode | null = null;
   private oceanWaveGain: GainNode | null = null;
@@ -30,6 +31,7 @@ export class AmbienceAudioSynth {
     if (!brownBuffer) return;
 
     this.isAmbienceActive = true;
+    this.lastAppliedSpeed = -1;
     const t = ctx.currentTime;
 
     try {
@@ -89,6 +91,9 @@ export class AmbienceAudioSynth {
   public updateAmbienceSpeed(speed: number): void {
     const ctx = this.audioMgr.getContext();
     if (!this.isAmbienceActive || !ctx) return;
+    if (this.lastAppliedSpeed >= 0 && Math.abs(speed - this.lastAppliedSpeed) < 0.2) return;
+    this.lastAppliedSpeed = speed;
+
     const normalizedSpeed = Math.max(0, Math.min(1, speed / 16));
     const t = ctx.currentTime;
 
@@ -109,6 +114,7 @@ export class AmbienceAudioSynth {
 
   public stopAmbience(): void {
     this.isAmbienceActive = false;
+    this.lastAppliedSpeed = -1;
     try {
       if (this.oceanWaveSource) {
         this.oceanWaveSource.stop();

@@ -1,8 +1,8 @@
-import React, { useMemo, useRef, useEffect } from 'react';
+import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import type { IslandDefinition } from './types';
-import { createIslandTerrainGeometry, getIslandElevation, getTerrainSurfaceY, getTerrainExtent } from './islandGeometries';
+import { getCachedIslandTerrainGeometry, getIslandElevation, getTerrainSurfaceY, getTerrainExtent } from './islandGeometries';
 import { IslandFoliage } from './IslandFoliage';
 import { IslandRocks } from './RockFormation';
 import { CoastalSettlement } from './CoastalSettlement';
@@ -27,9 +27,8 @@ export const IslandEntity: React.FC<IslandEntityProps> = React.memo(({ island, m
   const treesRef = useRef<THREE.Group>(null);
   const detailRef = useRef<THREE.Group>(null);
 
-  // Procedural terrain & beach geometries (unique per island)
-  const terrainGeo = useMemo(() => createIslandTerrainGeometry(island), [island]);
-  useEffect(() => () => terrainGeo.dispose(), [terrainGeo]);
+  // Procedural terrain & beach geometries (cached per island so remounts skip Simplex noise)
+  const terrainGeo = useMemo(() => getCachedIslandTerrainGeometry(island), [island]);
 
   const boundsRadius = getTerrainExtent(island) * Math.SQRT2 * Math.max(island.elongation?.scaleX ?? 1, island.elongation?.scaleZ ?? 1) + island.height;
   const nextVisibilityCheck = useRef(0);

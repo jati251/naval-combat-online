@@ -165,6 +165,7 @@ export const CorvetteModel: React.FC<SubModelProps> = React.memo(({
           sailState={sailState}
           height={length * 0.26}
           type="jib"
+          isEnemy={isEnemy}
         />
       </group>
 

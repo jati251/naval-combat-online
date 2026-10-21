@@ -25,6 +25,22 @@ interface SquareRiggedMastProps {
   upperDepthOffset?: number;
 }
 
+const unitMastCylinderGeo = new THREE.CylinderGeometry(0.16, 0.28, 1, 8);
+const unitLowerYardGeo = new THREE.CylinderGeometry(0.08, 0.08, 1, 8);
+const unitUpperYardGeo = new THREE.CylinderGeometry(0.06, 0.06, 1, 8);
+const fightingTopGeo = new THREE.CylinderGeometry(0.55, 0.42, 0.48, 8);
+const fightingTopMat = new THREE.MeshStandardMaterial({ color: '#1a110a', roughness: 0.88 });
+const woodColorMatCache = new Map<string, THREE.MeshStandardMaterial>();
+
+function getWoodColorMaterial(color: string): THREE.MeshStandardMaterial {
+  let mat = woodColorMatCache.get(color);
+  if (!mat) {
+    mat = new THREE.MeshStandardMaterial({ color, roughness: 0.8 });
+    woodColorMatCache.set(color, mat);
+  }
+  return mat;
+}
+
 export const SquareRiggedMast: React.FC<SquareRiggedMastProps> = React.memo(({
   position,
   mastHeight,
@@ -45,26 +61,37 @@ export const SquareRiggedMast: React.FC<SquareRiggedMastProps> = React.memo(({
   lowerDepthOffset = 0.22,
   upperDepthOffset = 0.16,
 }) => {
+  const mastMat = getWoodColorMaterial(mastColor);
+  const yardMat = getWoodColorMaterial(yardColor);
+
   return (
     <group position={position}>
       {/* Lower Main Mast Spar */}
-      <mesh position={[0, mastHeight * 0.5, 0]} castShadow={!isEnemy}>
-        <cylinderGeometry args={[0.16, 0.28, mastHeight, 8]} />
-        <meshStandardMaterial color={mastColor} roughness={0.8} />
-      </mesh>
+      <mesh
+        position={[0, mastHeight * 0.5, 0]}
+        scale={[1, mastHeight, 1]}
+        geometry={unitMastCylinderGeo}
+        material={mastMat}
+        castShadow={!isEnemy}
+      />
 
       {/* Fighting Top (Crow's Nest Observation Platform) */}
-      <mesh position={[0, mastHeight * 0.66, 0]} castShadow={!isEnemy}>
-        <cylinderGeometry args={[0.55, 0.42, 0.48, 8]} />
-        <meshStandardMaterial color="#1a110a" roughness={0.88} />
-      </mesh>
+      <mesh
+        position={[0, mastHeight * 0.66, 0]}
+        geometry={fightingTopGeo}
+        material={fightingTopMat}
+        castShadow={!isEnemy}
+      />
 
       {/* Lower Course Yard & Billowing Square Sail */}
       <group position={[0, mastHeight * 0.46, 0]}>
-        <mesh rotation={[0, 0, Math.PI / 2]} castShadow={!isEnemy}>
-          <cylinderGeometry args={[0.08, 0.08, yardWidthLower, 8]} />
-          <meshStandardMaterial color={yardColor} roughness={0.8} />
-        </mesh>
+        <mesh
+          rotation={[0, 0, Math.PI / 2]}
+          scale={[1, yardWidthLower, 1]}
+          geometry={unitLowerYardGeo}
+          material={yardMat}
+          castShadow={!isEnemy}
+        />
         <ShipSail
           geometry={lowerGeo}
           texture={sailTexture}
@@ -79,10 +106,13 @@ export const SquareRiggedMast: React.FC<SquareRiggedMastProps> = React.memo(({
 
       {/* Upper Topsail Yard & Billowing Square Sail */}
       <group position={[0, mastHeight * 0.83, 0]}>
-        <mesh rotation={[0, 0, Math.PI / 2]} castShadow={!isEnemy}>
-          <cylinderGeometry args={[0.06, 0.06, yardWidthUpper, 8]} />
-          <meshStandardMaterial color={yardColor} roughness={0.8} />
-        </mesh>
+        <mesh
+          rotation={[0, 0, Math.PI / 2]}
+          scale={[1, yardWidthUpper, 1]}
+          geometry={unitUpperYardGeo}
+          material={yardMat}
+          castShadow={!isEnemy}
+        />
         <ShipSail
           geometry={upperGeo}
           texture={sailTexture}

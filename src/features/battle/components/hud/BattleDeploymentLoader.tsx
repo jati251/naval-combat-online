@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Anchor, CheckCircle2, Loader2, RotateCcw } from 'lucide-react';
 import { useGameStore } from '@/stores/useGameStore';
 import { networkClient } from '@/services/networkClient';
@@ -17,8 +17,10 @@ export const BattleDeploymentLoader: React.FC<BattleDeploymentLoaderProps> = ({ 
   const [statusText, setStatusText] = useState('Establishing Admiralty Gateway Connection...');
   const [isDone, setIsDone] = useState(false);
   const [hasTimeoutError, setHasTimeoutError] = useState(false);
+  const isDoneRef = useRef(false);
 
   useEffect(() => {
+    if (isDoneRef.current) return;
     let isCancelled = false;
 
     const runGenuineDeploymentPipeline = async () => {
@@ -71,11 +73,11 @@ export const BattleDeploymentLoader: React.FC<BattleDeploymentLoaderProps> = ({ 
         setPhase('complete');
         setProgress(100);
         setStatusText('Line of Battle engaged! Clear for action!');
-        navalAudio.playShipBell();
 
         await new Promise((r) => setTimeout(r, 450));
         if (isCancelled) return;
 
+        isDoneRef.current = true;
         setIsDone(true);
         if (onReady) onReady();
       } catch (err) {
@@ -88,7 +90,7 @@ export const BattleDeploymentLoader: React.FC<BattleDeploymentLoaderProps> = ({ 
 
     // Fallback timer if server completely stalls
     const timeoutId = setTimeout(() => {
-      if (!isCancelled && !isDone) {
+      if (!isCancelled && !isDoneRef.current) {
         setHasTimeoutError(true);
       }
     }, 12000);
@@ -97,7 +99,7 @@ export const BattleDeploymentLoader: React.FC<BattleDeploymentLoaderProps> = ({ 
       isCancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [onReady, isDone]);
+  }, [onReady]);
 
   if (isDone) return null;
 

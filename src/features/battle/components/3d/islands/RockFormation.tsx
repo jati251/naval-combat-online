@@ -18,34 +18,17 @@ const rockGeoSmall = new THREE.DodecahedronGeometry(0.4, 1);
   geo.computeVertexNormals();
 });
 
-const rockMat = new THREE.MeshStandardMaterial({
-  color: '#57534e',
-  roughness: 0.88,
-  metalness: 0.06,
-});
-const rockMatDark = new THREE.MeshStandardMaterial({
-  color: '#3f3f46',
-  roughness: 0.92,
-  metalness: 0.04,
-});
-const rockMatMoss = new THREE.MeshStandardMaterial({
-  color: '#475544',
-  roughness: 0.85,
-  metalness: 0.03,
-});
+const rockMat = constructionMaterial('rock', '#57534e', 1.5);
+rockMat.roughness = 0.88;
+rockMat.metalness = 0.06;
 
-let surfacesReady = false;
-function applyRockSurfaces() {
-  if (surfacesReady) return;
-  for (const material of [rockMat, rockMatDark, rockMatMoss]) {
-    const textured = constructionMaterial('rock', '#' + material.color.getHexString(), 1.5);
-    material.copy(textured);
-    material.onBeforeCompile = textured.onBeforeCompile;
-    material.customProgramCacheKey = textured.customProgramCacheKey;
-    textured.dispose();
-  }
-  surfacesReady = true;
-}
+const rockMatDark = constructionMaterial('rock', '#3f3f46', 1.5);
+rockMatDark.roughness = 0.92;
+rockMatDark.metalness = 0.04;
+
+const rockMatMoss = constructionMaterial('rock', '#475544', 1.5);
+rockMatMoss.roughness = 0.85;
+rockMatMoss.metalness = 0.03;
 
 import { StaticInstances, type InstanceTransform } from '../shared/StaticInstances';
 import { getTerrainSurfaceY } from './islandGeometries';
@@ -59,7 +42,6 @@ export const RockFormation: React.FC<{
   scale?: number;
   rotation?: number;
 }> = React.memo(({ position, scale = 1, rotation = 0 }) => {
-  applyRockSurfaces();
   return (
     <group position={position} rotation={[0, rotation, 0]} scale={scale}>
       <mesh castShadow receiveShadow geometry={rockGeoLarge} material={rockMat} scale={[1, 0.7, 1.1]} />
@@ -77,7 +59,6 @@ export const IslandRocks: React.FC<{
   island: IslandDefinition;
   isMobile?: boolean;
 }> = React.memo(({ island, isMobile = false }) => {
-  applyRockSurfaces();
   const { large, medium, small } = React.useMemo(() => {
     const large: InstanceTransform[] = [];
     const medium: InstanceTransform[] = [];

@@ -1,8 +1,11 @@
 import * as THREE from 'three';
 import { getWeatherNoise } from './oceanTextures';
 
+let cachedIslandSurfaceMaterial: THREE.MeshStandardMaterial | undefined;
+
 /** Height and slope blending keeps the beach attached to the actual terrain. */
 export function islandSurfaceMaterial() {
+  if (cachedIslandSurfaceMaterial) return cachedIslandSurfaceMaterial;
   const detail = getWeatherNoise();
   const material = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.92, bumpMap: detail, bumpScale: 0.16 });
   material.onBeforeCompile = shader => {
@@ -15,15 +18,18 @@ export function islandSurfaceMaterial() {
     shader.fragmentShader = `varying vec3 groundPosition;
       varying vec3 groundNormal;
       uniform sampler2D groundDetail;
+      float cachedGroundGrain = 0.5;
       float groundHeight(vec3 p) {
-        vec3 w = pow(abs(normalize(groundNormal)), vec3(4.0));
-        w /= max(dot(w, vec3(1.0)), 0.001);
+        vec3 n2 = groundNormal * groundNormal;
+        vec3 w = n2 * n2;
+        w /= max(w.x + w.y + w.z, 0.001);
         return dot(vec3(texture2D(groundDetail,p.zy*0.24).g, texture2D(groundDetail,p.xz*0.24).g, texture2D(groundDetail,p.xy*0.24).g), w);
       }
     ` + shader.fragmentShader;
     shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `
       float broad = texture2D(groundDetail, groundPosition.xz * 0.013).r;
       float grain = groundHeight(groundPosition);
+      cachedGroundGrain = grain;
       float fine = texture2D(groundDetail, groundPosition.xz * 0.85).g;
       float sand = 1.0 - smoothstep(1.2, 3.5, groundPosition.y + (broad - 0.5) * 2.0);
       float wet = 1.0 - smoothstep(0.1, 1.3, groundPosition.y);
@@ -41,10 +47,11 @@ export function islandSurfaceMaterial() {
     `);
     shader.fragmentShader = shader.fragmentShader.replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(0.88 + fine * 0.10, 0.30 + grain * 0.12, wet * sand);');
     shader.fragmentShader = shader.fragmentShader.replace('#include <bumpmap_pars_fragment>', THREE.ShaderChunk.bumpmap_pars_fragment
-      .replace('texture2D( bumpMap, vBumpMapUv ).x', 'groundHeight(groundPosition)')
+      .replace('texture2D( bumpMap, vBumpMapUv ).x', 'cachedGroundGrain')
       .replace('texture2D( bumpMap, vBumpMapUv + dSTdx ).x', 'groundHeight(groundPosition + dFdx(groundPosition))')
       .replace('texture2D( bumpMap, vBumpMapUv + dSTdy ).x', 'groundHeight(groundPosition + dFdy(groundPosition))'));
   };
-  material.customProgramCacheKey = () => 'island-ground-v1';
+  material.customProgramCacheKey = () => 'island-ground-v2';
+  cachedIslandSurfaceMaterial = material;
   return material;
 }

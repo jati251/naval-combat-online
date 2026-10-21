@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import type { IslandSettlement } from './types';
 import { MaritimeCargo } from '../props/MaritimeCargo';
 import type { InstanceTransform } from '../shared/StaticInstances';
+import { useGameStore } from '@/stores/useGameStore';
 
 const kingstonQuayCargo: InstanceTransform[] = [
   { position: [-8, 2.9, 16], rotation: [0, 0.4, 0] },
@@ -32,6 +33,7 @@ interface KingstonCityProps {
  * - Shore artillery defense battery with brass naval cannons
  */
 export const KingstonCity: React.FC<KingstonCityProps> = React.memo(({ settlement, isMobile = false }) => {
+  const isNight = useGameStore((s) => s.timeOfDay === 'NIGHT');
   const roofs = useMemo(() => [[12, 18.4, 5], [15, 10.6, 4.8], [8.3, 8.4, 3.4], [8.8, 8, 3.5], [12.8, 7.4, 3.2]].map(([w, d, h]) => createGableRoof(w, d, h)), []);
   useEffect(() => () => roofs.forEach(roof => roof.dispose()), [roofs]);
   // Shared materials for colonial city architecture
@@ -56,9 +58,9 @@ export const KingstonCity: React.FC<KingstonCityProps> = React.memo(({ settlemen
         roughness: 0.35,
       }),
       lanternGlow: new THREE.MeshStandardMaterial({
-        color: '#fef08a',
+        color: isNight ? '#fef08a' : '#d6c79c',
         emissive: '#f59e0b',
-        emissiveIntensity: 2.5,
+        emissiveIntensity: isNight ? 2.5 : 0.25,
         roughness: 0.2,
       }),
       woodCrane: constructionMaterial('wood', '#3e2723', 4),
@@ -67,7 +69,7 @@ export const KingstonCity: React.FC<KingstonCityProps> = React.memo(({ settlemen
         roughness: 0.7,
       }),
     };
-  }, []);
+  }, [isNight]);
   useEffect(() => () => Object.values(mats).forEach((material) => material.dispose()), [mats]);
 
   return (
@@ -278,7 +280,7 @@ export const KingstonCity: React.FC<KingstonCityProps> = React.memo(({ settlemen
             <mesh position={[0, 2.5, 0]} material={mats.lanternGlow}>
               <boxGeometry args={[0.35, 0.45, 0.35]} />
             </mesh>
-            {!isMobile && (
+            {isNight && !isMobile && (
               <pointLight color="#fbbf24" intensity={2.8} distance={20} decay={2} position={[0, 2.6, 0]} />
             )}
           </group>

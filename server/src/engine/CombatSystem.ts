@@ -1,4 +1,3 @@
-import { PhysicsEngine } from './PhysicsEngine.js';
 import { getBroadsideTransform } from './NavalCombatMath.js';
 import { SERVER_SHIP_CONFIGS } from '../types/protocol.js';
 import type { GameRoom } from './GameRoom.js';

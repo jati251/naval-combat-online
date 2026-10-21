@@ -50,6 +50,19 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('/three/')) return 'vendor-three';
+            if (id.includes('/lucide-react/')) return 'vendor-icons';
+          }
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {
