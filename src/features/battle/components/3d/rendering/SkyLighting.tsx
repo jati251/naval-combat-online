@@ -15,9 +15,9 @@ export function SkyLighting({ isNight, enabled }: { isNight: boolean; enabled: b
     const material = new THREE.ShaderMaterial({
       side: THREE.BackSide,
       uniforms: {
-        zenith: { value: new THREE.Color(isNight ? '#172a44' : '#86b6de') },
-        horizon: { value: new THREE.Color(isNight ? '#3a4b62' : '#d7e1e3') },
-        ground: { value: new THREE.Color(isNight ? '#080e14' : '#52615c') },
+        zenith: { value: new THREE.Color(isNight ? '#0a1628' : '#2268a8') },
+        horizon: { value: new THREE.Color(isNight ? '#1c2d47' : '#c5dded') },
+        ground: { value: new THREE.Color(isNight ? '#030810' : '#103338') },
       },
       vertexShader: `varying vec3 direction;
         void main(){ direction=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,

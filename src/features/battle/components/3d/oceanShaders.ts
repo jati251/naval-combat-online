@@ -131,18 +131,32 @@ export const getOceanFragmentShader = (_waveShaderChunk: string) => `
           return texture2D(uWaterDetail, p * 0.0625).b;
         }
 
+        // AAA Dual-Octave Counter-Flowing Capillary Ripple Field with Wind Directionality
         vec3 computeCapillaryNormal(vec2 p, float time, float tier) {
           vec2 wind = uWind;
           vec2 across = vec2(-wind.y, wind.x);
-          vec2 q = vec2(dot(p, wind), dot(p, across));
-          vec2 uv = q * 0.03125 - vec2(time * 0.008, time * 0.0015);
-          vec2 n = texture2D(uWaterDetail, uv).rg - 0.5;
+
+          // Octave 1: Primary wind-driven ripple set (large flowing swells)
+          vec2 q1 = vec2(dot(p, wind), dot(p, across));
+          vec2 uv1 = q1 * 0.038 - vec2(time * 0.012, time * 0.0028);
+          vec2 n1 = texture2D(uWaterDetail, uv1).rg - 0.5;
+
+          // Octave 2: Cross-wind turbulent chop flowing at 35 degrees angle
+          vec2 q2 = vec2(q1.x * 0.819 - q1.y * 0.574, q1.x * 0.574 + q1.y * 0.819);
+          vec2 uv2 = q2 * 0.082 + vec2(-time * 0.015, time * 0.0045);
+          vec2 n2 = texture2D(uWaterDetail, uv2).rg - 0.5;
+
+          vec2 combinedN = n1 + n2 * 0.65;
+
+          // Octave 3: High-frequency micro chatter (for balanced & performance tiers)
           if (tier > 0.5) {
-            vec2 secondary = vec2(q.x * 0.94 - q.y * 0.342, q.x * 0.342 + q.y * 0.94);
-            vec2 detail = texture2D(uWaterDetail, secondary * 0.073 + vec2(-time * 0.011, time * 0.002)).rg - 0.5;
-            n += vec2(detail.x * 0.94 + detail.y * 0.342, -detail.x * 0.342 + detail.y * 0.94) * 0.42;
+            vec2 q3 = vec2(q1.x * 0.5 - q1.y * 0.866, q1.x * 0.866 + q1.y * 0.5);
+            vec2 uv3 = q3 * 0.165 + vec2(time * 0.022, -time * 0.007);
+            vec2 n3 = texture2D(uWaterDetail, uv3).rg - 0.5;
+            combinedN += n3 * 0.35;
           }
-          vec2 worldSlope = wind * n.x + across * n.y;
+
+          vec2 worldSlope = wind * combinedN.x + across * combinedN.y;
           return vec3(worldSlope.x, 1.0, worldSlope.y);
         }
 
@@ -164,12 +178,12 @@ export const getOceanFragmentShader = (_waveShaderChunk: string) => `
           vec3 lightDir = uLightDir;
           vec3 viewDir = viewOffset / max(camDist, 0.0001);
 
-          // 1. High-Frequency Micro-Wave Capillary Normal Blending
+          // 1. High-Frequency Micro-Wave Capillary Normal Blending (Reoriented Normal Mapping)
           vec3 normal = baseNormal;
           if (camDist < uMaxCapDist) {
             float capStrength = (1.0 - smoothstep(uMaxCapDist * 0.35, uMaxCapDist, camDist)) * waveWeight;
             vec3 capNorm = computeCapillaryNormal(vWorldPosition.xz, uTime, uQualityTier);
-            float capWeight = (0.68 + uStorm * 0.3) * capStrength;
+            float capWeight = (0.75 + uStorm * 0.35) * capStrength;
             normal = normalize(vec3(
               baseNormal.x + capNorm.x * capWeight,
               baseNormal.y,
@@ -177,89 +191,123 @@ export const getOceanFragmentShader = (_waveShaderChunk: string) => `
             ));
           }
 
-          // 2. Coastal Water Depth & Volumetric Trough/Crest Chromatic Gradient
+          // 2. Physical Ocean Depth Optical Absorption & Tropical Chromatic Gradients
           float minDistToShore = max(0.0, -seabed) * 4.0;
+          float waveMod = clamp((vWaveHeight + 0.9) * 0.55, 0.0, 1.0);
+          float troughAO = clamp(0.85 + vWaveHeight * 0.16 + vCrestPinch * 0.22, 0.68, 1.18);
 
-          float waveMod = clamp((vWaveHeight + 0.8) * 0.625, 0.0, 1.0);
-          float troughAO = clamp(0.88 + vWaveHeight * 0.14 + vCrestPinch * 0.18, 0.72, 1.16);
-          vec3 deepOceanColor = mix(uDeepWaterColor * 0.55, uMidWaterColor * 0.68, waveMod * 0.36) * troughAO;
-          float depth = max(0.0, -seabed) * (1.0 + 8.0 * smoothstep(2.0, 4.0, -seabed)) + 0.5;
-          vec3 transmission = exp(-vec3(0.45, 0.13, 0.09) * depth);
-          vec3 shelfColor = mix(uShallowColor, uLagoonColor, 0.28);
-          vec3 waterColor = mix(deepOceanColor, shelfColor, transmission);
+          // Deep pelagic abyss: rich deep sapphire with luminous volumetric gradient
+          vec3 abyssalDeep = uDeepWaterColor * 0.72;
+          vec3 oceanPelagic = mix(abyssalDeep, uMidWaterColor * 0.85, waveMod * 0.45) * troughAO;
 
-          // 4. Subsurface Scattering (Translucent Wave Crests)
-          vec3 sss = vec3(0.0);
-          if (camDist < uMaxSSSDist) {
-            vec3 sssLightDir = normalize(lightDir + normal * (uQualityTier > 1.5 ? 0.45 : 0.35));
-            float sssDot = max(dot(viewDir, -sssLightDir), 0.0);
-            float sssDot2 = sssDot * sssDot;
-            float sssFactor = uQualityTier > 1.5 ? sssDot2 : (sssDot2 * sssDot);
-            float crestThickness = smoothstep(uQualityTier > 1.5 ? 0.08 : 0.18, 1.05, vWaveHeight + vCrestPinch * 0.35);
-            float sssDistFade = 1.0 - smoothstep(uMaxSSSDist * 0.5, uMaxSSSDist, camDist);
-            float sssMult = uQualityTier > 1.5 ? (uIsNight > 0.5 ? 1.25 : 1.38) : (uIsNight > 0.5 ? 0.92 : 0.88);
-            vec3 sssColor = uQualityTier > 1.5 ? (uIsNight > 0.5 ? vec3(0.08, 0.26, 0.48) : vec3(0.03, 0.74, 0.68)) : uSubsurfaceColor;
-            sss = sssColor * (sssFactor * crestThickness * sssMult * sssDistFade);
+          // Physical Beer-Lambert exponential depth extinction (Red absorbs fast, Blue slowly)
+          float depth = max(0.0, -seabed) * (1.0 + 7.0 * smoothstep(1.8, 4.5, -seabed)) + 0.4;
+          vec3 transmission = exp(-vec3(0.42, 0.11, 0.06) * depth);
+          vec3 lagoonShallow = mix(uShallowColor, uLagoonColor, 0.32);
+          vec3 waterColor = mix(oceanPelagic, lagoonShallow, transmission);
+
+          // Shimmering underwater caustics visible in shallow coastal waters (< 5.5m depth)
+          if (depth < 5.5 && camDist < 260.0) {
+            vec2 cUV1 = vWorldPosition.xz * 0.14 + vec2(uTime * 0.035, uTime * 0.018);
+            vec2 cUV2 = vWorldPosition.xz * 0.17 - vec2(uTime * 0.028, -uTime * 0.022);
+            float caust1 = cellularFoam(cUV1);
+            float caust2 = cellularFoam(cUV2);
+            float caustics = min(caust1, caust2);
+            caustics = smoothstep(0.42, 0.88, caustics);
+            float causticFade = (1.0 - smoothstep(0.5, 5.0, depth)) * (1.0 - smoothstep(60.0, 260.0, camDist));
+            vec3 causticTint = uIsNight > 0.5 ? vec3(0.1, 0.25, 0.4) : vec3(0.15, 0.85, 0.75);
+            waterColor += causticTint * caustics * causticFade * 0.48 * (1.0 - uStorm * 0.85);
           }
 
-          // 5. Physical Fresnel & Sky Reflection
+          // 3. AAA Sea of Thieves-Tier Emerald Subsurface Scattering (Wave Crest Translucency)
+          vec3 sss = vec3(0.0);
+          if (camDist < uMaxSSSDist) {
+            vec3 sssLightDir = normalize(lightDir + normal * (uQualityTier > 1.5 ? 0.48 : 0.36));
+            float sssDot = max(dot(viewDir, -sssLightDir), 0.0);
+            float sssFactor = pow(sssDot, uQualityTier > 1.5 ? 3.2 : 4.0);
+            float crestThickness = smoothstep(uQualityTier > 1.5 ? 0.05 : 0.12, 0.95, vWaveHeight + vCrestPinch * 0.42);
+            float sssDistFade = 1.0 - smoothstep(uMaxSSSDist * 0.45, uMaxSSSDist, camDist);
+
+            // Ambient crest scattering (wave pinch illuminates crest tips even when off-angle)
+            float ambientCrestGlow = pow(clamp(vCrestPinch, 0.0, 1.0), 2.2) * smoothstep(0.1, 0.85, vWaveHeight) * 0.38;
+
+            vec3 sssColor = uQualityTier > 1.5
+              ? (uIsNight > 0.5 ? vec3(0.12, 0.35, 0.62) : vec3(0.04, 0.88, 0.78))
+              : (uIsNight > 0.5 ? uSubsurfaceColor * 0.85 : uSubsurfaceColor * 1.25);
+
+            float sssTotal = (sssFactor * crestThickness * (uIsNight > 0.5 ? 1.1 : 1.75) + ambientCrestGlow) * sssDistFade;
+            sss = sssColor * sssTotal * (1.0 - uStorm * 0.75);
+          }
+
+          // 4. Physical Fresnel & Atmospheric Sky Radiance Reflection
           float NdotV = max(dot(viewDir, normal), 0.001);
           float fresnel = 0.02 + 0.98 * pow5(1.0 - NdotV);
-          vec3 reflNormal = normalize(mix(vec3(0.0, 1.0, 0.0), normal, 0.72));
+          vec3 reflNormal = normalize(mix(vec3(0.0, 1.0, 0.0), normal, 0.78));
           vec3 reflectionDir = reflect(-viewDir, reflNormal);
           vec3 skyReflection = atmosphereColor(reflectionDir, uSkyHorizonColor, uSunColor, lightDir, uIsNight, uTime, vWorldPosition.xz, false);
-          waterColor = mix(waterColor, waterColor * vec3(0.48, 0.62, 0.65), uStorm);
+          waterColor = mix(waterColor, waterColor * vec3(0.45, 0.58, 0.62), uStorm);
 
-          vec3 baseShaded = mix(waterColor + sss * 0.48, skyReflection, fresnel);
+          // Luminous physical layer blend: transmission + reflection + subsurface scattering
+          vec3 baseShaded = mix(waterColor, skyReflection, fresnel) + sss * (1.0 - fresnel * 0.4);
 
-          // Normal variance broadens unresolved highlights instead of letting them shimmer.
+          // 5. Anisotropic GGX Sun Path & Diamond Micro-Facet Sparkle (Glitter)
           vec3 halfVector = normalize(lightDir + viewDir);
           float NdotH = max(dot(normal, halfVector), 0.0);
-          float roughPatch = texture2D(uWaterDetail, vWorldPosition.xz * 0.009 + uWind * uTime * 0.001).a;
+          float NdotL = max(dot(normal, lightDir), 0.0);
+
+          float roughPatch = texture2D(uWaterDetail, vWorldPosition.xz * 0.008 + uWind * uTime * 0.001).a;
           vec3 normalDx = dFdx(normal), normalDy = dFdy(normal);
           float variance = min(0.12, dot(normalDx, normalDx) + dot(normalDy, normalDy));
-          float rRough = mix(0.17, 0.29, roughPatch);
-          float rRough2 = rRough * rRough;
-          float alphaSquared = clamp(rRough2 * rRough2 + variance * 0.35, 0.001, 0.15);
+          float rRough = mix(0.15, 0.28, roughPatch);
+          float alphaSquared = clamp(rRough * rRough * rRough * rRough + variance * 0.35, 0.001, 0.14);
           float denominator = NdotH * NdotH * (alphaSquared - 1.0) + 1.0;
           float distribution = alphaSquared / (3.14159265 * denominator * denominator);
-          float NdotL = max(dot(normal, lightDir), 0.0);
           float visibilityV = NdotL * sqrt(NdotV * NdotV * (1.0 - alphaSquared) + alphaSquared);
           float visibilityL = NdotV * sqrt(NdotL * NdotL * (1.0 - alphaSquared) + alphaSquared);
           float sunFresnel = 0.02 + 0.98 * pow5(1.0 - max(dot(viewDir, halfVector), 0.0));
           float specIntensity = distribution * (0.5 / max(visibilityV + visibilityL, 0.001)) * sunFresnel * NdotL;
-          baseShaded += uSunColor * specIntensity * (uIsNight > 0.5 ? 0.35 : 1.0) * (1.0 - uStorm * 0.95);
 
-          // 7. Organic Sea Foam on Wave Crests
+          // Luminous Sun Glitter Highway
+          float specHighway = pow(NdotH, 16.0) * 0.28 * NdotL;
+
+          // High-frequency diamond sparkles on micro-ripples
+          float sparkleNoise = texture2D(uWaterDetail, vWorldPosition.xz * 1.5 + normal.xz * 6.0).r;
+          float sparkle = pow(sparkleNoise, 7.0) * pow(NdotH, 14.0) * 4.2;
+          float sparkleFade = 1.0 - smoothstep(15.0, 140.0, camDist);
+          float totalSparkle = sparkle * sparkleFade * (1.0 - uStorm);
+
+          baseShaded += uSunColor * (specIntensity + specHighway + totalSparkle) * (uIsNight > 0.5 ? 0.32 : 1.25) * (1.0 - uStorm * 0.95);
+
+          // 6. Multi-Scale Sea Foam with Langmuir Trails & Shoreline Wavelets
+          float crestBreak = smoothstep(0.26, 0.72 + uStorm * 0.35, vWaveHeight) * smoothstep(0.14, 0.28, vCrestPinch);
           float crestFoam = 0.0;
-          float crestBreak = smoothstep(0.30, 0.80 + uStorm, vWaveHeight) * smoothstep(0.16, 0.30, vCrestPinch);
           if (crestBreak > 0.01 && camDist < uMaxFoamDist) {
-            float foamCell = cellularFoam(vWorldPosition.xz * 2.5 + vec2(uTime * 0.05, -uTime * 0.03));
-            float foamStreak = texture2D(uWaterDetail, vWorldPosition.xz * 0.023 - uWind * uTime * 0.004).a;
-            float solidFroth = smoothstep(0.18, 0.65, foamCell);
-            float lacyFoam = clamp(solidFroth * foamStreak * 0.85, 0.0, 1.0);
-            float foamDistFade = 1.0 - smoothstep(uMaxFoamDist * 0.5, uMaxFoamDist, camDist);
+            float foamCell = cellularFoam(vWorldPosition.xz * 2.2 + vec2(uTime * 0.045, -uTime * 0.025));
+            float foamStreak = texture2D(uWaterDetail, vWorldPosition.xz * 0.019 - uWind * uTime * 0.003).a;
+            float solidFroth = smoothstep(0.16, 0.62, foamCell);
+            float lacyFoam = clamp(solidFroth * (0.4 + foamStreak * 0.8), 0.0, 1.0);
+            float foamDistFade = 1.0 - smoothstep(uMaxFoamDist * 0.45, uMaxFoamDist, camDist);
             crestFoam = crestBreak * lacyFoam * foamDistFade;
           }
 
-          // 8. Shoreline Breaking Surf Foam Wavelets
+          // Shoreline Breaking Surf Foam
           float totalShoreFoam = 0.0;
-          if (minDistToShore > -0.5 && minDistToShore < 6.0 && camDist < 320.0) {
-            float contactBand = smoothstep(-0.5, 0.2, minDistToShore) * (1.0 - smoothstep(1.0, 3.6, minDistToShore));
-            float surfPulse = sin(uTime * 2.0 - minDistToShore * 1.5) * 0.5 + 0.5;
-            float swashWave = smoothstep(0.3, 1.8, minDistToShore) * (1.0 - smoothstep(2.0, 4.5, minDistToShore)) * surfPulse;
-            float frothDetail = cellularFoam(vWorldPosition.xz * 1.2 + vec2(uTime * 0.08, -uTime * 0.06));
-            float lacyFroth = smoothstep(0.15, 0.60, frothDetail);
-            float shoreNoise = sin(vWorldPosition.x * 0.9 + vWorldPosition.z * 0.7 + uTime * 0.4) * 0.2 + 0.8;
-            totalShoreFoam = clamp((contactBand * 0.58 + swashWave * 0.48) * (0.55 + lacyFroth * 0.45) * shoreNoise, 0.0, 0.42);
+          if (minDistToShore > -0.5 && minDistToShore < 6.5 && camDist < 350.0) {
+            float contactBand = smoothstep(-0.5, 0.2, minDistToShore) * (1.0 - smoothstep(0.8, 3.8, minDistToShore));
+            float surfPulse = sin(uTime * 2.2 - minDistToShore * 1.6) * 0.5 + 0.5;
+            float swashWave = smoothstep(0.25, 1.6, minDistToShore) * (1.0 - smoothstep(1.8, 4.6, minDistToShore)) * surfPulse;
+            float frothDetail = cellularFoam(vWorldPosition.xz * 1.1 + vec2(uTime * 0.07, -uTime * 0.05));
+            float lacyFroth = smoothstep(0.14, 0.58, frothDetail);
+            float shoreNoise = sin(vWorldPosition.x * 0.85 + vWorldPosition.z * 0.65 + uTime * 0.35) * 0.2 + 0.8;
+            totalShoreFoam = clamp((contactBand * 0.65 + swashWave * 0.55) * (0.5 + lacyFroth * 0.5) * shoreNoise, 0.0, 0.55);
           }
 
           // Combine foam layers naturally
-          float totalFoam = clamp(crestFoam * 0.45 + totalShoreFoam, 0.0, 1.0);
-          vec3 litFoam = uFoamColor * mix(1.0, 0.42, uStorm);
+          float totalFoam = clamp(crestFoam * 0.52 + totalShoreFoam, 0.0, 1.0);
+          vec3 litFoam = uFoamColor * mix(1.05, 0.45, uStorm);
           vec3 finalColor = mix(baseShaded, litFoam, totalFoam);
 
-          // 10. Horizon Fog Blend
+          // 7. Atmospheric Aerial Perspective & Horizon Integration
           float fogArg = camDist * uFogDensity;
           float horizonFog = 1.0 - exp(-(fogArg * fogArg));
           horizonFog = max(horizonFog, smoothstep(uHorizonCutoff * 0.65, uHorizonCutoff, camDist));

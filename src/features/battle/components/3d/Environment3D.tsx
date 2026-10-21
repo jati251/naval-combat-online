@@ -117,9 +117,9 @@ export const Environment3D: React.FC<{ isMobile?: boolean; profile?: GraphicProf
     <mesh material={material} renderOrder={-1000} frustumCulled={false}>
       <sphereGeometry args={[1, 32, 16]} />
     </mesh>
-    <SceneSunLight intensity={isNight ? 0.85 : 3.1} color={isNight ? '#a8c6dd' : '#fff2d5'} shadows={profile?.shadows ?? !mobile} shadowMapSize={profile?.shadowMapSize ?? 1024} />
-    <ambientLight ref={ambient} color={isNight ? '#6c879c' : '#d0d8db'} intensity={0.32} />
-    <hemisphereLight ref={hemisphere} args={[isNight ? '#657d92' : '#bdccd1', '#343b35', 1.35]} />
+    <SceneSunLight intensity={isNight ? 1.05 : 3.4} color={isNight ? '#b0d2f0' : '#fff6e5'} shadows={profile?.shadows ?? !mobile} shadowMapSize={profile?.shadowMapSize ?? 1024} />
+    <ambientLight ref={ambient} color={isNight ? '#3a526b' : '#c8dceb'} intensity={isNight ? 0.28 : 0.36} />
+    <hemisphereLight ref={hemisphere} args={[isNight ? '#48688a' : '#9ec5e3', isNight ? '#16222b' : '#223832', 1.25]} />
     <StormWeather3D isMobile={mobile} />
   </>;
 });
