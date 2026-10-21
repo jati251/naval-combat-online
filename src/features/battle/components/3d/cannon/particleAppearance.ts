@@ -8,12 +8,35 @@ export function compileParticleAppearance(shader: THREE.WebGLProgramParametersWi
   shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.a *= particleFade;');
 }
 
-export function writeParticleAppearance(attribute: THREE.BufferAttribute, index: number, p: FXParticle, kind: 'Smoke'|'Flash'|'Sparks'|'Plumes') {
-  const remaining = Math.max(0, p.life / Math.max(0.001,p.maxLife));
+export function writeParticleAppearance(
+  attribute: THREE.BufferAttribute,
+  index: number,
+  p: FXParticle,
+  kind: 'Smoke' | 'Flash' | 'Sparks' | 'Plumes' | 'Fire' | 'Steam'
+) {
+  const remaining = Math.max(0, p.life / Math.max(0.001, p.maxLife));
   const age = 1 - remaining;
-  const fade = kind === 'Flash' || kind === 'Sparks' ? remaining * remaining : Math.min(1,age*12) * remaining * remaining;
-  const size = kind === 'Smoke' ? p.size * (0.3 + age*0.85)
-    : kind === 'Flash' ? p.size * (0.1 + remaining*0.2)
-    : kind === 'Sparks' ? Math.min(0.4,p.size) : p.size*(0.25+age*0.5);
-  attribute.setXY(index,Math.max(0.05,size),fade);
+  const fade =
+    kind === 'Flash' || kind === 'Sparks'
+      ? remaining * remaining
+      : kind === 'Fire'
+      ? Math.min(1, age * 16) * (remaining * 0.95 + 0.05)
+      : kind === 'Steam'
+      ? Math.min(1, age * 6) * remaining * remaining * 0.75
+      : Math.min(1, age * 12) * remaining * remaining;
+
+  const size =
+    kind === 'Smoke'
+      ? p.size * (0.3 + age * 0.95)
+      : kind === 'Flash'
+      ? p.size * (0.1 + remaining * 0.2)
+      : kind === 'Sparks'
+      ? Math.min(0.5, p.size)
+      : kind === 'Fire'
+      ? p.size * (0.4 + Math.sin(age * Math.PI) * 0.7)
+      : kind === 'Steam'
+      ? p.size * (0.35 + age * 1.2)
+      : p.size * (0.25 + age * 0.5);
+
+  attribute.setXY(index, Math.max(0.05, size), fade);
 }

@@ -4,6 +4,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { OceanWater } from "./OceanWater";
 import { CannonSystem3D } from "./CannonSystem3D";
 import { CannonFX2D } from "./CannonFX2D";
+import { SinkingVesselFX3D } from "./SinkingVesselFX3D";
 import { Environment3D } from "./Environment3D";
 import { Islands3D } from "./Islands3D";
 import { Shipwrecks3D } from "./Shipwrecks3D";
@@ -80,6 +81,7 @@ const CannonEntities: React.FC<{ isMobile: boolean }> = React.memo(
       <>
         <CannonSystem3D />
         <CannonFX2D isMobile={isMobile} />
+        <SinkingVesselFX3D isMobile={isMobile} />
       </>
     );
   },

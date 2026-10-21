@@ -3,6 +3,7 @@ import { useToastStore } from '@/stores/useToastStore';
 import { type ShipClass, type SailState, SHIP_PRESETS } from '@/types/game';
 import type { GameMode, MapId } from '@/types/room';
 import { navalAudio } from '@/features/battle/services/navalAudio';
+import { sinkingEventQueue } from '@/features/battle/services/sinkingEventQueue';
 
 class NetworkClient {
   private ws: WebSocket | null = null;
@@ -300,6 +301,22 @@ class NetworkClient {
           isSelf: shipId === store.selfId,
           worldPos: sunkShip ? { x: sunkShip.x, z: sunkShip.z } : undefined,
         });
+
+        if (sunkShip) {
+          const cfg = SHIP_PRESETS[sunkShip.shipClass] || SHIP_PRESETS.brig;
+          sinkingEventQueue.push({
+            shipId,
+            x: sunkShip.x,
+            y: sunkShip.y,
+            z: sunkShip.z,
+            rotationY: sunkShip.rotationY,
+            shipLength: cfg.length,
+            shipWidth: cfg.width,
+            isSelf: shipId === store.selfId,
+            timestamp: performance.now(),
+          });
+        }
+
         store.addCombatLog(msg.killerId === 'environment:storm'
           ? `${name} was lost to the storm.`
           : `💥 ${name} was shattered and sent to Davy Jones' locker!`, 'sink');

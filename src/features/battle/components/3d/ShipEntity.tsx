@@ -23,6 +23,10 @@ import { findShip } from '@/stores/selectors/shipLookup';
 import { navalAudio } from '../../services/navalAudio';
 import { localShipTelemetry } from '../../services/localShipTelemetry';
 import { isSeaEntityInFrustum, updateFrustum } from '../../utils/frustumCuller';
+import {
+  sinkingEventQueue,
+  sinkingShipTracker,
+} from '../../services/sinkingEventQueue';
 
 const _tempParentQuat = new THREE.Quaternion();
 
@@ -186,6 +190,25 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
     const curShip = findShip(store.ships, targetId);
     if (!curShip) return;
 
+    // Sinking transition & respawn snap detection
+    const wasSunk = prevWasSunk.current;
+    prevWasSunk.current = curShip.isSunk;
+
+    if (!wasSunk && curShip.isSunk) {
+      // Immediate powder magazine detonation event on sinking transition
+      sinkingEventQueue.push({
+        shipId: targetId,
+        x: groupRef.current.position.x,
+        y: groupRef.current.position.y,
+        z: groupRef.current.position.z,
+        rotationY: groupRef.current.rotation.y,
+        shipLength: shipLen,
+        shipWidth: shipConfig.width,
+        isSelf,
+        timestamp: performance.now(),
+      });
+    }
+
     // 1. Sunk ship handling: immediately hide overhead status bar, and smoothly animate ship capsizing & sinking
     if (curShip.isSunk) {
       if (isSelf) {
@@ -196,12 +219,29 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
       }
 
       sinkingProgressRef.current += delta;
-      if (sinkingProgressRef.current < 4.8) {
+      const progress = sinkingProgressRef.current;
+
+      if (progress < 5.8) {
         groupRef.current.visible = true;
         // Ship capsizes onto its side and pitches bow-down as it founders into the sea
-        groupRef.current.position.y -= 2.4 * delta;
-        groupRef.current.rotation.z += 0.22 * delta;
+        const sinkRate = 1.6 + progress * 0.42;
+        groupRef.current.position.y -= sinkRate * delta;
+        groupRef.current.rotation.z += (0.22 + progress * 0.035) * delta;
         groupRef.current.rotation.x -= 0.12 * delta;
+        groupRef.current.rotation.y += 0.02 * delta;
+
+        // Register with real-time sinking ship tracker so fire and smoke billow from the sinking hull
+        sinkingShipTracker.update(
+          targetId,
+          groupRef.current.position.x,
+          groupRef.current.position.y,
+          groupRef.current.position.z,
+          groupRef.current.rotation.y,
+          shipLen,
+          shipConfig.width,
+          progress,
+          isSelf
+        );
 
         if (isSelf) {
           updateChaseCamera({
@@ -221,12 +261,14 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
         }
         return;
       } else {
+        sinkingShipTracker.remove(targetId);
         groupRef.current.visible = false;
         return;
       }
     } else {
-      if (sinkingProgressRef.current > 0) {
+      if (sinkingProgressRef.current > 0 || wasSunk) {
         sinkingProgressRef.current = 0;
+        sinkingShipTracker.remove(targetId);
         groupRef.current.visible = true;
       }
     }
@@ -258,8 +300,6 @@ export const ShipEntity: React.FC<ShipEntityProps> = React.memo(({
     }
 
     // Respawn snap detection: if ship was sunk and is now alive, or large position teleport
-    const wasSunk = prevWasSunk.current;
-    prevWasSunk.current = curShip.isSunk;
 
     const distSqFromTarget =
       (groupRef.current.position.x - curShip.x) ** 2 + (groupRef.current.position.z - curShip.z) ** 2;

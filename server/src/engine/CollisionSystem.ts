@@ -30,6 +30,17 @@ function getCachedIslandTrig(isl: ServerIsland): CachedIslandTrig {
   return cached!;
 }
 
+const SHIP_CLASS_MASS: Record<string, number> = {
+  gunboat: 22,
+  sloop: 38,
+  corvette: 65,
+  brig: 100,
+  carrack: 140,
+  galleon: 195,
+  frigate: 260,
+  man_o_war: 400,
+};
+
 export class CollisionSystem {
   public static updateCannonballs(
     cannonballs: CannonballSimulationState[],
@@ -78,6 +89,10 @@ export class CollisionSystem {
       if (serverTime - ball.createdAt > ball.maxLife) {
         continue;
       }
+
+      const prevX = ball.x;
+      const prevY = ball.y;
+      const prevZ = ball.z;
 
       ball.x += ball.vx * dt;
       ball.y += ball.vy * dt;
@@ -143,30 +158,49 @@ export class CollisionSystem {
         if (target.id === ball.ownerId) continue;
         if (isFriendly && isFriendly(ball.ownerId, target.id)) continue;
 
-        const dx = ball.x - target.x;
-        const dz = ball.z - target.z;
-        if (Math.abs(dx) > 25 || Math.abs(dz) > 25) {
+        // Bounding check using swept projectile midpoint
+        const midX = (prevX + ball.x) * 0.5;
+        const midY = (prevY + ball.y) * 0.5;
+        const midZ = (prevZ + ball.z) * 0.5;
+
+        const dx = midX - target.x;
+        const dz = midZ - target.z;
+        if (Math.abs(dx) > target.halfLen + 5 || Math.abs(dz) > target.halfLen + 5) {
           continue;
         }
 
-        const dy = ball.y - target.y;
-        if (dy < -2.0 || dy > 7.5) {
+        const dy = midY - target.y;
+        if (dy < -2.2 || dy > 8.5) {
           continue;
         }
 
-        const localX = dx * target.cosH - dz * target.sinH;
-        const localZ = dx * target.sinH + dz * target.cosH;
+        // Test swept segment samples (prev, mid, current) to eliminate fast tunneling
+        const testPoints = [
+          { x: ball.x, y: ball.y, z: ball.z },
+          { x: midX, y: midY, z: midZ },
+          { x: prevX, y: prevY, z: prevZ },
+        ];
 
-        if (
-          Math.abs(localX) <= target.halfWid &&
-          Math.abs(localZ) <= target.halfLen &&
-          dy >= -1.8 &&
-          dy <= 6.5
-        ) {
-          hit = true;
-          onHit(ball, target.rawShip);
-          break;
+        for (const pt of testPoints) {
+          const ptdx = pt.x - target.x;
+          const ptdz = pt.z - target.z;
+          const ptdy = pt.y - target.y;
+
+          const localX = ptdx * target.cosH - ptdz * target.sinH;
+          const localZ = ptdx * target.sinH + ptdz * target.cosH;
+
+          if (
+            Math.abs(localX) <= target.halfWid &&
+            Math.abs(localZ) <= target.halfLen &&
+            ptdy >= -1.8 &&
+            ptdy <= 7.0
+          ) {
+            hit = true;
+            onHit(ball, target.rawShip);
+            break;
+          }
         }
+        if (hit) break;
       }
 
       if (!hit) {
@@ -177,9 +211,13 @@ export class CollisionSystem {
     return activeBalls;
   }
 
+  /**
+   * Continuous 2D Capsule-to-Capsule (Segment-to-Segment) Hull Collision Detection
+   * with Mass-Weighted Impulse Transfer, Glancing Friction, and Angular Deflection.
+   */
   public static resolveShipCollisions(
     ships: Map<string, ShipSimulationState>,
-    _dt: number
+    dt: number
   ): void {
     const aliveShips: ShipSimulationState[] = [];
     for (const ship of ships.values()) {
@@ -189,110 +227,193 @@ export class CollisionSystem {
     }
     if (aliveShips.length < 2) return;
 
+    interface HullSegment {
+      ship: ShipSimulationState;
+      // Start (stern) and End (bow) of centerline
+      sx: number;
+      sz: number;
+      ex: number;
+      ez: number;
+      dx: number;
+      dz: number;
+      lenSq: number;
+      radius: number;
+      mass: number;
+      halfLen: number;
+      fwdX: number;
+      fwdZ: number;
+    }
+
+    const hulls: HullSegment[] = [];
     for (let i = 0; i < aliveShips.length; i++) {
-      const shipA = aliveShips[i];
-      const cfgA = SERVER_SHIP_CONFIGS[shipA.shipClass];
-      const halfLenA = cfgA.length * 0.28;
-      const radiusA = cfgA.width * 0.5 + 0.4;
-      const sinA = Math.sin(shipA.rotationY);
-      const cosA = Math.cos(shipA.rotationY);
+      const ship = aliveShips[i];
+      const cfg = SERVER_SHIP_CONFIGS[ship.shipClass];
+      const fwdX = Math.sin(ship.rotationY);
+      const fwdZ = Math.cos(ship.rotationY);
+      const halfLen = cfg.length * 0.42;
+      const radius = cfg.width * 0.5 + 0.42;
+      const mass = SHIP_CLASS_MASS[ship.shipClass] || 100;
 
-      const bowAx = shipA.x + sinA * halfLenA;
-      const bowAz = shipA.z + cosA * halfLenA;
-      const sternAx = shipA.x - sinA * halfLenA;
-      const sternAz = shipA.z - cosA * halfLenA;
+      const sx = ship.x - fwdX * halfLen;
+      const sz = ship.z - fwdZ * halfLen;
+      const ex = ship.x + fwdX * halfLen;
+      const ez = ship.z + fwdZ * halfLen;
+      const dx = ex - sx;
+      const dz = ez - sz;
+      const lenSq = dx * dx + dz * dz;
 
-      for (let j = i + 1; j < aliveShips.length; j++) {
-        const shipB = aliveShips[j];
-        const cfgB = SERVER_SHIP_CONFIGS[shipB.shipClass];
+      hulls.push({
+        ship,
+        sx,
+        sz,
+        ex,
+        ez,
+        dx,
+        dz,
+        lenSq,
+        radius,
+        mass,
+        halfLen,
+        fwdX,
+        fwdZ,
+      });
+    }
 
-        const maxDist = cfgA.length * 0.65 + cfgB.length * 0.65;
+    for (let i = 0; i < hulls.length; i++) {
+      const hA = hulls[i];
+      const shipA = hA.ship;
+
+      for (let j = i + 1; j < hulls.length; j++) {
+        const hB = hulls[j];
+        const shipB = hB.ship;
+
+        // Broad-phase bounding circle check
         const cdx = shipA.x - shipB.x;
         const cdz = shipA.z - shipB.z;
+        const maxDist = hA.halfLen + hA.radius + hB.halfLen + hB.radius + 1.0;
         if (cdx * cdx + cdz * cdz > maxDist * maxDist) {
           continue;
         }
 
-        const halfLenB = cfgB.length * 0.28;
-        const radiusB = cfgB.width * 0.5 + 0.4;
-        const sinB = Math.sin(shipB.rotationY);
-        const cosB = Math.cos(shipB.rotationY);
+        // Exact analytical segment-to-segment closest points (Christer Ericson Real-Time Collision)
+        const rx = hA.sx - hB.sx;
+        const rz = hA.sz - hB.sz;
 
-        const bowBx = shipB.x + sinB * halfLenB;
-        const bowBz = shipB.z + cosB * halfLenB;
-        const sternBx = shipB.x - sinB * halfLenB;
-        const sternBz = shipB.z - cosB * halfLenB;
+        const a = hA.lenSq;
+        const b = hA.dx * hB.dx + hA.dz * hB.dz;
+        const c = hB.lenSq;
+        const d = hA.dx * rx + hA.dz * rz;
+        const e = hB.dx * rx + hB.dz * rz;
+        const denom = a * c - b * b;
 
-        const minSphereDist = radiusA + radiusB;
-        const minSphereDistSq = minSphereDist * minSphereDist;
-
-        let maxOverlap = 0;
-        let pushNx = 0;
-        let pushNz = 0;
-
-        let dx = bowAx - bowBx;
-        let dz = bowAz - bowBz;
-        let distSq = dx * dx + dz * dz;
-        if (distSq < minSphereDistSq) {
-          const dist = Math.sqrt(distSq);
-          maxOverlap = minSphereDist - dist;
-          if (dist > 0.001) { pushNx = dx / dist; pushNz = dz / dist; }
-          else { pushNx = Math.sin(shipA.rotationY + Math.PI * 0.5); pushNz = Math.cos(shipA.rotationY + Math.PI * 0.5); }
+        let s = 0.5;
+        if (Math.abs(denom) > 1e-6) {
+          s = Math.max(0, Math.min(1, (b * e - c * d) / denom));
         }
 
-        dx = bowAx - sternBx;
-        dz = bowAz - sternBz;
-        distSq = dx * dx + dz * dz;
-        if (distSq < minSphereDistSq) {
+        let t = c > 1e-6 ? (b * s + e) / c : 0.5;
+        if (t < 0) {
+          t = 0;
+          s = a > 1e-6 ? Math.max(0, Math.min(1, -d / a)) : 0;
+        } else if (t > 1) {
+          t = 1;
+          s = a > 1e-6 ? Math.max(0, Math.min(1, (b - d) / a)) : 0;
+        }
+
+        // Closest point on Ship A centerline and Ship B centerline
+        const cAx = hA.sx + s * hA.dx;
+        const cAz = hA.sz + s * hA.dz;
+        const cBx = hB.sx + t * hB.dx;
+        const cBz = hB.sz + t * hB.dz;
+
+        const vx = cAx - cBx;
+        const vz = cAz - cBz;
+        const distSq = vx * vx + vz * vz;
+        const minDist = hA.radius + hB.radius;
+
+        if (distSq < minDist * minDist) {
           const dist = Math.sqrt(distSq);
-          const overlap = minSphereDist - dist;
-          if (overlap > maxOverlap) {
-            maxOverlap = overlap;
-            if (dist > 0.001) { pushNx = dx / dist; pushNz = dz / dist; }
-            else { pushNx = Math.sin(shipA.rotationY + Math.PI * 0.5); pushNz = Math.cos(shipA.rotationY + Math.PI * 0.5); }
+          const overlap = minDist - dist;
+
+          let nx: number;
+          let nz: number;
+          if (dist > 1e-4) {
+            nx = vx / dist;
+            nz = vz / dist;
+          } else {
+            // Degenerate/identical centers: push away along center vector or perpendicular
+            const centerDist = Math.hypot(cdx, cdz);
+            if (centerDist > 1e-3) {
+              nx = cdx / centerDist;
+              nz = cdz / centerDist;
+            } else {
+              nx = hA.fwdZ;
+              nz = -hA.fwdX;
+            }
           }
-        }
 
-        dx = sternAx - bowBx;
-        dz = sternAz - bowBz;
-        distSq = dx * dx + dz * dz;
-        if (distSq < minSphereDistSq) {
-          const dist = Math.sqrt(distSq);
-          const overlap = minSphereDist - dist;
-          if (overlap > maxOverlap) {
-            maxOverlap = overlap;
-            if (dist > 0.001) { pushNx = dx / dist; pushNz = dz / dist; }
-            else { pushNx = Math.sin(shipA.rotationY + Math.PI * 0.5); pushNz = Math.cos(shipA.rotationY + Math.PI * 0.5); }
+          // 1. Mass-weighted positional separation
+          const totalMass = hA.mass + hB.mass;
+          const ratioA = hB.mass / totalMass;
+          const ratioB = hA.mass / totalMass;
+          const pushDist = overlap * 1.05;
+
+          shipA.x += nx * (pushDist * ratioA);
+          shipA.z += nz * (pushDist * ratioA);
+          shipB.x -= nx * (pushDist * ratioB);
+          shipB.z -= nz * (pushDist * ratioB);
+
+          // 2. Angular Deflection (Yaw Torque from off-center impact)
+          const rAx = cAx - shipA.x;
+          const rAz = cAz - shipA.z;
+          const torqueA = rAx * nz - rAz * nx;
+
+          const rBx = cBx - shipB.x;
+          const rBz = cBz - shipB.z;
+          const torqueB = rBx * (-nz) - rBz * (-nx);
+
+          const angularImpulseA = (torqueA / (hA.mass * hA.halfLen)) * 4.5 * Math.max(0.016, dt);
+          const angularImpulseB = (torqueB / (hB.mass * hB.halfLen)) * 4.5 * Math.max(0.016, dt);
+          shipA.rotationY += Math.max(-0.06, Math.min(0.06, angularImpulseA));
+          shipB.rotationY += Math.max(-0.06, Math.min(0.06, angularImpulseB));
+
+          // 3. Realistic Linear Momentum & Inelastic Kinetic Friction
+          const mPerSec = 0.514444; // 1 knot in m/s
+          let velAx = hA.fwdX * (shipA.speed * mPerSec);
+          let velAz = hA.fwdZ * (shipA.speed * mPerSec);
+          let velBx = hB.fwdX * (shipB.speed * mPerSec);
+          let velBz = hB.fwdZ * (shipB.speed * mPerSec);
+
+          const relVx = velAx - velBx;
+          const relVz = velAz - velBz;
+          const normalVel = relVx * nx + relVz * nz;
+
+          if (normalVel < 0) {
+            // Approaching collision: absorb energy with wooden hull elasticity
+            const restitution = 0.22;
+            const impulseMag = (-(1 + restitution) * normalVel) / (1 / hA.mass + 1 / hB.mass);
+
+            velAx += (nx * impulseMag) / hA.mass;
+            velAz += (nz * impulseMag) / hA.mass;
+            velBx -= (nx * impulseMag) / hB.mass;
+            velBz -= (nz * impulseMag) / hB.mass;
+
+            // Project new velocities back to heading to preserve clean naval steerage
+            const newFwdDotA = velAx * Math.sin(shipA.rotationY) + velAz * Math.cos(shipA.rotationY);
+            const newFwdDotB = velBx * Math.sin(shipB.rotationY) + velBz * Math.cos(shipB.rotationY);
+
+            shipA.speed = Math.max(0, Math.min(shipA.speed, newFwdDotA / mPerSec * 0.92));
+            shipB.speed = Math.max(0, Math.min(shipB.speed, newFwdDotB / mPerSec * 0.92));
+          } else {
+            // Glancing scrape: shed 5% speed per tick
+            shipA.speed = Math.max(0, shipA.speed * 0.95);
+            shipB.speed = Math.max(0, shipB.speed * 0.95);
           }
-        }
 
-        dx = sternAx - sternBx;
-        dz = sternAz - sternBz;
-        distSq = dx * dx + dz * dz;
-        if (distSq < minSphereDistSq) {
-          const dist = Math.sqrt(distSq);
-          const overlap = minSphereDist - dist;
-          if (overlap > maxOverlap) {
-            maxOverlap = overlap;
-            if (dist > 0.001) { pushNx = dx / dist; pushNz = dz / dist; }
-            else { pushNx = Math.sin(shipA.rotationY + Math.PI * 0.5); pushNz = Math.cos(shipA.rotationY + Math.PI * 0.5); }
-          }
-        }
-
-        if (maxOverlap > 0) {
-          const separation = maxOverlap * 0.52;
-          shipA.x += pushNx * separation;
-          shipA.z += pushNz * separation;
-          shipB.x -= pushNx * separation;
-          shipB.z -= pushNz * separation;
-
-          shipA.speed = Math.max(0, shipA.speed * 0.72);
-          shipB.speed = Math.max(0, shipB.speed * 0.72);
-
-          shipA.vx = Math.sin(shipA.rotationY) * (shipA.speed * 0.514444);
-          shipA.vz = Math.cos(shipA.rotationY) * (shipA.speed * 0.514444);
-          shipB.vx = Math.sin(shipB.rotationY) * (shipB.speed * 0.514444);
-          shipB.vz = Math.cos(shipB.rotationY) * (shipB.speed * 0.514444);
+          shipA.vx = Math.sin(shipA.rotationY) * (shipA.speed * mPerSec);
+          shipA.vz = Math.cos(shipA.rotationY) * (shipA.speed * mPerSec);
+          shipB.vx = Math.sin(shipB.rotationY) * (shipB.speed * mPerSec);
+          shipB.vz = Math.cos(shipB.rotationY) * (shipB.speed * mPerSec);
         }
       }
     }

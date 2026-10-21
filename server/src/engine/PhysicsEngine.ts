@@ -284,98 +284,136 @@ export class PhysicsEngine {
     ship.x += moveX;
     ship.z += moveZ;
 
-    // Ship physical collision radius: tightened to realistic hull half-width + safety margin
-    const shipRadius = Math.max(1.8, Math.min(4.0, config.width * 0.5 + 0.6));
     const fwdX = Math.sin(ship.rotationY);
     const fwdZ = Math.cos(ship.rotationY);
 
     const { islands, wrecks } = getServerMap(mapId);
 
-    // Tactical Islands Collision & Run-Aground Deceleration
-    for (const isl of islands) {
-      if (isl.elongation) {
-        // Elliptical island shoreline: reduced from sandRadius * 1.2 to 0.76 to match real beach waterline
-        const relX = ship.x - isl.x;
-        const relZ = ship.z - isl.z;
-        const cosA = Math.cos(isl.elongation.angle);
-        const sinA = Math.sin(isl.elongation.angle);
-        const localX = relX * cosA - relZ * sinA;
-        const localZ = relX * sinA + relZ * cosA;
+    // Multi-Point Waterline Hull Collision Probes (Bow, Mid-bow, Center, Mid-stern, Stern)
+    // Eliminates bow and stern clipping into beaches, sea stacks, and shipwrecks
+    const halfLen = config.length * 0.44;
+    const probeRadius = Math.max(1.6, Math.min(3.8, config.width * 0.5 + 0.35));
+    const probeOffsets = [halfLen * 0.88, halfLen * 0.44, 0, -halfLen * 0.44, -halfLen * 0.88];
 
-        const worldDist = Math.hypot(localX, localZ);
-        const uX = localX / isl.elongation.scaleX;
-        const uZ = localZ / isl.elongation.scaleZ;
-        const a = Math.atan2(uZ, uX);
-        const scaleFactor = Math.hypot(Math.cos(a) * isl.elongation.scaleX, Math.sin(a) * isl.elongation.scaleZ);
-        const minSafeDist = isl.sandRadius * 0.76 * scaleFactor + shipRadius;
+    for (const off of probeOffsets) {
+      const px = ship.x + fwdX * off;
+      const pz = ship.z + fwdZ * off;
 
-        if (worldDist < minSafeDist) {
-          const safeDist = Math.max(0.001, worldDist);
-          const pushLocalX = (localX / safeDist) * minSafeDist;
-          const pushLocalZ = (localZ / safeDist) * minSafeDist;
-
-          ship.x = isl.x + pushLocalX * cosA + pushLocalZ * sinA;
-          ship.z = isl.z - pushLocalX * sinA + pushLocalZ * cosA;
-
-          // Outward normal in world space
-          const nx = (pushLocalX / minSafeDist) * cosA + (pushLocalZ / minSafeDist) * sinA;
-          const nz = -(pushLocalX / minSafeDist) * sinA + (pushLocalZ / minSafeDist) * cosA;
-          const dot = fwdX * nx + fwdZ * nz;
-          if (dot < 0) {
-            // Decelerate smoothly to a scrape speed (retains enough steerage to turn away)
-            ship.speed = Math.max(1.5, Math.min(ship.speed * 0.7, 4.0));
-            // Gently glance heading along the island shoreline tangent
-            const tangentX = -nz;
-            const tangentZ = nx;
-            const tangentDot = fwdX * tangentX + fwdZ * tangentZ;
-            const targetYaw = Math.atan2(tangentDot >= 0 ? tangentX : -tangentX, tangentDot >= 0 ? tangentZ : -tangentZ);
-            let yawDiff = targetYaw - ship.rotationY;
-            while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
-            while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
-            ship.rotationY += yawDiff * 1.5 * dt;
-          }
+      // 1. Islands Collision & Dynamic Shoreline Deflection
+      for (const isl of islands) {
+        // Fast broad-phase bounding check
+        const islMaxRadius = (isl.sandRadius * (isl.elongation ? Math.max(isl.elongation.scaleX, isl.elongation.scaleZ) : 1.0)) + probeRadius + 10;
+        if (Math.abs(px - isl.x) > islMaxRadius || Math.abs(pz - isl.z) > islMaxRadius) {
+          continue;
         }
-      } else {
-        // Circular island shoreline: reduced from sandRadius * 1.2 to 0.76
-        const dx = ship.x - isl.x;
-        const dz = ship.z - isl.z;
-        const dist = Math.hypot(dx, dz);
-        const minSafeDist = isl.sandRadius * 0.76 + shipRadius;
-        if (dist < minSafeDist && dist > 0.001) {
-          const nx = dx / dist;
-          const nz = dz / dist;
-          ship.x = isl.x + nx * minSafeDist;
-          ship.z = isl.z + nz * minSafeDist;
-          const dot = fwdX * nx + fwdZ * nz;
-          if (dot < 0) {
-            ship.speed = Math.max(1.5, Math.min(ship.speed * 0.7, 4.0));
-            const tangentX = -nz;
-            const tangentZ = nx;
-            const tangentDot = fwdX * tangentX + fwdZ * tangentZ;
-            const targetYaw = Math.atan2(tangentDot >= 0 ? tangentX : -tangentX, tangentDot >= 0 ? tangentZ : -tangentZ);
-            let yawDiff = targetYaw - ship.rotationY;
-            while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
-            while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
-            ship.rotationY += yawDiff * 1.5 * dt;
+
+        if (isl.elongation) {
+          const rx = px - isl.x;
+          const rz = pz - isl.z;
+          const cosA = Math.cos(isl.elongation.angle);
+          const sinA = Math.sin(isl.elongation.angle);
+          const lx = rx * cosA - rz * sinA;
+          const lz = rx * sinA + rz * cosA;
+
+          const semiX = isl.sandRadius * 0.76 * isl.elongation.scaleX;
+          const semiZ = isl.sandRadius * 0.76 * isl.elongation.scaleZ;
+          const theta = Math.atan2(lz, lx);
+          const cosT = Math.cos(theta);
+          const sinT = Math.sin(theta);
+          const denom = Math.sqrt((semiZ * cosT) ** 2 + (semiX * sinT) ** 2);
+          const rEllipse = denom > 1e-4 ? (semiX * semiZ) / denom : semiX;
+          const minSafeDist = rEllipse + probeRadius;
+          const curDist = Math.hypot(lx, lz);
+
+          if (curDist < minSafeDist) {
+            const overlap = minSafeDist - curDist;
+            const safeD = Math.max(0.001, curDist);
+            const localNx = lx / safeD;
+            const localNz = lz / safeD;
+
+            const nx = localNx * cosA + localNz * sinA;
+            const nz = -localNx * sinA + localNz * cosA;
+
+            ship.x += nx * overlap;
+            ship.z += nz * overlap;
+
+            const dot = fwdX * nx + fwdZ * nz;
+            if (dot < 0) {
+              ship.speed = Math.max(1.2, Math.min(ship.speed * 0.72, 3.8));
+              if (off >= 0) {
+                // Bow glancing deflection along shoreline tangent
+                const tangentX = -nz;
+                const tangentZ = nx;
+                const tangentDot = fwdX * tangentX + fwdZ * tangentZ;
+                const targetYaw = Math.atan2(tangentDot >= 0 ? tangentX : -tangentX, tangentDot >= 0 ? tangentZ : -tangentZ);
+                let yawDiff = targetYaw - ship.rotationY;
+                while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+                while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+                ship.rotationY += yawDiff * 2.0 * dt;
+              }
+            }
+          }
+        } else {
+          const dx = px - isl.x;
+          const dz = pz - isl.z;
+          const curDist = Math.hypot(dx, dz);
+          const minSafeDist = isl.sandRadius * 0.76 + probeRadius;
+
+          if (curDist < minSafeDist && curDist > 0.001) {
+            const overlap = minSafeDist - curDist;
+            const nx = dx / curDist;
+            const nz = dz / curDist;
+
+            ship.x += nx * overlap;
+            ship.z += nz * overlap;
+
+            const dot = fwdX * nx + fwdZ * nz;
+            if (dot < 0) {
+              ship.speed = Math.max(1.2, Math.min(ship.speed * 0.72, 3.8));
+              if (off >= 0) {
+                const tangentX = -nz;
+                const tangentZ = nx;
+                const tangentDot = fwdX * tangentX + fwdZ * tangentZ;
+                const targetYaw = Math.atan2(tangentDot >= 0 ? tangentX : -tangentX, tangentDot >= 0 ? tangentZ : -tangentZ);
+                let yawDiff = targetYaw - ship.rotationY;
+                while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+                while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+                ship.rotationY += yawDiff * 2.0 * dt;
+              }
+            }
           }
         }
       }
-    }
 
-    // Floating Shipwrecks Collision: reduced from wreck.radius + 8.5m to wreck.radius * 0.65 + shipRadius
-    for (const wreck of wrecks) {
-      const dx = ship.x - wreck.x;
-      const dz = ship.z - wreck.z;
-      const dist = Math.hypot(dx, dz);
-      const minSafeDist = wreck.radius * 0.65 + shipRadius;
-      if (dist < minSafeDist && dist > 0.001) {
-        const nx = dx / dist;
-        const nz = dz / dist;
-        ship.x = wreck.x + nx * minSafeDist;
-        ship.z = wreck.z + nz * minSafeDist;
-        const dot = fwdX * nx + fwdZ * nz;
-        if (dot < 0) {
-          ship.speed *= 0.3;
+      // 2. Floating Shipwrecks Collision
+      for (const wreck of wrecks) {
+        const dx = px - wreck.x;
+        const dz = pz - wreck.z;
+        const curDist = Math.hypot(dx, dz);
+        const minSafeDist = wreck.radius * 0.72 + probeRadius;
+
+        if (curDist < minSafeDist && curDist > 0.001) {
+          const overlap = minSafeDist - curDist;
+          const nx = dx / curDist;
+          const nz = dz / curDist;
+
+          ship.x += nx * overlap;
+          ship.z += nz * overlap;
+
+          const dot = fwdX * nx + fwdZ * nz;
+          if (dot < 0) {
+            ship.speed = Math.max(0, ship.speed * 0.4);
+            if (off > 0) {
+              const tangentX = -nz;
+              const tangentZ = nx;
+              const tangentDot = fwdX * tangentX + fwdZ * tangentZ;
+              const targetYaw = Math.atan2(tangentDot >= 0 ? tangentX : -tangentX, tangentDot >= 0 ? tangentZ : -tangentZ);
+              let yawDiff = targetYaw - ship.rotationY;
+              while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+              while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+              ship.rotationY += yawDiff * 1.8 * dt;
+            }
+          }
         }
       }
     }
