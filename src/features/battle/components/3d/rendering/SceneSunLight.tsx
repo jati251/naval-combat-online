@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef } from "react";
 import { DirectionalLight, Object3D, Vector3 } from "three";
 import { useFrame } from "@react-three/fiber";
-import { getLocalStorm } from '../../../utils/weather';
+import { getLocalStorm, getLightning } from '../../../utils/weather';
+import { getOceanTime } from '../../../utils/oceanTime';
+import { useGameStore } from '@/stores/useGameStore';
 
 export function SceneSunLight({ color, intensity, shadows, shadowMapSize = 1024 }: {
   color: string; intensity: number; shadows: boolean; shadowMapSize?: number;
@@ -13,7 +15,7 @@ export function SceneSunLight({ color, intensity, shadows, shadowMapSize = 1024 
     const right = new Vector3().crossVectors(new Vector3(0, 1, 0), forward).normalize();
     return { forward, right, up: new Vector3().crossVectors(forward, right), anchor: new Vector3() };
   }, []);
-  const halfSpan = shadowMapSize >= 2048 ? 90 : 60;
+  const halfSpan = shadowMapSize >= 2048 ? 95 : 62;
 
   useEffect(() => {
     const currentLight = light.current;
@@ -22,12 +24,15 @@ export function SceneSunLight({ color, intensity, shadows, shadowMapSize = 1024 
     };
   }, [shadowMapSize]);
 
-  useFrame(({ camera }) => {
+  useFrame(({ camera, clock }) => {
     if (!light.current) return;
-    light.current.intensity = intensity * (1 - getLocalStorm(camera.position.x, camera.position.z) * 0.94);
+    const storm = getLocalStorm(camera.position.x, camera.position.z);
+    const time = getOceanTime(useGameStore.getState(), clock.elapsedTime);
+    const lightning = getLightning(time, storm);
+    light.current.intensity = intensity * (1 - storm * 0.92) + lightning * 2.8;
 
     // Snap in the light's image plane; world X/Z snapping still crawls under an angled sun.
-    const texelSize = halfSpan * 2 / shadowMapSize;
+    const texelSize = (halfSpan * 2) / shadowMapSize;
     basis.anchor.set(camera.position.x, 0, camera.position.z);
     const right = Math.round(basis.anchor.dot(basis.right) / texelSize) * texelSize;
     const up = Math.round(basis.anchor.dot(basis.up) / texelSize) * texelSize;
@@ -62,8 +67,8 @@ export function SceneSunLight({ color, intensity, shadows, shadowMapSize = 1024 
         shadow-camera-right={halfSpan}
         shadow-camera-top={halfSpan}
         shadow-camera-bottom={-halfSpan}
-        shadow-bias={-0.0001}
-        shadow-normalBias={0.035}
+        shadow-bias={shadowMapSize >= 2048 ? -0.00008 : -0.00012}
+        shadow-normalBias={shadowMapSize >= 2048 ? 0.028 : 0.038}
       />
     </>
   );

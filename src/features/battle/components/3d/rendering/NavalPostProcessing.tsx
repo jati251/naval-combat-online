@@ -41,42 +41,66 @@ export const NavalPostProcessing = React.memo(function NavalPostProcessing({
 
   if (isFast) return null;
 
+  if (!isExtreme) {
+    // Balanced Tier: Web-optimized single-pass post-processing pipeline with FXAA
+    return (
+      <EffectComposer multisampling={0} enableNormalPass={false}>
+        <Bloom
+          luminanceThreshold={isNight ? 0.74 : 0.84}
+          luminanceSmoothing={0.35}
+          resolutionScale={0.5}
+          mipmapBlur
+          levels={4}
+          intensity={isNight ? 0.30 : 0.20}
+          radius={0.50}
+        />
+        <HueSaturation saturation={0.07} hue={0} />
+        <Vignette
+          eskil={false}
+          offset={0.36}
+          darkness={isNight ? 0.44 : 0.25}
+        />
+        <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+        <FXAA />
+      </EffectComposer>
+    );
+  }
+
+  // Max Tier (Black Flag Resynced): MSAA + Full HDR Mipmap Bloom + Anamorphic Lens Dispersion
   return (
     <EffectComposer
-      multisampling={isExtreme ? 4 : 0}
+      multisampling={4}
       enableNormalPass={false}
     >
-      {/* Cinematic Maritime Bloom: vibrant cannon fire, explosions, sun glints, lanterns */}
+      {/* Cinematic Maritime Bloom: vibrant cannon fire, explosions, diamond sun glints, lanterns */}
       <Bloom
-        luminanceThreshold={isNight ? 0.72 : 0.85}
-        luminanceSmoothing={0.35}
+        luminanceThreshold={isNight ? 0.70 : 0.80}
+        luminanceSmoothing={0.32}
         resolutionScale={0.5}
         mipmapBlur
-        levels={isExtreme ? 5 : 4}
-        intensity={isNight ? (isExtreme ? 0.38 : 0.28) : (isExtreme ? 0.26 : 0.18)}
-        radius={0.52}
+        levels={5}
+        intensity={isNight ? 0.42 : 0.30}
+        radius={0.56}
       />
 
       {/* Cinematic Color Grading & Vibrant Contrast */}
-      <HueSaturation saturation={0.06} hue={0} />
+      <HueSaturation saturation={0.09} hue={0} />
 
       {/* Subtle Anamorphic Camera Lens Dispersion at Screen Edges */}
       <ChromaticAberration
         offset={chromaticOffset}
         radialModulation
-        modulationOffset={0.32}
+        modulationOffset={0.34}
       />
 
       {/* 35mm Filmic Vignette Framing the Epic Naval Battle */}
       <Vignette
         eskil={false}
         offset={0.36}
-        darkness={isNight ? 0.45 : 0.26}
+        darkness={isNight ? 0.46 : 0.27}
       />
 
       <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-
-      {!isExtreme && <FXAA />}
     </EffectComposer>
   );
 });

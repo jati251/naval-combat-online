@@ -89,13 +89,18 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size: request
     const maxCapDist = profile?.waterShader.capillaryDist ?? (qualityTier === 'fast' ? 70.0 : qualityTier === 'performance' ? 320.0 : 200.0);
     const maxSSSDist = profile?.waterShader.sssDist ?? (qualityTier === 'fast' ? 60.0 : qualityTier === 'performance' ? 320.0 : 220.0);
     const maxFoamDist = profile?.waterShader.foamDist ?? (qualityTier === 'fast' ? 70.0 : qualityTier === 'performance' ? 280.0 : 180.0);
+    const capillaryHarmonics = profile?.waterShader.capillaryHarmonics ?? (qualityTier === 'fast' ? 1.0 : qualityTier === 'performance' ? 7.0 : 3.0);
+    const glitterEnabled = (profile?.waterShader.glitterEnabled ?? (qualityTier !== 'fast')) ? 1.0 : 0.0;
+
   const shaderMaterial = useMemo(() => {
+    const atm = activeMap.atmosphere;
     return new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
         uWaterDetail: { value: getOceanDetail() },
         uWeatherNoise: { value: getWeatherNoise() },
-        uSkyTopColor: { value: new THREE.Color(isNight ? '#050e1c' : '#0f5ca8') },
+        uSkyTopColor: { value: new THREE.Color(isNight ? (atm.skyTopNight || '#050e1c') : (atm.skyTopDay || '#0f5ca8')) },
+        uSkyMidColor: { value: new THREE.Color(isNight ? (atm.skyMidNight || '#0d2042') : (atm.skyMidDay || '#38bdf8')) },
         uStorm: { value: 0 },
         uLightning: { value: 0 },
         uWind: { value: new THREE.Vector2(1, 0) },
@@ -106,8 +111,8 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size: request
         uCrestGlowColor: { value: new THREE.Color(isNight ? '#2a729e' : activeMap.water.crestGlowColor) },
         uSubsurfaceColor: { value: new THREE.Color(isNight ? '#18647a' : activeMap.water.subsurfaceColor) },
         uFoamColor: { value: new THREE.Color(isNight ? '#8ab0d6' : activeMap.water.foamColor) },
-        uSunColor: { value: new THREE.Color(isNight ? '#a8c6dd' : '#fff5de') },
-        uSkyHorizonColor: { value: new THREE.Color(isNight ? activeMap.atmosphere.fogColorNight : activeMap.atmosphere.fogColorDay) },
+        uSunColor: { value: new THREE.Color(isNight ? (atm.moonColorNight || '#a8c6dd') : (atm.sunColorDay || '#fff5de')) },
+        uSkyHorizonColor: { value: new THREE.Color(isNight ? atm.fogColorNight : atm.fogColorDay) },
         uLightDir: { value: new THREE.Vector3(70, 140, -50).normalize() },
         uCoastalHeight: { value: coastalTexture },
         uCoastalBounds: { value: new THREE.Vector4(coastalField.minX, coastalField.minZ, coastalField.spanX, coastalField.spanZ) },
@@ -116,6 +121,8 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size: request
         uIsNight: { value: isNight ? 1.0 : 0.0 },
         uFogDensity: { value: fogDensity },
         uQualityTier: { value: qualityTier === 'fast' ? 0.0 : qualityTier === 'performance' ? 2.0 : 1.0 },
+        uCapillaryHarmonics: { value: capillaryHarmonics },
+        uGlitterEnabled: { value: glitterEnabled },
         uHorizonCutoff: { value: horizonCutoff },
         uMaxCapDist: { value: maxCapDist },
         uMaxSSSDist: { value: maxSSSDist },
@@ -127,7 +134,7 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size: request
       wireframe: false,
     });
   }, [isNight, activeMap, coastalTexture, coastalField, waveShaderChunk, qualityTier,
-    fogDensity, horizonCutoff, maxCapDist, maxSSSDist, maxFoamDist]);
+    fogDensity, horizonCutoff, maxCapDist, maxSSSDist, maxFoamDist, capillaryHarmonics, glitterEnabled]);
 
   useEffect(() => () => shaderMaterial.dispose(), [shaderMaterial]);
   useEffect(() => () => geometry.dispose(), [geometry]);

@@ -4,7 +4,7 @@ export type ResolutionLimit = '720p' | '1080p' | 'native';
 export interface WaterShaderFeatures {
   /** Distance in meters within which capillary micro-ripples are rendered */
   capillaryDist: number;
-  /** Number of harmonic capillary wave frequencies (1, 3, or 5) */
+  /** Number of harmonic capillary wave frequencies (1, 3, or 7) */
   capillaryHarmonics: number;
   /** Distance in meters within which Subsurface Scattering (SSS) is calculated */
   sssDist: number;
@@ -16,6 +16,12 @@ export interface WaterShaderFeatures {
   glitterEnabled: boolean;
   /** Distance in meters where water surface directly transitions to horizon fog */
   horizonLODCutoff: number;
+  /** Underwater coastal reef caustics quality (0 = off, 1 = standard, 2 = chromatic dual-layer) */
+  causticsQuality?: 0 | 1 | 2;
+  /** Dynamic procedural sky & cloud reflection on water swells */
+  cloudReflectionEnabled?: boolean;
+  /** Wind-driven Langmuir foam streaks and crest trail striations */
+  windStreakFoamEnabled?: boolean;
 }
 
 export interface GraphicProfile {
@@ -53,4 +59,5 @@ export interface SettingsState {
   closeSettings: () => void;
   toggleSettings: () => void;
 }
+
 

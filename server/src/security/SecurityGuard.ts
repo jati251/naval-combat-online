@@ -8,9 +8,9 @@ interface ClientRateLimitState {
 }
 
 export class SecurityGuard {
-  // Max packets allowed per 1-second window
-  private static readonly MAX_PACKETS_PER_SEC = 50;
-  private static readonly FLOOD_DISCONNECT_THRESHOLD = 95;
+  // Max packets allowed per 1-second window (accommodates 30Hz input + fire + ping + UI bursts on 144Hz/240Hz displays)
+  private static readonly MAX_PACKETS_PER_SEC = 65;
+  private static readonly FLOOD_DISCONNECT_THRESHOLD = 130;
   // Max concurrent rooms on server to prevent RAM exhaustion
   public static readonly MAX_GLOBAL_ROOMS = 50;
   public static readonly MAX_GLOBAL_PLAYERS = 75;

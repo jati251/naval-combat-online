@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
 import type { GraphicProfile } from '@/features/settings';
+import { getMapConfig } from '../../maps';
 import { SceneSunLight } from './rendering/SceneSunLight';
 import { getWeatherNoise } from './textures/oceanTextures';
 import { weatherUniformsGLSL, atmosphereFunctionsGLSL } from './atmosphereShaders';
@@ -44,26 +45,43 @@ export function getFogConfig(isMobile: boolean, isNight: boolean, customFogColor
 
 export const Environment3D: React.FC<{ isMobile?: boolean; profile?: GraphicProfile }> = React.memo(({ isMobile = false, profile }) => {
   const isNight = useGameStore(s => s.timeOfDay === 'NIGHT');
-  const mobile = profile ? profile.id === 'fast' : isMobile;
+  const currentMapId = useGameStore(s => s.currentMapId || s.currentRoom?.mapId || 'caribbean');
+  const activeMap = useMemo(() => getMapConfig(currentMapId), [currentMapId]);
+  const atm = activeMap.atmosphere;
+
+  const qualityId = profile ? profile.id : (isMobile ? 'fast' : 'balanced');
+  const mobile = qualityId === 'fast';
+  const isMaxQuality = qualityId === 'performance';
+
   const ambient = useRef<THREE.AmbientLight>(null);
   const hemisphere = useRef<THREE.HemisphereLight>(null);
   const bounceLight = useRef<THREE.DirectionalLight>(null);
-  const baseFog = useMemo(() => new THREE.Color(isNight ? NIGHT_FOG_COLOR : FOG_COLOR), [isNight]);
+
+  const baseFogHex = isNight ? (atm.fogColorNight || NIGHT_FOG_COLOR) : (atm.fogColorDay || FOG_COLOR);
+  const skyTopHex = isNight ? (atm.skyTopNight || '#050e1c') : (atm.skyTopDay || '#0f5ca8');
+  const sunHex = isNight ? (atm.moonColorNight || '#a8c6dd') : (atm.sunColorDay || '#fff5de');
+  const ambientHex = isNight ? (atm.ambientNight || '#3a5878') : (atm.ambientDay || '#d8ecfa');
+  const hemiSkyHex = isNight ? (atm.hemiSkyNight || '#48688a') : (atm.hemiSkyDay || '#a8dcfa');
+  const hemiGroundHex = isNight ? (atm.hemiGroundNight || '#162634') : (atm.hemiGroundDay || '#1d6b68');
+
+  const baseFog = useMemo(() => new THREE.Color(baseFogHex), [baseFogHex]);
   const stormFog = useMemo(() => new THREE.Color(isNight ? '#12202b' : '#4a606a'), [isNight]);
   const fog = useMemo(() => new THREE.FogExp2(baseFog, 0.0019), [baseFog]);
   const viewDistance = profile?.maxViewDistance ?? (mobile ? MAX_VIEW_DISTANCE_MOBILE : MAX_VIEW_DISTANCE_DESKTOP);
+
   const material = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
       uWeatherNoise: { value: getWeatherNoise() },
-      uSkyTopColor: { value: new THREE.Color(isNight ? '#050e1c' : '#0f5ca8') },
+      uSkyTopColor: { value: new THREE.Color(skyTopHex) },
       uSkyHorizonColor: { value: fog.color },
-      uSunColor: { value: new THREE.Color(isNight ? '#a8c6dd' : '#fff5de') },
-      uLightDir: { value: new THREE.Vector3(70,140,-50).normalize() },
+      uSunColor: { value: new THREE.Color(sunHex) },
+      uLightDir: { value: new THREE.Vector3(70, 140, -50).normalize() },
       uIsNight: { value: isNight ? 1 : 0 },
+      uDetailedSky: { value: mobile ? 0 : 1 },
       uTime: { value: 0 },
       uStorm: { value: 0 },
       uLightning: { value: 0 },
-      uWind: { value: new THREE.Vector2(1,0) },
+      uWind: { value: new THREE.Vector2(1, 0) },
     },
     vertexShader: `varying vec3 vDirection;
       void main() {
@@ -74,26 +92,26 @@ export const Environment3D: React.FC<{ isMobile?: boolean; profile?: GraphicProf
       }`,
     fragmentShader: `${weatherUniformsGLSL}
       uniform vec3 uSkyHorizonColor, uSunColor, uLightDir;
-      uniform float uTime, uIsNight;
+      uniform float uTime, uIsNight, uDetailedSky;
       varying vec3 vDirection;
       ${atmosphereFunctionsGLSL}
       void main() {
         vec3 dir = normalize(vDirection);
-        vec3 color = atmosphereColor(dir, uSkyHorizonColor, uSunColor, uLightDir, uIsNight, uTime, cameraPosition.xz, true);
+        vec3 color = atmosphereColor(dir, uSkyHorizonColor, uSunColor, uLightDir, uIsNight, uTime, cameraPosition.xz, uDetailedSky > 0.5);
         if (uIsNight > 0.5 && dir.y > 0.08) {
           vec2 starUV = vec2(atan(dir.z, dir.x) / 6.2831853 + 0.5, asin(dir.y) / 3.1415927 + 0.5);
           float stars = texture2D(uWeatherNoise, starUV).b;
           float cloudCover = smoothstep(0.50, 0.66, cloudField(cameraPosition.xz * 0.3 + dir.xz * (210.0 / max(0.02, dir.y)), uTime));
           color += vec3(0.8, 0.95, 1.1) * stars * (1.0 - uStorm) * (1.0 - cloudCover);
         }
-        gl_FragColor = vec4(color,1.0);
+        gl_FragColor = vec4(color, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
     side: THREE.BackSide,
     depthWrite: false,
     depthTest: false,
-  }), [fog, isNight]);
+  }), [fog, isNight, skyTopHex, sunHex, mobile]);
   useEffect(() => () => material.dispose(), [material]);
 
   useFrame(({ camera, clock }, delta) => {
@@ -108,21 +126,21 @@ export const Environment3D: React.FC<{ isMobile?: boolean; profile?: GraphicProf
     fog.color.copy(baseFog).lerp(stormFog, blend);
     // Cull only after haze conceals distant geometry; storm visibility closes gradually.
     fog.density = THREE.MathUtils.lerp(1.65 / viewDistance, 0.014, blend);
-    if (ambient.current) ambient.current.intensity = (isNight ? 0.34 : 0.48) * (1 - blend * 0.35);
-    if (hemisphere.current) hemisphere.current.intensity = (isNight ? 0.68 : mobile ? 1.45 : 1.32) * (1 - blend * 0.5) + material.uniforms.uLightning.value * 0.65;
-    if (bounceLight.current) bounceLight.current.intensity = (isNight ? 0.42 : 1.15) * (1 - blend * 0.6);
+    if (ambient.current) ambient.current.intensity = (isNight ? 0.36 : 0.48) * (1 - blend * 0.35);
+    if (hemisphere.current) hemisphere.current.intensity = (isNight ? 0.72 : mobile ? 1.45 : isMaxQuality ? 1.38 : 1.32) * (1 - blend * 0.5) + material.uniforms.uLightning.value * 0.75;
+    if (bounceLight.current) bounceLight.current.intensity = (isNight ? 0.46 : isMaxQuality ? 1.28 : 1.15) * (1 - blend * 0.6);
   }, -20);
 
   return <>
-    <SkyLighting isNight={isNight} enabled={!mobile} />
+    <SkyLighting isNight={isNight} enabled={!mobile} atmosphere={atm} isMaxQuality={isMaxQuality} />
     <primitive attach="fog" object={fog} />
     <mesh material={material} renderOrder={-1000} frustumCulled={false}>
       <sphereGeometry args={[1, 32, 16]} />
     </mesh>
-    <SceneSunLight intensity={isNight ? 1.25 : 3.6} color={isNight ? '#b0d2f0' : '#fff5de'} shadows={profile?.shadows ?? !mobile} shadowMapSize={profile?.shadowMapSize ?? 1024} />
-    <directionalLight ref={bounceLight} position={[-65, 55, 85]} color={isNight ? '#4a76a8' : '#9ee4f5'} intensity={isNight ? 0.42 : 1.15} />
-    <ambientLight ref={ambient} color={isNight ? '#3a5878' : '#d8ecfa'} intensity={isNight ? 0.34 : 0.48} />
-    <hemisphereLight ref={hemisphere} args={[isNight ? '#48688a' : '#a8dcfa', isNight ? '#162634' : '#1d6b68', 1.32]} />
+    <SceneSunLight intensity={isNight ? 1.35 : isMaxQuality ? 3.8 : 3.6} color={sunHex} shadows={profile?.shadows ?? !mobile} shadowMapSize={profile?.shadowMapSize ?? 1024} />
+    <directionalLight ref={bounceLight} position={[-65, 55, 85]} color={isNight ? '#4a76a8' : activeMap.water.shallowColor} intensity={isNight ? 0.46 : 1.15} />
+    <ambientLight ref={ambient} color={ambientHex} intensity={isNight ? 0.36 : 0.48} />
+    <hemisphereLight ref={hemisphere} args={[hemiSkyHex, hemiGroundHex, 1.32]} />
     <StormWeather3D isMobile={mobile} />
   </>;
 });

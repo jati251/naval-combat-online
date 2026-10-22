@@ -94,6 +94,10 @@ export class RoomManager {
           resolvedTimeOfDay = Math.random() < 0.5 ? 'DAY' : 'NIGHT';
         }
 
+        if (this.clientRoomMap.has(clientId)) {
+          this.handleClientDisconnect(clientId, true);
+        }
+
         const roomId = 'room-' + Math.random().toString(36).substring(2, 8).toUpperCase();
         const room = new GameRoom(
           roomId,
@@ -115,11 +119,6 @@ export class RoomManager {
         this.clientRoomMap.set(clientId, roomId);
         room.addPlayer(clientId, msg.playerName, msg.shipClass, msg.sessionToken);
 
-        this.sendDirect(clientId, {
-          type: 'ROOM_STATE',
-          room: room.getRoomInfo(),
-          selfId: clientId,
-        });
         this.broadcastLobbyUpdate();
         return { joinedRoomId: roomId };
       }
@@ -131,6 +130,11 @@ export class RoomManager {
           return;
         }
 
+        const previousRoomId = this.clientRoomMap.get(clientId);
+        if (previousRoomId && previousRoomId !== msg.roomId) {
+          this.handleClientDisconnect(clientId, true);
+        }
+
         // 1. Check if this client is an existing player reconnecting with sessionToken
         if (msg.sessionToken) {
           const existingPlayerId = room.getPlayerIdBySession(msg.sessionToken);
@@ -138,6 +142,9 @@ export class RoomManager {
           if (existingPlayerId && room.players.has(existingPlayerId)) {
             const success = room.reconnectPlayer(clientId, msg.sessionToken);
             if (success) {
+              if (existingPlayerId !== clientId) {
+                this.clientRoomMap.delete(existingPlayerId);
+              }
               this.clientRoomMap.set(clientId, msg.roomId);
               this.broadcastLobbyUpdate();
               return { joinedRoomId: msg.roomId };
@@ -162,12 +169,6 @@ export class RoomManager {
           room.addPlayerMidGame(clientId, msg.playerName, msg.shipClass, msg.sessionToken);
 
           this.sendDirect(clientId, {
-            type: 'ROOM_STATE',
-            room: room.getRoomInfo(),
-            selfId: clientId,
-          });
-
-          this.sendDirect(clientId, {
             type: 'GAME_STARTED',
             startTime: room.getStartTime(),
             windAngle: room.windAngle,
@@ -178,12 +179,6 @@ export class RoomManager {
         } else {
           // Normal lobby join
           room.addPlayer(clientId, msg.playerName, msg.shipClass, msg.sessionToken);
-
-          this.sendDirect(clientId, {
-            type: 'ROOM_STATE',
-            room: room.getRoomInfo(),
-            selfId: clientId,
-          });
         }
 
         this.broadcastLobbyUpdate();
@@ -197,8 +192,12 @@ export class RoomManager {
           return;
         }
 
+        const existingPlayerId = room.getPlayerIdBySession(msg.sessionToken);
         const success = room.reconnectPlayer(clientId, msg.sessionToken);
         if (success) {
+          if (existingPlayerId && existingPlayerId !== clientId) {
+            this.clientRoomMap.delete(existingPlayerId);
+          }
           this.clientRoomMap.set(clientId, msg.roomId);
           this.broadcastLobbyUpdate();
           return { joinedRoomId: msg.roomId };
@@ -374,5 +373,21 @@ export class RoomManager {
       }
     }
     this.broadcastLobbyUpdate();
+  }
+
+  public destroy(): void {
+    if (this.masterTickInterval) {
+      clearInterval(this.masterTickInterval);
+      this.masterTickInterval = null;
+    }
+    if (this.lobbyUpdateTimer) {
+      clearTimeout(this.lobbyUpdateTimer);
+      this.lobbyUpdateTimer = null;
+    }
+    for (const room of this.rooms.values()) {
+      room.destroy();
+    }
+    this.rooms.clear();
+    this.clientRoomMap.clear();
   }
 }

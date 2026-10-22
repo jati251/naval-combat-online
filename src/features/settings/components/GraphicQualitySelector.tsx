@@ -11,9 +11,15 @@ const PRESET_ICONS: Record<GraphicQuality, React.ReactNode> = {
 };
 
 const PRESET_LABELS: Record<GraphicQuality, string> = {
-  fast: 'Fast',
+  fast: 'Low',
   balanced: 'Balanced',
-  performance: 'Performance',
+  performance: 'Max',
+};
+
+const PRESET_SUBLABELS: Record<GraphicQuality, string> = {
+  fast: 'Fast / Mobile',
+  balanced: 'Standard 60FPS',
+  performance: 'AAA Resynced',
 };
 
 export const GraphicQualitySelector: React.FC = () => {
@@ -23,7 +29,7 @@ export const GraphicQualitySelector: React.FC = () => {
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-cinzel font-bold text-amber-300 uppercase tracking-wider">
-          Graphics Quality
+          Graphics Quality (Ocean & Lighting)
         </span>
       </div>
 
@@ -36,7 +42,7 @@ export const GraphicQualitySelector: React.FC = () => {
               key={tier}
               type="button"
               onClick={() => setQuality(tier)}
-              className={`py-3 px-2 rounded-lg text-center transition-all cursor-pointer relative flex flex-col items-center justify-center gap-1.5 border ${
+              className={`py-2.5 px-2 rounded-lg text-center transition-all cursor-pointer relative flex flex-col items-center justify-center gap-1 border ${
                 isSelected
                   ? 'bg-amber-950/50 border-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.3)] ring-1 ring-amber-400/80 text-amber-100'
                   : 'bg-stone-950/70 border-amber-600/30 hover:border-amber-400/50 hover:bg-stone-900/60 text-stone-300'
@@ -50,8 +56,11 @@ export const GraphicQualitySelector: React.FC = () => {
               <div className="w-6 h-6 rounded flex items-center justify-center">
                 {PRESET_ICONS[tier]}
               </div>
-              <span className="font-cinzel font-bold text-xs uppercase tracking-wider">
+              <span className="font-cinzel font-bold text-xs uppercase tracking-wider leading-tight">
                 {PRESET_LABELS[tier]}
+              </span>
+              <span className="text-[8.5px] font-mono text-amber-300/70 leading-none">
+                {PRESET_SUBLABELS[tier]}
               </span>
             </button>
           );

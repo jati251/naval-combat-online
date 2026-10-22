@@ -259,12 +259,6 @@ export class GameRoom {
       health: config.maxHealth,
     });
 
-    this.sendDirect(id, {
-      type: 'ROOM_STATE',
-      room: this.getRoomInfo(),
-      selfId: id,
-    });
-
     this.broadcastRoomState();
     this.broadcastSnapshot();
   }
@@ -273,13 +267,15 @@ export class GameRoom {
     const player = this.players.get(id);
     if (!player) return;
 
-    // If game has not started, or player explicitly clicked leave: remove immediately
-    if (this.status !== 'IN_GAME' || isExplicitLeave) {
+    // If player explicitly clicked leave: remove immediately
+    if (isExplicitLeave) {
       this.removePlayer(id);
       return;
     }
 
-    // In active game: provide 25s grace period for client to reconnect
+    // Provide grace period for client to reconnect across page refreshes / Wi-Fi blips
+    // (12s in LOBBY/FINISHED, 30s in active IN_GAME battle)
+    const graceMs = this.status === 'IN_GAME' ? 30000 : 12000;
     player.isDisconnected = true;
     const ship = this.ships.get(id);
     if (ship) {
@@ -295,7 +291,7 @@ export class GameRoom {
       if (this.players.has(id)) {
         this.removePlayer(id);
       }
-    }, 25000);
+    }, graceMs);
 
     this.pendingDisconnectTimers.set(id, timer);
     this.broadcastRoomState();
@@ -355,12 +351,6 @@ export class GameRoom {
 
     this.playerSessions.set(sessionToken, newClientId);
 
-    this.sendDirect(newClientId, {
-      type: 'ROOM_STATE',
-      room: this.getRoomInfo(),
-      selfId: newClientId,
-    });
-
     if (this.status === 'IN_GAME') {
       this.sendDirect(newClientId, {
         type: 'GAME_STARTED',
@@ -373,7 +363,9 @@ export class GameRoom {
     }
 
     this.broadcastRoomState();
-    this.broadcastSnapshot();
+    if (this.status === 'IN_GAME') {
+      this.broadcastSnapshot();
+    }
     return true;
   }
 
@@ -401,7 +393,9 @@ export class GameRoom {
     }
 
     if (wasHost) {
-      const nextHost = Array.from(this.players.values()).find((p) => !p.isBot);
+      const nextHost =
+        Array.from(this.players.values()).find((p) => !p.isBot && !p.isDisconnected) ||
+        Array.from(this.players.values()).find((p) => !p.isBot);
       if (nextHost) nextHost.isHost = true;
     }
 
@@ -428,6 +422,10 @@ export class GameRoom {
   }
 
   public handleInput(id: string, rudder: number, sail: SailState): void {
+    const player = this.players.get(id);
+    if (player?.isDisconnected) {
+      player.isDisconnected = false;
+    }
     const ship = this.ships.get(id);
     if (!ship || ship.isSunk) return;
 
@@ -603,8 +601,8 @@ export class GameRoom {
     }
 
     const cannonballsPayload: Array<{ id: string; ownerId: string; x: number; y: number; z: number; vx: number; vy: number; vz: number }> = [];
-    const maxSnapshotBalls = 32;
-    const maxVisualDistSq = 180 * 180; // 180m combat/visual horizon (consistent with audio & hit event horizon)
+    const maxSnapshotBalls = 48;
+    const maxVisualDistSq = 320 * 320; // 320m ballistic horizon (covers full ~250m cannonball flight range)
 
     if (humanPositions.length > 0) {
       for (let i = 0; i < this.cannonballs.length; i++) {
@@ -712,22 +710,14 @@ export class GameRoom {
 
   public broadcastRoomState(): void {
     const roomInfo = this.getRoomInfo();
-    this.broadcast(this.id, {
-      type: 'ROOM_STATE',
-      room: roomInfo,
-      selfId: '',
-    });
-
-    // Only send direct selfId packets during LOBBY setup (in-game players already have selfId)
-    if (this.status === 'LOBBY') {
-      for (const [playerId, player] of this.players.entries()) {
-        if (!player.isBot) {
-          this.sendDirect(playerId, {
-            type: 'ROOM_STATE',
-            room: roomInfo,
-            selfId: playerId,
-          });
-        }
+    // Send authoritative room state with each human captain's exact selfId (1 packet per connected player, zero duplicate broadcasts)
+    for (const [playerId, player] of this.players.entries()) {
+      if (!player.isBot && !player.isDisconnected) {
+        this.sendDirect(playerId, {
+          type: 'ROOM_STATE',
+          room: roomInfo,
+          selfId: playerId,
+        });
       }
     }
   }

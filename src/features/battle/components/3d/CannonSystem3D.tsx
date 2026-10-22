@@ -3,7 +3,7 @@ import React, { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
 import { findShip } from '@/stores/selectors/shipLookup';
-import type { CannonballSnapshot } from '@/types/game';
+import { SHIP_PRESETS, type CannonballSnapshot } from '@/types/game';
 import { getBroadsideTransform } from '../../utils/navalCombatMath';
 
 import {
@@ -62,26 +62,28 @@ export const CannonSystem3D: React.FC<CannonSystem3DProps> = React.memo(({ canno
       const { selfId, ships } = useGameStore.getState();
       const selfShip = findShip(ships, selfId);
       if (selfShip && !selfShip.isSunk && lineGeoRef.current) {
+        const shipWidth = SHIP_PRESETS[selfShip.shipClass]?.width ?? 5.5;
         const transform = getBroadsideTransform(
           selfShip.x,
           selfShip.z,
           selfShip.rotationY,
           aimDirection as 'left' | 'right',
-          6.0
+          shipWidth
         );
-        const speed = 40.0;
+        // Match server CombatSystem.ts ballistic velocity (muzzleSpeed ~71 m/s, vy = 8.8 m/s)
+        const speed = 71.0;
         const gravity = 9.81;
         const originX = transform.spawnX;
         const originY = selfShip.y + 1.8;
         const originZ = transform.spawnZ;
 
         const vx = Math.sin(transform.fireAngle) * speed;
-        const vy = 5.5;
+        const vy = 8.8;
         const vz = Math.cos(transform.fireAngle) * speed;
 
         let activeCount = 0;
         for (let step = 0; step < MAX_TRAJECTORY_STEPS; step++) {
-          const t = step * 0.08;
+          const t = step * 0.085;
           const px = originX + vx * t;
           const py = originY + vy * t - 0.5 * gravity * t * t;
           const pz = originZ + vz * t;

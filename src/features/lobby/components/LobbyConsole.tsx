@@ -397,6 +397,20 @@ export const LobbyConsole: React.FC<LobbyConsoleProps> = ({
               <div className="flex flex-col gap-1.5">
                 <button
                   type="button"
+                  onClick={() => setGatewayUrl('')}
+                  className="p-2 rounded-lg bg-black/30 hover:bg-black/50 border border-amber-600/30 hover:border-amber-400 transition cursor-pointer text-left flex items-center justify-between"
+                >
+                  <div>
+                    <div className="font-cinzel font-bold text-[10px] text-amber-100">Auto-Detect Gateway</div>
+                    <div className="font-mono text-[8px] text-amber-400/70 truncate">Same Origin / Proxy (/ws)</div>
+                  </div>
+                  <span className="text-[8px] font-cinzel font-bold px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                    AUTO
+                  </span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setGatewayUrl('wss://naval-combat.cekcok.my.id/ws')}
                   className="p-2 rounded-lg bg-black/30 hover:bg-black/50 border border-amber-600/30 hover:border-amber-400 transition cursor-pointer text-left flex items-center justify-between"
                 >
@@ -411,12 +425,12 @@ export const LobbyConsole: React.FC<LobbyConsoleProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => setGatewayUrl('ws://localhost:3001/ws')}
+                  onClick={() => setGatewayUrl('ws://localhost:3000/ws')}
                   className="p-2 rounded-lg bg-black/30 hover:bg-black/50 border border-amber-600/30 hover:border-amber-400 transition cursor-pointer text-left flex items-center justify-between"
                 >
                   <div>
                     <div className="font-cinzel font-bold text-[10px] text-amber-100">Local Naval Station</div>
-                    <div className="font-mono text-[8px] text-amber-400/70 truncate">ws://localhost:3001/ws</div>
+                    <div className="font-mono text-[8px] text-amber-400/70 truncate">ws://localhost:3000/ws</div>
                   </div>
                   <span className="text-[8px] font-cinzel font-bold px-1 py-0.2 rounded bg-stone-800 text-stone-300 border border-stone-600">
                     DEV
