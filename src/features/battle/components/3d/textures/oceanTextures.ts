@@ -51,18 +51,25 @@ export function getOceanDetail(): THREE.DataTexture {
   const size = 512;
   const data = new Uint8Array(size * size * 4);
   const heights = new Float32Array(size * size);
-  // A broad directional spectrum avoids the visible crossing stripes of a few sine waves.
-  const modes = Array.from({ length: 40 }, (_, i) => {
-    const frequency = 5 * 2 ** (i / 10);
-    const kx = Math.max(1, Math.round(frequency * (0.65 + hash(i, 31, 101) * 0.7)));
-    const kz = Math.round(frequency * (hash(i, 73, 101) - 0.5) * 1.5);
-    return { kx, kz, phase: hash(i, 17, 101) * Math.PI * 2,
-      amplitude: 0.08 / Math.hypot(kx, kz) / Math.sqrt(40) };
+  // Phillips-style directional wave spectrum: smooth low-frequency swells with natural k^-1.75 roll-off
+  // so slopes (k * amplitude ~ k^-0.75) produce silky liquid facets instead of high-frequency static.
+  const modes = Array.from({ length: 36 }, (_, i) => {
+    const frequency = 2.0 * 2 ** (i / 10.5);
+    const angle = (hash(i, 31, 101) - 0.5) * 2.2 + (i % 2 === 0 ? 0.25 : -0.25);
+    const kx = Math.max(1, Math.round(Math.abs(Math.cos(angle)) * frequency + 0.5)) * (Math.cos(angle) >= 0 ? 1 : -1);
+    const kz = Math.max(1, Math.round(Math.abs(Math.sin(angle)) * frequency + 0.5)) * (hash(i, 73, 101) >= 0.5 ? 1 : -1);
+    const kMag = Math.max(1.5, Math.hypot(kx, kz));
+    return {
+      kx,
+      kz,
+      phase: hash(i, 17, 101) * Math.PI * 2,
+      amplitude: (0.22 / Math.pow(kMag, 1.72)) / Math.sqrt(36),
+    };
   });
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
     const u = x / size, v = y / size;
-    const warpX = (noise(u * 4, v * 4, 4) - 0.5) * 0.035;
-    const warpY = (noise(u * 4 + 1.7, v * 4 + 2.3, 4) - 0.5) * 0.035;
+    const warpX = (noise(u * 3, v * 3, 3) - 0.5) * 0.045;
+    const warpY = (noise(u * 3 + 1.7, v * 3 + 2.3, 3) - 0.5) * 0.045;
     let height = 0;
     for (const mode of modes) {
       height += Math.sin(2 * Math.PI * (mode.kx * (u + warpX) + mode.kz * (v + warpY)) + mode.phase) * mode.amplitude;
@@ -71,24 +78,31 @@ export function getOceanDetail(): THREE.DataTexture {
   }
   const byte = (v: number) => Math.round(Math.max(0, Math.min(1, v)) * 255);
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
-    const dx = (heights[y * size + wrap(x + 1, size)] - heights[y * size + wrap(x - 1, size)]) * size * 0.5;
-    const dz = (heights[wrap(y + 1, size) * size + x] - heights[wrap(y - 1, size) * size + x]) * size * 0.5;
-    const px = x / size * 24, py = y / size * 24;
+    const dx = (heights[y * size + wrap(x + 1, size)] - heights[y * size + wrap(x - 1, size)]) * size * 0.42;
+    const dz = (heights[wrap(y + 1, size) * size + x] - heights[wrap(y - 1, size) * size + x]) * size * 0.42;
+    const u = x / size, v = y / size;
+    const patch = noise(u * 6, v * 6, 6);
+    const finePatch = noise(u * 14, v * 14, 14);
+    const microPatch = noise(u * 28, v * 28, 28);
+    // Domain-warped organic sea froth & bubble clusters (eliminates straight polygonal Voronoi lines)
+    const px = (u + (patch - 0.5) * 0.085 + (finePatch - 0.5) * 0.035) * 16;
+    const py = (v + (finePatch - 0.5) * 0.085 - (patch - 0.5) * 0.035) * 16;
     const ix = Math.floor(px), iy = Math.floor(py);
     let nearest = 2, second = 2;
     for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
-      const cx = ix + ox, cy = iy + oy;
-      const distance = Math.hypot(cx + hash(cx, cy, 24) - px, cy + hash(cx + 37, cy + 13, 24) - py);
+      const cx = wrap(ix + ox, 16), cy = wrap(iy + oy, 16);
+      const distance = Math.hypot(ix + ox + hash(cx, cy, 16) - px, iy + oy + hash(cx + 37, cy + 13, 16) - py);
       if (distance < nearest) { second = nearest; nearest = distance; }
       else second = Math.min(second, distance);
     }
-    const patch = noise(x / size * 8, y / size * 8, 8);
-    const web = Math.max(0, 1 - (second - nearest) / 0.16);
+    const lace = Math.pow(Math.max(0, 1 - (second - nearest) / 0.32), 1.7);
+    const bubbles = Math.pow(Math.max(0, 1 - nearest * 1.25), 2.2);
+    const organicFoam = (lace * 0.55 + bubbles * 0.45) * (0.3 + patch * 0.45 + microPatch * 0.25);
     const i = (y * size + x) * 4;
     data[i] = byte(0.5 + dx);
     data[i + 1] = byte(0.5 + dz);
-    data[i + 2] = byte(web * (0.3 + patch * 0.7));
-    data[i + 3] = byte(patch);
+    data[i + 2] = byte(organicFoam);
+    data[i + 3] = byte(patch * 0.65 + finePatch * 0.35);
   }
   return oceanDetail = texture(data, size);
 }

@@ -13,9 +13,9 @@ function getOrCreateSailMaterial(texture: THREE.CanvasTexture): THREE.MeshStanda
     mat = new THREE.MeshStandardMaterial({
       map: texture,
       bumpMap: getSurfaceBump('cloth'),
-      bumpScale: 0.035,
+      bumpScale: 0.042,
       side: THREE.DoubleSide,
-      roughness: 0.78,
+      roughness: 0.70,
       metalness: 0.01,
     });
     sailMaterialCache.set(texture, mat);

@@ -34,16 +34,16 @@ export function islandSurfaceMaterial() {
       float sand = 1.0 - smoothstep(1.2, 3.5, groundPosition.y + (broad - 0.5) * 2.0);
       float wet = 1.0 - smoothstep(0.1, 1.3, groundPosition.y);
       float cliff = smoothstep(0.22, 0.64, 1.0 - abs(normalize(groundNormal).y));
-      vec3 soil = mix(vec3(0.105,0.075,0.041), vec3(0.19,0.15,0.08), broad);
-      vec3 grass = mix(vec3(0.065,0.089,0.025), vec3(0.18,0.21,0.066), broad);
-      vec3 land = mix(soil, grass, smoothstep(0.27,0.65,grain + broad * 0.25));
-      vec3 rock = mix(vec3(0.17,0.155,0.125), vec3(0.31,0.29,0.24), grain);
-      float strata = sin(groundPosition.y * 5.0 + broad * 12.0) * 0.04;
+      vec3 soil = mix(vec3(0.065,0.045,0.024), vec3(0.12,0.085,0.045), broad);
+      vec3 grass = mix(vec3(0.024,0.088,0.020), vec3(0.078,0.185,0.042), broad);
+      vec3 land = mix(soil, grass, smoothstep(0.22,0.58,grain + broad * 0.28));
+      vec3 rock = mix(vec3(0.085,0.078,0.064), vec3(0.175,0.162,0.135), grain);
+      float strata = sin(groundPosition.y * 5.0 + broad * 12.0) * 0.035;
       rock *= 0.92 + strata + fine * 0.12;
       land = mix(land, rock, cliff);
-      vec3 beach = mix(vec3(0.57,0.48,0.32), vec3(0.31,0.25,0.15), wet);
-      beach *= 0.86 + grain * 0.20 + fine * 0.08;
-      diffuseColor.rgb *= mix(land * (0.8 + fine * 0.3), beach, sand * (1.0 - cliff * 0.6));
+      vec3 beach = mix(vec3(0.42,0.35,0.23), vec3(0.19,0.15,0.095), wet);
+      beach *= 0.88 + grain * 0.16 + fine * 0.08;
+      diffuseColor.rgb *= mix(land * (0.85 + fine * 0.25), beach, sand * (1.0 - cliff * 0.6));
     `);
     shader.fragmentShader = shader.fragmentShader.replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(0.88 + fine * 0.10, 0.30 + grain * 0.12, wet * sand);');
     shader.fragmentShader = shader.fragmentShader.replace('#include <bumpmap_pars_fragment>', THREE.ShaderChunk.bumpmap_pars_fragment

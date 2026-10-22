@@ -13,8 +13,9 @@ export function ShipWoodMaterial({ map, deck = false, color = '#ffffff' }: {
       map,
       color,
       bumpMap: getSurfaceBump('wood', deck ? 10 : 8),
-      bumpScale: deck ? 0.045 : 0.065,
-      roughness: deck ? 0.87 : 0.76,
+      bumpScale: deck ? 0.05 : 0.075,
+      roughness: deck ? 0.78 : 0.64,
+      metalness: 0.04,
       side: DoubleSide,
     });
     materialCache.set(key, mat);

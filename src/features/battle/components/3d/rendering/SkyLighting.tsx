@@ -15,9 +15,9 @@ export function SkyLighting({ isNight, enabled }: { isNight: boolean; enabled: b
     const material = new THREE.ShaderMaterial({
       side: THREE.BackSide,
       uniforms: {
-        zenith: { value: new THREE.Color(isNight ? '#0a1628' : '#2268a8') },
-        horizon: { value: new THREE.Color(isNight ? '#1c2d47' : '#c5dded') },
-        ground: { value: new THREE.Color(isNight ? '#030810' : '#103338') },
+        zenith: { value: new THREE.Color(isNight ? '#0a1628' : '#1868ae') },
+        horizon: { value: new THREE.Color(isNight ? '#1c2d47' : '#d4eef9') },
+        ground: { value: new THREE.Color(isNight ? '#030810' : '#14585c') },
       },
       vertexShader: `varying vec3 direction;
         void main(){ direction=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
@@ -42,7 +42,7 @@ export function SkyLighting({ isNight, enabled }: { isNight: boolean; enabled: b
     if (!enabled) return;
     const storm = getLocalStorm(camera.position.x, camera.position.z);
     scene.environmentIntensity = THREE.MathUtils.damp(scene.environmentIntensity,
-      (isNight ? 0.65 : 0.8) * (1 - storm * 0.65), 2, delta);
+      (isNight ? 0.72 : 0.95) * (1 - storm * 0.65), 2, delta);
   });
   return null;
 }

@@ -70,8 +70,8 @@ export const NavalPostProcessing = React.memo(function NavalPostProcessing({
       {/* 35mm Filmic Vignette Framing the Epic Naval Battle */}
       <Vignette
         eskil={false}
-        offset={0.26}
-        darkness={isNight ? 0.68 : 0.58}
+        offset={0.36}
+        darkness={isNight ? 0.45 : 0.26}
       />
 
       <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />

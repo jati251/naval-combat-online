@@ -66,7 +66,8 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size: request
   const coastalField = useMemo(() => createCoastalHeightField(islands), [islands]);
   const coastalTexture = useMemo(() => {
     const texture = new THREE.DataTexture(coastalField.data, coastalField.resolution, coastalField.resolution, THREE.RGFormat);
-    texture.minFilter = texture.magFilter = THREE.LinearFilter;
+    // Use NearestFilter so GLSL decodes 16-bit RG texels before bilinear interpolation (prevents low-byte wraparound spikes)
+    texture.minFilter = texture.magFilter = THREE.NearestFilter;
     texture.generateMipmaps = false;
     texture.needsUpdate = true;
     return texture;
@@ -94,18 +95,18 @@ export const OceanWater: React.FC<OceanWaterProps> = React.memo(({ size: request
         uTime: { value: 0 },
         uWaterDetail: { value: getOceanDetail() },
         uWeatherNoise: { value: getWeatherNoise() },
-        uSkyTopColor: { value: new THREE.Color(isNight ? '#081321' : '#487a99') },
+        uSkyTopColor: { value: new THREE.Color(isNight ? '#050e1c' : '#0f5ca8') },
         uStorm: { value: 0 },
         uLightning: { value: 0 },
         uWind: { value: new THREE.Vector2(1, 0) },
-        uDeepWaterColor: { value: new THREE.Color(isNight ? '#051824' : activeMap.water.deepWaterColor) },
-        uMidWaterColor: { value: new THREE.Color(isNight ? '#0b2636' : activeMap.water.midWaterColor) },
-        uShallowColor: { value: new THREE.Color(isNight ? '#123545' : activeMap.water.shallowColor) },
-        uLagoonColor: { value: new THREE.Color(isNight ? '#185880' : activeMap.water.lagoonColor) },
-        uCrestGlowColor: { value: new THREE.Color(isNight ? '#3f78b8' : activeMap.water.crestGlowColor) },
-        uSubsurfaceColor: { value: new THREE.Color(isNight ? '#18548a' : activeMap.water.subsurfaceColor) },
+        uDeepWaterColor: { value: new THREE.Color(isNight ? '#041520' : activeMap.water.deepWaterColor) },
+        uMidWaterColor: { value: new THREE.Color(isNight ? '#092434' : activeMap.water.midWaterColor) },
+        uShallowColor: { value: new THREE.Color(isNight ? '#10384a' : activeMap.water.shallowColor) },
+        uLagoonColor: { value: new THREE.Color(isNight ? '#165e68' : activeMap.water.lagoonColor) },
+        uCrestGlowColor: { value: new THREE.Color(isNight ? '#2a729e' : activeMap.water.crestGlowColor) },
+        uSubsurfaceColor: { value: new THREE.Color(isNight ? '#18647a' : activeMap.water.subsurfaceColor) },
         uFoamColor: { value: new THREE.Color(isNight ? '#8ab0d6' : activeMap.water.foamColor) },
-        uSunColor: { value: new THREE.Color(isNight ? '#b0d2f0' : '#fff6e5') },
+        uSunColor: { value: new THREE.Color(isNight ? '#a8c6dd' : '#fff5de') },
         uSkyHorizonColor: { value: new THREE.Color(isNight ? activeMap.atmosphere.fogColorNight : activeMap.atmosphere.fogColorDay) },
         uLightDir: { value: new THREE.Vector3(70, 140, -50).normalize() },
         uCoastalHeight: { value: coastalTexture },
